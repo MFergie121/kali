@@ -10,13 +10,13 @@ Two identity providers are supported out of the box: **GitHub** (OAuth 2.0) and 
 
 ## Standards Used
 
-| Standard | Role |
-|---|---|
-| **OAuth 2.0** ([RFC 6749](https://tools.ietf.org/html/rfc6749)) | Authorization framework — defines how the app requests access on behalf of a user via the Authorization Code grant |
-| **OIDC (OpenID Connect)** ([spec](https://openid.net/specs/openid-connect-core-1_0.html)) | Identity layer on top of OAuth 2.0 — Google returns a standardised `id_token` (JWT) containing user profile claims (`name`, `email`, `picture`) |
-| **PKCE** ([RFC 7636](https://tools.ietf.org/html/rfc7636)) | Proof Key for Code Exchange — prevents authorization code interception attacks by binding the token request to the original authorization request via `code_verifier` / `code_challenge` (S256) |
-| **State parameter** | CSRF protection — a cryptographically random value stored in an httpOnly cookie and verified on callback to ensure the response originated from the same browser session |
-| **JWE** ([RFC 7516](https://tools.ietf.org/html/rfc7516)) | JSON Web Encryption — session data (tokens + user profile) is encrypted with AES-256-GCM using a server-side secret before being stored as a cookie |
+| Standard                                                                                  | Role                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OAuth 2.0** ([RFC 6749](https://tools.ietf.org/html/rfc6749))                           | Authorization framework — defines how the app requests access on behalf of a user via the Authorization Code grant                                                                              |
+| **OIDC (OpenID Connect)** ([spec](https://openid.net/specs/openid-connect-core-1_0.html)) | Identity layer on top of OAuth 2.0 — Google returns a standardised `id_token` (JWT) containing user profile claims (`name`, `email`, `picture`)                                                 |
+| **PKCE** ([RFC 7636](https://tools.ietf.org/html/rfc7636))                                | Proof Key for Code Exchange — prevents authorization code interception attacks by binding the token request to the original authorization request via `code_verifier` / `code_challenge` (S256) |
+| **State parameter**                                                                       | CSRF protection — a cryptographically random value stored in an httpOnly cookie and verified on callback to ensure the response originated from the same browser session                        |
+| **JWE** ([RFC 7516](https://tools.ietf.org/html/rfc7516))                                 | JSON Web Encryption — session data (tokens + user profile) is encrypted with AES-256-GCM using a server-side secret before being stored as a cookie                                             |
 
 ---
 
@@ -40,10 +40,10 @@ GOOGLE_CLIENT_SECRET=
 
 ### Provider Setup
 
-| Provider | Console | Required callback URL |
-|---|---|---|
-| GitHub | [Developer Settings → OAuth Apps](https://github.com/settings/developers) | `http://localhost:5173/auth/callback/github` |
-| Google | [Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) | `http://localhost:5173/auth/callback/google` |
+| Provider | Console                                                                          | Required callback URL                        |
+| -------- | -------------------------------------------------------------------------------- | -------------------------------------------- |
+| GitHub   | [Developer Settings → OAuth Apps](https://github.com/settings/developers)        | `http://localhost:5173/auth/callback/github` |
+| Google   | [Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials) | `http://localhost:5173/auth/callback/google` |
 
 > In production, replace `http://localhost:5173` with your deployed origin.
 
@@ -232,14 +232,14 @@ Sessions are stored entirely in an encrypted cookie — there is no server-side 
 
 ### Cookie Properties
 
-| Property | Value | Reason |
-|---|---|---|
-| `name` | `session` | Single session cookie for all providers |
-| `httpOnly` | `true` | Prevents client-side JavaScript access (XSS mitigation) |
-| `secure` | `true` in production | Cookie only sent over HTTPS |
-| `sameSite` | `lax` | Prevents CSRF — cookie not sent on cross-origin POST requests |
-| `maxAge` | 30 days (2,592,000s) | Session lifetime |
-| `path` | `/` | Available to all routes |
+| Property   | Value                | Reason                                                        |
+| ---------- | -------------------- | ------------------------------------------------------------- |
+| `name`     | `session`            | Single session cookie for all providers                       |
+| `httpOnly` | `true`               | Prevents client-side JavaScript access (XSS mitigation)       |
+| `secure`   | `true` in production | Cookie only sent over HTTPS                                   |
+| `sameSite` | `lax`                | Prevents CSRF — cookie not sent on cross-origin POST requests |
+| `maxAge`   | 30 days (2,592,000s) | Session lifetime                                              |
+| `path`     | `/`                  | Available to all routes                                       |
 
 ### Encryption
 
@@ -286,13 +286,13 @@ destroySession()
 ```typescript
 interface UserSession {
   user: {
-    name: string;      // Display name (or GitHub username as fallback)
-    email: string;     // Primary verified email
-    image?: string;    // Avatar URL
+    name: string; // Display name (or GitHub username as fallback)
+    email: string; // Primary verified email
+    image?: string; // Avatar URL
   };
-  provider: 'github' | 'google';
+  provider: "github" | "google";
   accessToken: string;
-  refreshToken?: string;         // Present for Google; absent for GitHub
+  refreshToken?: string; // Present for Google; absent for GitHub
   accessTokenExpiresAt?: number; // Unix timestamp; present for Google
 }
 ```
@@ -311,9 +311,9 @@ A 16-byte random hex string is generated per login attempt, stored in an httpOnl
 
 ### OAuth Cookie Isolation
 
-| Cookie | Purpose | Max Age |
-|---|---|---|
-| `oauth_state_{provider}` | CSRF protection (state verification) | 10 minutes |
+| Cookie                      | Purpose                               | Max Age    |
+| --------------------------- | ------------------------------------- | ---------- |
+| `oauth_state_{provider}`    | CSRF protection (state verification)  | 10 minutes |
 | `oauth_verifier_{provider}` | PKCE code verifier for token exchange | 10 minutes |
 
 Both are cleared immediately after the callback is processed, regardless of success or failure.
@@ -328,15 +328,15 @@ The `id_token` returned by Google is a JWT containing user claims. It is decoded
 
 ### Cookie Security Summary
 
-| Threat | Mitigation |
-|---|---|
-| XSS reading session | `httpOnly` — JavaScript cannot access the cookie |
-| Session tampering | JWE encryption (AES-256-GCM) — any modification fails decryption |
-| Session theft over network | `secure` flag in production — cookie only sent over HTTPS |
-| CSRF attacks | `sameSite=lax` + OAuth `state` parameter |
-| Authorization code interception | PKCE with S256 challenge method |
-| Token expiry | Automatic refresh using stored refresh tokens |
-| Invalid/expired sessions | Failed decryption → cookie deleted, user redirected to login |
+| Threat                          | Mitigation                                                       |
+| ------------------------------- | ---------------------------------------------------------------- |
+| XSS reading session             | `httpOnly` — JavaScript cannot access the cookie                 |
+| Session tampering               | JWE encryption (AES-256-GCM) — any modification fails decryption |
+| Session theft over network      | `secure` flag in production — cookie only sent over HTTPS        |
+| CSRF attacks                    | `sameSite=lax` + OAuth `state` parameter                         |
+| Authorization code interception | PKCE with S256 challenge method                                  |
+| Token expiry                    | Automatic refresh using stored refresh tokens                    |
+| Invalid/expired sessions        | Failed decryption → cookie deleted, user redirected to login     |
 
 ---
 
@@ -345,6 +345,7 @@ The `id_token` returned by Google is a JWT containing user claims. It is decoded
 To add a third OAuth provider (e.g., GitLab, Discord):
 
 1. **Add provider config** in `src/auth.ts` → `providers` object:
+
    ```typescript
    gitlab: {
      authorizeUrl: 'https://gitlab.com/oauth/authorize',
@@ -371,6 +372,7 @@ To add a third OAuth provider (e.g., GitLab, Discord):
 ### Sign-out
 
 The sign-out form action calls `signOut()`, which:
+
 1. Clears the encrypted session cookie server-side
 2. Optionally calls the OIDC provider's `end_session_endpoint` (RP-initiated logout, if supported)
 3. Redirects to `/`
@@ -381,17 +383,17 @@ The sign-out form action calls `signOut()`, which:
 
 Auth.js stores the session in a **signed, encrypted HTTP-only cookie** (`authjs.session-token`). There is no server-side session store by default — the session data is self-contained in the cookie.
 
-| Property | Value |
-|---|---|
-| Cookie type | HTTP-only, Secure (production), SameSite=Lax |
-| Encryption | AES-GCM via `AUTH_SECRET` |
-| Default expiry | 30 days (rolling) |
-| Data stored | `sub`, `name`, `email`, `picture` from OIDC `id_token` claims |
+| Property       | Value                                                         |
+| -------------- | ------------------------------------------------------------- |
+| Cookie type    | HTTP-only, Secure (production), SameSite=Lax                  |
+| Encryption     | AES-GCM via `AUTH_SECRET`                                     |
+| Default expiry | 30 days (rolling)                                             |
+| Data stored    | `sub`, `name`, `email`, `picture` from OIDC `id_token` claims |
 
 The session is accessed anywhere in server-side code via:
 
 ```ts
-const session = await event.locals.auth()
+const session = await event.locals.auth();
 // session is null if not authenticated, or { user: { name, email, image }, expires } if authenticated
 ```
 
@@ -399,12 +401,12 @@ const session = await event.locals.auth()
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
-| `AUTH_SECRET` | 32-byte random secret used to encrypt session cookies. Generate with `openssl rand -hex 32` |
-| `OIDC_ISSUER` | Base URL of your OIDC provider (e.g. `https://accounts.google.com`) |
-| `OIDC_CLIENT_ID` | Client ID registered with your OIDC provider |
-| `OIDC_CLIENT_SECRET` | Client secret registered with your OIDC provider |
+| Variable             | Description                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`        | 32-byte random secret used to encrypt session cookies. Generate with `openssl rand -hex 32` |
+| `OIDC_ISSUER`        | Base URL of your OIDC provider (e.g. `https://accounts.google.com`)                         |
+| `OIDC_CLIENT_ID`     | Client ID registered with your OIDC provider                                                |
+| `OIDC_CLIENT_SECRET` | Client secret registered with your OIDC provider                                            |
 
 These are loaded at build time from `.env` via SvelteKit's `$env/static/private` — they are never exposed to the browser.
 
@@ -414,13 +416,13 @@ These are loaded at build time from `.env` via SvelteKit's `$env/static/private`
 
 When registering the Kali application with your OIDC provider, use these values:
 
-| Setting | Value |
-|---|---|
-| **Grant type** | Authorization Code |
-| **Redirect URI (dev)** | `http://localhost:5173/auth/callback/oidc` |
-| **Redirect URI (prod)** | `https://yourdomain.com/auth/callback/oidc` |
-| **Scopes** | `openid profile email` |
-| **Token endpoint auth method** | `client_secret_post` |
+| Setting                        | Value                                       |
+| ------------------------------ | ------------------------------------------- |
+| **Grant type**                 | Authorization Code                          |
+| **Redirect URI (dev)**         | `http://localhost:5173/auth/callback/oidc`  |
+| **Redirect URI (prod)**        | `https://yourdomain.com/auth/callback/oidc` |
+| **Scopes**                     | `openid profile email`                      |
+| **Token endpoint auth method** | `client_secret_post`                        |
 
 The provider auto-discovers all endpoints (`/authorize`, `/token`, `/userinfo`, `/.well-known/openid-configuration`) from the `OIDC_ISSUER` URL.
 
@@ -428,11 +430,11 @@ The provider auto-discovers all endpoints (`/authorize`, `/token`, `/userinfo`, 
 
 ## Security Properties
 
-| Threat | Mitigation |
-|---|---|
-| CSRF on sign-in | `state` parameter verified on callback |
-| Authorisation code interception | PKCE (`code_challenge` / `code_verifier`) |
-| Session cookie theft | HTTP-only cookie (not accessible to JS), AES-GCM encrypted |
-| Secret leakage | All secrets in `$env/static/private` — never sent to browser |
-| Unprotected routes | Server-side `load()` guard redirects before page data is returned |
-| Replay of `id_token` | Auth.js validates `iss`, `aud`, `exp`, and `nonce` claims |
+| Threat                          | Mitigation                                                        |
+| ------------------------------- | ----------------------------------------------------------------- |
+| CSRF on sign-in                 | `state` parameter verified on callback                            |
+| Authorisation code interception | PKCE (`code_challenge` / `code_verifier`)                         |
+| Session cookie theft            | HTTP-only cookie (not accessible to JS), AES-GCM encrypted        |
+| Secret leakage                  | All secrets in `$env/static/private` — never sent to browser      |
+| Unprotected routes              | Server-side `load()` guard redirects before page data is returned |
+| Replay of `id_token`            | Auth.js validates `iss`, `aud`, `exp`, and `nonce` claims         |
