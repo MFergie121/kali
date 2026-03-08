@@ -438,3 +438,40 @@ The provider auto-discovers all endpoints (`/authorize`, `/token`, `/userinfo`, 
 | Secret leakage                  | All secrets in `$env/static/private` — never sent to browser      |
 | Unprotected routes              | Server-side `load()` guard redirects before page data is returned |
 | Replay of `id_token`            | Auth.js validates `iss`, `aud`, `exp`, and `nonce` claims         |
+
+## Example Sign-In Flow:
+
+1. User clicks "Login with GitHub"
+   └─> GET /auth/login/github
+
+2. Server generates:
+   └─> code_verifier (32 random bytes for PKCE)
+   └─> code_challenge (SHA-256 hash)
+   └─> state (16-byte random CSRF token)
+   └─> Sets httpOnly cookies: oauth_state_github, oauth_verifier_github
+
+3. Server redirects to GitHub
+   └─> Passes: client_id, redirect_uri, response_type, scopes, state, code_challenge
+
+4. User authenticates with GitHub
+
+5. GitHub redirects back with authorization code
+   └─> GET /auth/callback/github?code=...&state=...
+
+6. Server validates:
+   └─> Verifies state matches cookie (CSRF protection)
+   └─> Retrieves code_verifier from cookie
+
+7. Server exchanges code for access token
+   └─> Sends: code, code_verifier, client_id, client_secret to GitHub's token endpoint
+   └─> GitHub validates PKCE and returns access_token
+
+8. Server fetches user profile
+   └─> GET /user + /user/emails with access_token
+
+9. Server creates session:
+   └─> Encrypts: user profile + provider + access_token as JWE
+   └─> Sets session cookie (30-day expiry, httpOnly, secure, sameSite=lax)
+   └─> Clears OAuth cookies (oauth_state, oauth_verifier)
+
+10. Redirects to /home
