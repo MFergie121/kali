@@ -1,11 +1,15 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
+  import { fontStore } from '$lib/font.svelte';
+  import { themeStore } from '$lib/theme.svelte';
+  import { ModeWatcher } from 'mode-watcher';
+  import { onMount } from 'svelte';
+  import '../app.css';
 
-	let { children } = $props();
+  onMount(() => {
+    themeStore.init();
+    fontStore.init();
+  });
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
-
-{@render children()}
+<ModeWatcher />
+<slot />
