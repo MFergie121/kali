@@ -365,7 +365,7 @@ To add a third OAuth provider (e.g., GitLab, Discord):
    - `src/routes/auth/callback/gitlab/+server.ts` — implement user info fetching for the new provider
    - `src/routes/auth/logout/gitlab/+server.ts` — copy from GitHub logout, change provider name
 
-5. **Add a button** on the login page (`src/routes/auth/login/+page.svelte`)
+5. **Add a button** to the OAuth login buttons component (`src/lib/components/ui/button/OAuthButtons.svelte`)
 
 6. **Add environment variables** (`GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET`) to `.env`
 
