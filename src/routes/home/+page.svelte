@@ -1,8 +1,24 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
+	import { toast } from 'svelte-sonner';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const WELCOME_MESSAGES: Record<string, string> = {
+		github: 'Signed in with GitHub',
+		google: 'Signed in with Google'
+	};
+
+	$effect(() => {
+		const welcome = page.url.searchParams.get('welcome');
+		if (welcome) {
+			const message = WELCOME_MESSAGES[welcome] ?? 'Signed in successfully';
+			toast.success(message, { description: 'Welcome back!' });
+			history.replaceState(null, '', '/home');
+		}
+	});
 </script>
 
 <div class="mx-auto max-w-2xl space-y-6 p-8">

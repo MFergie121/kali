@@ -1,8 +1,16 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
 
-  let googleLoading = false;
-  let githubLoading = false;
+  let googleLoading = $state(false);
+  let githubLoading = $state(false);
+
+  function handleGoogleClick() {
+    googleLoading = true;
+  }
+
+  function handleGithubClick() {
+    githubLoading = true;
+  }
 </script>
 
 <div class="flex flex-col gap-3 w-full max-w-sm">
@@ -11,7 +19,7 @@
     href="/auth/login/google"
     variant="outline"
     class="w-full h-11 gap-3 font-medium text-sm tracking-tight border-border/60 hover:border-border hover:bg-accent/50 transition-all duration-200"
-    disabled={googleLoading}
+    onclick={handleGoogleClick}
   >
     {#if googleLoading}
       <svg class="size-4 animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -34,7 +42,7 @@
     href="/auth/login/github"
     variant="outline"
     class="w-full h-11 gap-3 font-medium text-sm tracking-tight border-border/60 hover:border-border hover:bg-accent/50 transition-all duration-200"
-    disabled={githubLoading}
+    onclick={handleGithubClick}
   >
     {#if githubLoading}
       <svg class="size-4 animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none">

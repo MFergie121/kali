@@ -38,6 +38,7 @@
 		"drizzle-orm": "^0.45.1",
 		"jose": "^6.2.0",
 		"mode-watcher": "^1.1.0",
-		"node-html-parser": "^7.1.0"
+		"node-html-parser": "^7.1.0",
+		"svelte-sonner": "^1.1.0"
 	}
 }

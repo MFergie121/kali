@@ -3,6 +3,7 @@
   import { themeStore } from '$lib/theme.svelte';
   import { ModeWatcher } from 'mode-watcher';
   import { onMount } from 'svelte';
+  import { Toaster } from 'svelte-sonner';
   import '../app.css';
 
   onMount(() => {
@@ -12,4 +13,5 @@
 </script>
 
 <ModeWatcher />
+<Toaster richColors closeButton position="bottom-right" />
 <slot />

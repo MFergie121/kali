@@ -1,42 +1,51 @@
-import { redirect, error } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { redirect } from "@sveltejs/kit";
 import {
-	exchangeCodeForTokens,
-	getGitHubUser,
-	getOAuthCookies,
-	clearOAuthCookies,
-	createSession
-} from '../../../../auth';
+  clearOAuthCookies,
+  createSession,
+  exchangeCodeForTokens,
+  getGitHubUser,
+  getOAuthCookies,
+} from "../../../../auth";
+import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
-	const code = url.searchParams.get('code');
-	const state = url.searchParams.get('state');
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
 
-	if (!code || !state) {
-		error(400, 'Missing code or state parameter');
-	}
+  if (!code || !state) {
+    redirect(302, "/auth/login?error=auth_failed");
+  }
 
-	const stored = getOAuthCookies(cookies, 'github');
+  const stored = getOAuthCookies(cookies, "github");
 
-	if (!stored.state || !stored.codeVerifier || state !== stored.state) {
-		error(400, 'Invalid OAuth state');
-	}
+  if (!stored.state || !stored.codeVerifier || state !== stored.state) {
+    redirect(302, "/auth/login?error=invalid_state");
+  }
 
-	clearOAuthCookies(cookies, 'github');
+  clearOAuthCookies(cookies, "github");
 
-	const redirectUri = `${url.origin}/auth/callback/github`;
-	const tokens = await exchangeCodeForTokens('github', code, redirectUri, stored.codeVerifier);
-	const user = await getGitHubUser(tokens.access_token);
+  try {
+    const redirectUri = `${url.origin}/auth/callback/github`;
+    const tokens = await exchangeCodeForTokens(
+      "github",
+      code,
+      redirectUri,
+      stored.codeVerifier,
+    );
+    const user = await getGitHubUser(tokens.access_token);
 
-	await createSession(cookies, {
-		user,
-		provider: 'github',
-		accessToken: tokens.access_token,
-		refreshToken: tokens.refresh_token,
-		accessTokenExpiresAt: tokens.expires_in
-			? Math.floor(Date.now() / 1000) + tokens.expires_in
-			: undefined
-	});
+    await createSession(cookies, {
+      user,
+      provider: "github",
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      accessTokenExpiresAt: tokens.expires_in
+        ? Math.floor(Date.now() / 1000) + tokens.expires_in
+        : undefined,
+    });
+  } catch {
+    redirect(302, "/auth/login?error=auth_failed");
+  }
 
-	redirect(302, '/home');
+  redirect(302, "/home?welcome=github");
 };

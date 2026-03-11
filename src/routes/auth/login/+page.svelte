@@ -1,5 +1,21 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import OAuthButtons from '$lib/components/ui/button/OAuthButtons.svelte';
+	import { toast } from 'svelte-sonner';
+
+	const ERROR_MESSAGES: Record<string, string> = {
+		invalid_state: 'Your session expired. Please try signing in again.',
+		auth_failed: 'Authentication failed. Please try again.'
+	};
+
+	$effect(() => {
+		const error = page.url.searchParams.get('error');
+		if (error) {
+			const message = ERROR_MESSAGES[error] ?? 'Something went wrong. Please try again.';
+			toast.error('Sign in failed', { description: message });
+			history.replaceState(null, '', '/auth/login');
+		}
+	});
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-background">
@@ -10,7 +26,7 @@
 		</div>
 
 		<div class="space-y-3">
-			<OAuthButtons/>
+			<OAuthButtons />
 		</div>
 
 		<p class="text-center text-xs text-muted-foreground">
