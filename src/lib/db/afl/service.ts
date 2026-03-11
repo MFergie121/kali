@@ -330,3 +330,60 @@ export function getPlayerStatsForMatch(matchId: number): PlayerStatRow[] {
 
   return rows;
 }
+
+// ─── Year-wide pivot query ────────────────────────────────────────────────────
+
+export interface PlayerStatYearRow {
+  playerName: string;
+  teamId: string;
+  round: number;
+  kicks: number;
+  handballs: number;
+  disposals: number;
+  marks: number;
+  goals: number;
+  behinds: number;
+  tackles: number;
+  hitouts: number;
+  goalAssists: number;
+  inside50s: number;
+  clearances: number;
+  clangers: number;
+  rebound50s: number;
+  freesFor: number;
+  freesAgainst: number;
+  aflFantasyPts: number;
+  supercoachPts: number;
+}
+
+export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
+  return db
+    .select({
+      playerName: players.name,
+      teamId: players.teamId,
+      round: matches.round,
+      kicks: playerStats.kicks,
+      handballs: playerStats.handballs,
+      disposals: playerStats.disposals,
+      marks: playerStats.marks,
+      goals: playerStats.goals,
+      behinds: playerStats.behinds,
+      tackles: playerStats.tackles,
+      hitouts: playerStats.hitouts,
+      goalAssists: playerStats.goalAssists,
+      inside50s: playerStats.inside50s,
+      clearances: playerStats.clearances,
+      clangers: playerStats.clangers,
+      rebound50s: playerStats.rebound50s,
+      freesFor: playerStats.freesFor,
+      freesAgainst: playerStats.freesAgainst,
+      aflFantasyPts: playerStats.aflFantasyPts,
+      supercoachPts: playerStats.supercoachPts,
+    })
+    .from(playerStats)
+    .innerJoin(players, eq(playerStats.playerId, players.id))
+    .innerJoin(matches, eq(playerStats.matchId, matches.id))
+    .where(eq(matches.year, year))
+    .orderBy(matches.round, players.name)
+    .all();
+}
