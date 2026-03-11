@@ -2,6 +2,12 @@ import { parse } from "node-html-parser";
 
 const BASE = "https://www.footywire.com/afl/footy";
 
+const HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ScrapedMatch {
@@ -49,6 +55,7 @@ export interface ScrapedMatchStats {
   match: ScrapedMatch;
   homeStats: ScrapedPlayerStat[];
   awayStats: ScrapedPlayerStat[];
+  _debug?: Record<string, unknown>;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -59,20 +66,15 @@ function num(s: string | undefined): number {
 }
 
 /**
- * Convert a Footywire team URL slug (e.g. "th-sydney-swans") to a team ID
- * slug (e.g. "sydney-swans") and a short display name.
+ * Build a team record from a plain display name string
+ * (e.g. "Greater Western Sydney" → id "greater-western-sydney", shortName "Sydney").
  */
-function parseTeamHref(href: string): {
+function nameToTeamInfo(name: string): {
   id: string;
   name: string;
   shortName: string;
 } {
-  // href is like /afl/footy/th-sydney-swans or th-sydney-swans
-  const raw = href.split("/").pop() ?? "";
-  const id = raw.replace(/^th-/, "");
-  // Build a pretty name by title-casing each word
-  const name = id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  // Short name = last word (e.g. "Swans"), or "GWS" for western-sydney-giants
+  const id = name.toLowerCase().replace(/\s+/g, "-");
   const words = name.split(" ");
   const shortName = words[words.length - 1];
   return { id, name, shortName };
@@ -86,7 +88,7 @@ export async function getLatestCompletedRound(
   const url = `${BASE}/ft_match_list?year=${year}`;
   console.log(`[afl-scraper] getLatestCompletedRound: fetching ${url}`);
 
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: HEADERS });
   console.log(`[afl-scraper] getLatestCompletedRound: HTTP ${res.status}`);
   const html = await res.text();
   console.log(
@@ -180,7 +182,7 @@ export async function getMatchIdsForRound(
     `[afl-scraper] getMatchIdsForRound: fetching ${url} for round=${round}`,
   );
 
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: HEADERS });
   console.log(`[afl-scraper] getMatchIdsForRound: HTTP ${res.status}`);
   const html = await res.text();
 
@@ -257,277 +259,158 @@ export async function scrapeMatchStats(
   const url = `${BASE}/ft_match_statistics?mid=${mid}`;
   console.log(`[afl-scraper] scrapeMatchStats: fetching ${url}`);
 
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: HEADERS });
   console.log(`[afl-scraper] scrapeMatchStats: HTTP ${res.status}`);
   const html = await res.text();
   console.log(`[afl-scraper] scrapeMatchStats: HTML length=${html.length}`);
 
   const root = parse(html);
 
-  // ── Match metadata ────────────────────────────────────────────────────────
-  const metaBlock = root.querySelector(".statdata")?.text ?? "";
-  console.log(
-    `[afl-scraper] scrapeMatchStats: metaBlock=${JSON.stringify(metaBlock.slice(0, 200))}`,
-  );
-
-  const scoreTables = root.querySelectorAll("table");
-  console.log(
-    `[afl-scraper] scrapeMatchStats: total tables found=${scoreTables.length}`,
-  );
-
-  let homeScore = 0;
-  let awayScore = 0;
-  let venue = "";
-  let date = "";
-  let crowd: number | null = null;
-  let round = 0;
-  let year = new Date().getFullYear();
-
-  // The score table has exactly 6 columns: Team Q1 Q2 Q3 Q4 Final
-  for (const table of scoreTables) {
-    const headerRow = table.querySelector("tr");
-    if (!headerRow) continue;
-    const headers = headerRow
-      .querySelectorAll("th, td")
-      .map((c) => c.text.trim());
-    if (
-      headers.includes("Q1") &&
-      headers.includes("Q4") &&
-      headers.includes("Final")
-    ) {
-      console.log(
-        `[afl-scraper] scrapeMatchStats: found score table, headers=${JSON.stringify(headers)}`,
-      );
-      const rows = table.querySelectorAll("tr");
-      if (rows.length >= 3) {
-        const homeRow = rows[1].querySelectorAll("td");
-        const awayRow = rows[2].querySelectorAll("td");
-        homeScore = num(homeRow[homeRow.length - 1]?.text);
-        awayScore = num(awayRow[awayRow.length - 1]?.text);
-        console.log(
-          `[afl-scraper] scrapeMatchStats: homeScore=${homeScore}, awayScore=${awayScore}`,
-        );
-        console.log(
-          `[afl-scraper] scrapeMatchStats: homeRow cells=${homeRow.map((c) => c.text.trim()).join(" | ")}`,
-        );
-        console.log(
-          `[afl-scraper] scrapeMatchStats: awayRow cells=${awayRow.map((c) => c.text.trim()).join(" | ")}`,
-        );
-      } else {
-        console.log(
-          `[afl-scraper] scrapeMatchStats: score table only has ${rows.length} rows (expected >=3)`,
-        );
-      }
-      break;
-    }
-  }
-
-  // Parse meta text from the page header paragraph
+  // ── Round / venue / date / year from body text ────────────────────────────
   const bodyText = root.text;
-  const bodySnippet = bodyText.slice(0, 500).replace(/\s+/g, " ");
-  console.log(
-    `[afl-scraper] scrapeMatchStats: bodyText snippet=${JSON.stringify(bodySnippet)}`,
-  );
 
   const roundMatch = bodyText.match(/Round\s+(\d+)/i);
-  round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
-  console.log(
-    `[afl-scraper] scrapeMatchStats: round=${round} (match=${JSON.stringify(roundMatch?.[0])})`,
-  );
+  const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
 
   const venueMatch = bodyText.match(/Round\s+\d+,\s+([^,\n]+)/i);
-  venue = venueMatch ? venueMatch[1].trim() : "";
-  console.log(`[afl-scraper] scrapeMatchStats: venue="${venue}"`);
+  const venue = venueMatch ? venueMatch[1].trim() : "";
 
   const attendanceMatch = bodyText.match(/Attendance:\s*([\d,]+)/i);
-  crowd = attendanceMatch
+  const crowd = attendanceMatch
     ? parseInt(attendanceMatch[1].replace(/,/g, ""), 10)
     : null;
-  console.log(`[afl-scraper] scrapeMatchStats: crowd=${crowd}`);
 
   const dateMatch = bodyText.match(/\b(\w+day),\s+(\d+\w+\s+\w+\s+\d{4})/i);
-  date = dateMatch ? `${dateMatch[1]}, ${dateMatch[2]}` : "";
-  console.log(`[afl-scraper] scrapeMatchStats: date="${date}"`);
+  const date = dateMatch ? `${dateMatch[1]}, ${dateMatch[2]}` : "";
 
   const yearMatch = bodyText.match(/\b(20\d{2})\b/);
-  year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
-  console.log(`[afl-scraper] scrapeMatchStats: year=${year}`);
+  const year = yearMatch
+    ? parseInt(yearMatch[1], 10)
+    : new Date().getFullYear();
 
-  // ── Team identity from coach links & stat table headings ─────────────────
-  // Each team stat table is preceded by a heading like "Sydney Match Statistics"
-  // and coach link hrefs contain the team slug.
-  const coachLinks = root.querySelectorAll('a[href*="/cp-"]');
-  const teamSlugs: string[] = [];
-
-  // The coach link is on the same line as "Coach:" text near each stat table
-  // Walk stat table sections — each has a heading "XXX Match Statistics"
-  const statHeadings = root
-    .querySelectorAll("*")
-    .filter((el) => /Match Statistics/.test(el.text) && el.tagName !== "HTML");
-
-  // Get team slugs from ft_team_home links that appear near each stat table
-  const teamHomeLinks = root.querySelectorAll('a[href*="ft_team_home"]');
-  const teamIds: string[] = [];
-  for (const link of teamHomeLinks) {
-    const href = link.getAttribute("href") ?? "";
-    // href: /afl/footy/ft_team_home?tid=17 — not a slug, so we get team info differently
-    // Instead, use the coach link which has the team slug embedded
-  }
-
-  // Better approach: the coach links are like /afl/footy/cp-dean-cox--384
-  // These don't help either. Instead, look for links with th- pattern
-  // which appear in the team name heading area.
-  const thLinks = root.querySelectorAll('a[href*="/th-"]');
   console.log(
-    `[afl-scraper] scrapeMatchStats: /th- links found=${thLinks.length}`,
-  );
-  for (const link of thLinks) {
-    const href = link.getAttribute("href") ?? "";
-    const slug = href.split("/th-")[1]?.split("?")[0]?.split("/")[0];
-    console.log(
-      `[afl-scraper] scrapeMatchStats: th- link href="${href}" → slug="${slug}"`,
-    );
-    if (slug && !teamIds.includes(slug)) {
-      teamIds.push(slug);
-    }
-  }
-  console.log(
-    `[afl-scraper] scrapeMatchStats: teamIds after th- scan=${JSON.stringify(teamIds)}`,
+    `[afl-scraper] scrapeMatchStats: round=${round}, venue="${venue}", date="${date}", year=${year}, crowd=${crowd}`,
   );
 
-  // Fallback: parse stat table heading text to extract team name from "X Match Statistics"
-  const tableHeadings: string[] = [];
-  for (const el of root.querySelectorAll("*")) {
-    if (el.childNodes.length === 1 && /Match Statistics/.test(el.text)) {
-      const heading = el.text
-        .replace("Match Statistics", "")
-        .replace("(Sorted by Disposals)", "")
-        .trim();
-      if (heading) tableHeadings.push(heading);
-    }
+  // ── Score table ───────────────────────────────────────────────────────────
+  // #matchscoretable: row[1] = home, row[2] = away. Last td = final score.
+  // Team name comes from the anchor in the first td of each row.
+  const scoreTable = root.querySelector("#matchscoretable");
+  if (!scoreTable) {
+    throw new Error(`#matchscoretable not found for mid=${mid}`);
+  }
+  const scoreRows = scoreTable.querySelectorAll("tr");
+  if (scoreRows.length < 3) {
+    throw new Error(
+      `#matchscoretable has only ${scoreRows.length} rows for mid=${mid}`,
+    );
   }
 
-  // ── Parse player stat tables ──────────────────────────────────────────────
-  // Each team has a table with headers: Player K HB D M G B T HO GA I50 CL CG R50 FF FA AF SC
-  const statTables: ScrapedPlayerStat[][] = [];
+  const homeScoreCells = scoreRows[1].querySelectorAll("td");
+  const awayScoreCells = scoreRows[2].querySelectorAll("td");
+  const scoreHomeTeamName =
+    scoreRows[1].querySelector("a")?.text.trim() ??
+    homeScoreCells[0]?.text.trim() ??
+    "";
+  const scoreAwayTeamName =
+    scoreRows[2].querySelector("a")?.text.trim() ??
+    awayScoreCells[0]?.text.trim() ??
+    "";
+  const homeScore = num(homeScoreCells[homeScoreCells.length - 1]?.text);
+  const awayScore = num(awayScoreCells[awayScoreCells.length - 1]?.text);
 
-  for (const [tableIdx, table] of scoreTables.entries()) {
-    const headerRow = table.querySelector("tr");
-    if (!headerRow) continue;
-    const headers = headerRow
-      .querySelectorAll("th, td")
-      .map((c) => c.text.trim().toUpperCase());
+  console.log(
+    `[afl-scraper] scrapeMatchStats: score: home="${scoreHomeTeamName}" ${homeScore}, away="${scoreAwayTeamName}" ${awayScore}`,
+  );
 
-    // Identify a player stat table by its headers
-    if (
-      !headers.includes("K") ||
-      !headers.includes("HB") ||
-      !headers.includes("AF")
-    ) {
-      console.log(
-        `[afl-scraper] scrapeMatchStats: table[${tableIdx}] skipped — headers=${JSON.stringify(headers.slice(0, 8))}`,
-      );
-      continue;
-    }
-    console.log(
-      `[afl-scraper] scrapeMatchStats: table[${tableIdx}] identified as stat table, headers=${JSON.stringify(headers)}`,
+  // ── Per-team stat sections ────────────────────────────────────────────────
+  // #match-statistics-team1-row = home, #match-statistics-team2-row = away.
+  // This matches the score table row order — confirmed from HTML structure.
+  const team1Section = root.querySelector("#match-statistics-team1-row");
+  const team2Section = root.querySelector("#match-statistics-team2-row");
+
+  if (!team1Section || !team2Section) {
+    throw new Error(
+      `Could not find team stat sections for mid=${mid} (team1=${!!team1Section}, team2=${!!team2Section})`,
     );
+  }
 
-    const colIndex = {
-      player: headers.indexOf("PLAYER") !== -1 ? headers.indexOf("PLAYER") : 0,
-      k: headers.indexOf("K"),
-      hb: headers.indexOf("HB"),
-      d: headers.indexOf("D"),
-      m: headers.indexOf("M"),
-      g: headers.indexOf("G"),
-      b: headers.indexOf("B"),
-      t: headers.indexOf("T"),
-      ho: headers.indexOf("HO"),
-      ga: headers.indexOf("GA"),
-      i50: headers.indexOf("I50"),
-      cl: headers.indexOf("CL"),
-      cg: headers.indexOf("CG"),
-      r50: headers.indexOf("R50"),
-      ff: headers.indexOf("FF"),
-      fa: headers.indexOf("FA"),
-      af: headers.indexOf("AF"),
-      sc: headers.indexOf("SC"),
-    };
+  // Extract team display name from "Team Match Statistics (Sorted by Disposals)"
+  // heading inside each section.
+  function extractSectionTeamName(
+    section: ReturnType<typeof root.querySelector>,
+  ): string {
+    const raw = section!.querySelector("td.innertbtitle")?.text ?? "";
+    return raw
+      .replace(/\s*match statistics.*/i, "")
+      .replace(/\u00a0/g, " ") // nbsp → space
+      .trim();
+  }
 
-    const rows = table.querySelectorAll("tr");
-    const teamStats: ScrapedPlayerStat[] = [];
+  // Parse all player stat rows from a section.
+  // Player rows have class "darkcolor" or "lightcolor".
+  // The 17 stat values are in td.statdata cells, in fixed column order:
+  // K HB D M G B T HO GA I50 CL CG R50 FF FA AF SC
+  function parseStatRows(
+    section: ReturnType<typeof root.querySelector>,
+    teamId: string,
+  ): ScrapedPlayerStat[] {
+    const rows = section!.querySelectorAll("tr.darkcolor, tr.lightcolor");
+    const stats: ScrapedPlayerStat[] = [];
 
-    for (let i = 1; i < rows.length; i++) {
-      const cells = rows[i].querySelectorAll("td");
-      if (cells.length < 10) continue;
-
-      const playerName = cells[colIndex.player]?.text.trim();
+    for (const row of rows) {
+      const playerName = row.querySelector("td a")?.text.trim() ?? "";
       if (!playerName) continue;
 
-      teamStats.push({
+      const sd = row.querySelectorAll("td.statdata");
+      if (sd.length < 17) continue;
+
+      stats.push({
         playerName,
-        teamId: "", // will be filled after table parsing
-        kicks: num(cells[colIndex.k]?.text),
-        handballs: num(cells[colIndex.hb]?.text),
-        disposals: num(cells[colIndex.d]?.text),
-        marks: num(cells[colIndex.m]?.text),
-        goals: num(cells[colIndex.g]?.text),
-        behinds: num(cells[colIndex.b]?.text),
-        tackles: num(cells[colIndex.t]?.text),
-        hitouts: num(cells[colIndex.ho]?.text),
-        goalAssists: num(cells[colIndex.ga]?.text),
-        inside50s: num(cells[colIndex.i50]?.text),
-        clearances: num(cells[colIndex.cl]?.text),
-        clangers: num(cells[colIndex.cg]?.text),
-        rebound50s: num(cells[colIndex.r50]?.text),
-        freesFor: num(cells[colIndex.ff]?.text),
-        freesAgainst: num(cells[colIndex.fa]?.text),
-        aflFantasyPts: num(cells[colIndex.af]?.text),
-        supercoachPts: num(cells[colIndex.sc]?.text),
+        teamId,
+        kicks: num(sd[0]?.text),
+        handballs: num(sd[1]?.text),
+        disposals: num(sd[2]?.text),
+        marks: num(sd[3]?.text),
+        goals: num(sd[4]?.text),
+        behinds: num(sd[5]?.text),
+        tackles: num(sd[6]?.text),
+        hitouts: num(sd[7]?.text),
+        goalAssists: num(sd[8]?.text),
+        inside50s: num(sd[9]?.text),
+        clearances: num(sd[10]?.text),
+        clangers: num(sd[11]?.text),
+        rebound50s: num(sd[12]?.text),
+        freesFor: num(sd[13]?.text),
+        freesAgainst: num(sd[14]?.text),
+        aflFantasyPts: num(sd[15]?.text),
+        supercoachPts: num(sd[16]?.text),
       });
     }
 
-    console.log(
-      `[afl-scraper] scrapeMatchStats: table[${tableIdx}] parsed ${teamStats.length} player rows`,
-    );
-    if (teamStats.length > 0) {
-      statTables.push(teamStats);
-    }
+    return stats;
   }
 
+  const section1Name = extractSectionTeamName(team1Section);
+  const section2Name = extractSectionTeamName(team2Section);
+
   console.log(
-    `[afl-scraper] scrapeMatchStats: stat tables found=${statTables.length}`,
+    `[afl-scraper] scrapeMatchStats: section1="${section1Name}", section2="${section2Name}"`,
   );
 
-  if (statTables.length < 2) {
-    throw new Error(
-      `Could not parse two stat tables from match mid=${mid}. Got ${statTables.length}.`,
-    );
-  }
+  // Build team info from section headings (more precise than score table names).
+  // Fall back to score table name if heading extraction failed.
+  const homeTeamInfo = nameToTeamInfo(section1Name || scoreHomeTeamName);
+  const awayTeamInfo = nameToTeamInfo(section2Name || scoreAwayTeamName);
 
-  // We now have two stat tables. Assign team IDs.
-  // teamIds[0] = home, teamIds[1] = away (from /th- links in page order)
-  const homeTeamInfo = teamIds[0]
-    ? parseTeamHref(`th-${teamIds[0]}`)
-    : { id: "unknown", name: "Unknown", shortName: "???" };
-  const awayTeamInfo = teamIds[1]
-    ? parseTeamHref(`th-${teamIds[1]}`)
-    : { id: "unknown", name: "Unknown", shortName: "???" };
-
-  const homeStats = statTables[0].map((s) => ({
-    ...s,
-    teamId: homeTeamInfo.id,
-  }));
-  const awayStats = statTables[1].map((s) => ({
-    ...s,
-    teamId: awayTeamInfo.id,
-  }));
+  const homeStats = parseStatRows(team1Section, homeTeamInfo.id);
+  const awayStats = parseStatRows(team2Section, awayTeamInfo.id);
 
   console.log(
-    `[afl-scraper] scrapeMatchStats: homeTeam=${JSON.stringify(homeTeamInfo)}, awayTeam=${JSON.stringify(awayTeamInfo)}`,
+    `[afl-scraper] scrapeMatchStats: homeTeam=${JSON.stringify(homeTeamInfo)}, homeStats=${homeStats.length}`,
   );
   console.log(
-    `[afl-scraper] scrapeMatchStats: homeStats=${homeStats.length} players, awayStats=${awayStats.length} players`,
+    `[afl-scraper] scrapeMatchStats: awayTeam=${JSON.stringify(awayTeamInfo)}, awayStats=${awayStats.length}`,
   );
 
   const match: ScrapedMatch = {
@@ -543,8 +426,17 @@ export async function scrapeMatchStats(
     crowd,
   };
 
+  const _debug = {
+    scoreHomeTeamName,
+    scoreAwayTeamName,
+    section1Name,
+    section2Name,
+    homeScore,
+    awayScore,
+  };
+
   console.log(
     `[afl-scraper] scrapeMatchStats: final match=${JSON.stringify(match)}`,
   );
-  return { match, homeStats, awayStats };
+  return { match, homeStats, awayStats, _debug };
 }

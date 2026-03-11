@@ -180,4 +180,35 @@
 			{/each}
 		</div>
 	{/if}
+
+	<!-- Developer: debug scrape a specific match without writing to DB -->
+	<details class="rounded-lg border border-border">
+		<summary class="cursor-pointer px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+			Debug Scrape (no DB write)
+		</summary>
+		<div class="border-t border-border p-4 space-y-4">
+			<form
+				method="POST"
+				action="?/debugScrape"
+				use:enhance={() => {
+					return async ({ update }) => { await update(); };
+				}}
+				class="flex items-center gap-3"
+			>
+				<label class="text-sm text-muted-foreground" for="debug-mid">Match ID (mid)</label>
+				<input
+					id="debug-mid"
+					name="mid"
+					type="number"
+					placeholder="e.g. 9928"
+					class="rounded border border-input bg-background px-3 py-1.5 text-sm w-36"
+					required
+				/>
+				<Button type="submit" variant="outline" size="sm">Run</Button>
+			</form>
+			{#if form && 'debugResult' in form && form.debugResult}
+				<pre class="overflow-x-auto rounded bg-muted/50 p-4 text-xs leading-relaxed">{form.debugResult}</pre>
+			{/if}
+		</div>
+	</details>
 </div>

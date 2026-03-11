@@ -1,11 +1,15 @@
-import { getMatchIdsForRound, scrapeMatchStats } from "$lib/afl/scraper";
+import {
+  getLatestCompletedRound,
+  getMatchIdsForRound,
+  scrapeMatchStats,
+} from "$lib/afl/scraper";
 import {
   batchUpsertPlayerStats,
   getMatchesForRound,
   getPlayerStatsForMatch,
   getStoredRounds,
   upsertMatch,
-} from "$lib/afl/service";
+} from "$lib/db/afl/service";
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
@@ -30,8 +34,12 @@ export const actions: Actions = {
   scrape: async () => {
     try {
       const year = new Date().getFullYear();
-      // TODO: replace with getLatestCompletedRound(year) once the regular season starts
-      const round = 0;
+      const round = await getLatestCompletedRound(year);
+      if (round === null) {
+        return fail(422, {
+          error: "No completed round found yet this season.",
+        });
+      }
       console.log(
         `[afl-scraper] action: starting scrape for year=${year}, round=${round}`,
       );
@@ -70,6 +78,37 @@ export const actions: Actions = {
       return fail(500, {
         error:
           err instanceof Error ? err.message : "Unknown error during scrape.",
+      });
+    }
+  },
+
+  debugScrape: async ({ request }) => {
+    try {
+      const formData = await request.formData();
+      const mid = parseInt(formData.get("mid") as string, 10);
+      if (isNaN(mid) || mid <= 0) {
+        return fail(400, { error: "Invalid match ID." });
+      }
+      console.log(`[afl-scraper] debugScrape: mid=${mid}`);
+      const result = await scrapeMatchStats(mid);
+      return {
+        debugResult: JSON.stringify(
+          {
+            _debug: result._debug,
+            match: result.match,
+            homeStatsCount: result.homeStats.length,
+            awayStatsCount: result.awayStats.length,
+            homeStatsSample: result.homeStats.slice(0, 3),
+            awayStatsSample: result.awayStats.slice(0, 3),
+          },
+          null,
+          2,
+        ),
+      };
+    } catch (err) {
+      console.error("[afl-scraper] debugScrape FAILED:", err);
+      return fail(500, {
+        error: err instanceof Error ? err.message : "Debug scrape failed.",
       });
     }
   },

@@ -148,6 +148,58 @@ Always prefer `currentColor` / Tailwind text utilities over the `color` prop dir
 
 ---
 
+## Toast / User Feedback Patterns
+
+Use `sonner` via the shadcn-svelte toast primitive for all user-facing feedback.
+Never use `alert()`, custom modal state, or inline error text as a substitute for toasts.
+
+**Import pattern:**
+
+```svelte
+import { toast } from 'svelte-sonner';
+```
+
+**When to use each variant:**
+
+| Situation                                      | Call                                                                       |
+| ---------------------------------------------- | -------------------------------------------------------------------------- |
+| Successful mutation (create, save, delete)     | `toast.success('Supplier saved.')`                                         |
+| Non-fatal warning or partial failure           | `toast.warning('Some fields were skipped.')`                               |
+| Recoverable error (validation, 4xx)            | `toast.error('Failed to save. Check required fields.')`                    |
+| Unrecoverable / unexpected error (5xx, thrown) | `toast.error('Something went wrong. Try again.')`                          |
+| Long-running async operation                   | `toast.promise(promise, { loading: '...', success: '...', error: '...' })` |
+| Neutral confirmation / info                    | `toast('Draft auto-saved.')`                                               |
+
+**Rules:**
+
+- Always fire toasts from form `onResult` callbacks (superforms) or `+page.svelte` action handlers — never inside `+page.server.ts`
+- Keep messages short and specific — one clause, sentence case, no trailing period on single-word labels
+- Never expose raw error messages or stack traces in toast text
+- For destructive actions (delete, revoke), show the `toast.success` only **after** the `<AlertDialog>` is confirmed and the server action resolves successfully
+- Use `toast.promise()` for any async operation over ~400ms to avoid UI feeling frozen
+
+**Superforms integration pattern:**
+
+```svelte
+const form = await superForm(data.form, {
+  onResult({ result }) {
+    if (result.type === 'success') toast.success('Changes saved.');
+    if (result.type === 'failure') toast.error('Could not save. Check the form.');
+    if (result.type === 'error')   toast.error('Something went wrong. Try again.');
+  }
+});
+```
+
+**Ensure the `<Toaster />` is mounted once in `+layout.svelte`:**
+
+```svelte
+import { Toaster } from 'svelte-sonner';
+<!-- in template: -->
+<Toaster richColors position="bottom-right" />
+```
+
+---
+
 ## Design Language
 
 Emulate GitHub's UI: functional, dense, and neutral. Specific guidance:
