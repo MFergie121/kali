@@ -26,6 +26,9 @@
 			<p class="text-sm text-muted-foreground">
 				Signed in via <span class="font-medium capitalize">{data.session.provider}</span>
 			</p>
+			<Button href="home/kali-afl-scraper" variant="outline" size="sm">
+				AFL Stats Scraper
+			</Button>
 			<Button href="/auth/logout/{data.session.provider}" variant="outline" size="sm">
 				Sign out
 			</Button>
