@@ -196,6 +196,16 @@ export function getStoredRounds(): number[] {
   return rows.map((r) => r.round);
 }
 
+export function getStoredRoundsForYear(year: number): number[] {
+  const rows = db
+    .selectDistinct({ round: matches.round })
+    .from(matches)
+    .where(eq(matches.year, year))
+    .orderBy(desc(matches.round))
+    .all();
+  return rows.map((r) => r.round);
+}
+
 export function getLatestStoredRound(): number | null {
   const row = db
     .select({ round: matches.round })
@@ -226,6 +236,48 @@ export function getMatchesForRound(round: number): MatchRow[] {
     .all();
 
   // Fetch team names separately (SQLite joins via Drizzle are more readable this way)
+  const allTeams = db.select().from(teams).all();
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    round: r.round,
+    year: r.year,
+    homeTeam: teamMap.get(r.homeTeamId)?.name ?? r.homeTeamId,
+    homeShortName: teamMap.get(r.homeTeamId)?.shortName ?? r.homeTeamId,
+    awayTeam: teamMap.get(r.awayTeamId)?.name ?? r.awayTeamId,
+    awayShortName: teamMap.get(r.awayTeamId)?.shortName ?? r.awayTeamId,
+    homeScore: r.homeScore,
+    awayScore: r.awayScore,
+    venue: r.venue,
+    date: r.date,
+    crowd: r.crowd,
+    scrapedAt: r.scrapedAt,
+  }));
+}
+
+export function getMatchesForRoundAndYear(
+  round: number,
+  year: number,
+): MatchRow[] {
+  const rows = db
+    .select({
+      id: matches.id,
+      round: matches.round,
+      year: matches.year,
+      homeTeamId: matches.homeTeamId,
+      awayTeamId: matches.awayTeamId,
+      homeScore: matches.homeScore,
+      awayScore: matches.awayScore,
+      venue: matches.venue,
+      date: matches.date,
+      crowd: matches.crowd,
+      scrapedAt: matches.scrapedAt,
+    })
+    .from(matches)
+    .where(and(eq(matches.round, round), eq(matches.year, year)))
+    .all();
+
   const allTeams = db.select().from(teams).all();
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 

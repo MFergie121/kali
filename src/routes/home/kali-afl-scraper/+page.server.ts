@@ -1,45 +1,74 @@
-import {
-  getLatestCompletedRound,
-  getMatchIdsForRound,
-  scrapeMatchStats,
-} from "$lib/afl/scraper";
+import { getMatchIdsForRound, scrapeMatchStats } from "$lib/afl/scraper";
 import {
   batchUpsertPlayerStats,
-  getMatchesForRound,
+  getMatchesForRoundAndYear,
   getPlayerStatsForMatch,
-  getStoredRounds,
+  getStoredRoundsForYear,
   upsertMatch,
 } from "$lib/db/afl/service";
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async () => {
-  const rounds = getStoredRounds();
-  const latestRound = rounds[0] ?? null;
-  const matchRows = latestRound !== null ? getMatchesForRound(latestRound) : [];
+const FIRST_YEAR = 2024;
+const MAX_ROUND = 27;
 
-  const matchesWithStats = matchRows.map((m) => ({
+export const load: PageServerLoad = async ({ url }) => {
+  const currentYear = new Date().getFullYear();
+  const allYears = Array.from(
+    { length: currentYear - FIRST_YEAR + 1 },
+    (_, i) => FIRST_YEAR + i,
+  );
+  const allRounds = Array.from({ length: MAX_ROUND + 1 }, (_, i) => i);
+
+  const selectedYear = Math.min(
+    Math.max(
+      parseInt(url.searchParams.get("year") ?? "") || currentYear,
+      FIRST_YEAR,
+    ),
+    currentYear,
+  );
+
+  const storedRounds = getStoredRoundsForYear(selectedYear);
+
+  const rawRound = parseInt(url.searchParams.get("round") ?? "");
+  const selectedRound =
+    !isNaN(rawRound) && rawRound >= 0 && rawRound <= MAX_ROUND
+      ? rawRound
+      : (storedRounds[0] ?? 1);
+
+  const hasData = storedRounds.includes(selectedRound);
+  const matchRows = hasData
+    ? getMatchesForRoundAndYear(selectedRound, selectedYear)
+    : [];
+  const matches = matchRows.map((m) => ({
     ...m,
     stats: getPlayerStatsForMatch(m.id),
   }));
 
   return {
-    rounds,
-    latestRound,
-    matches: matchesWithStats,
+    allYears,
+    allRounds,
+    storedRounds,
+    selectedYear,
+    selectedRound,
+    hasData,
+    matches,
   };
 };
 
 export const actions: Actions = {
-  scrape: async () => {
+  scrape: async ({ request }) => {
     try {
-      const year = new Date().getFullYear();
-      const round = await getLatestCompletedRound(year);
-      if (round === null) {
-        return fail(422, {
-          error: "No completed round found yet this season.",
-        });
+      const formData = await request.formData();
+      const year =
+        parseInt(formData.get("year") as string, 10) ||
+        new Date().getFullYear();
+      const round = parseInt(formData.get("round") as string, 10);
+
+      if (isNaN(round) || round < 0 || round > MAX_ROUND) {
+        return fail(422, { error: "Invalid round number." });
       }
+
       console.log(
         `[afl-scraper] action: starting scrape for year=${year}, round=${round}`,
       );
@@ -50,7 +79,9 @@ export const actions: Actions = {
       );
 
       if (mids.length === 0) {
-        return fail(422, { error: `No match IDs found for round ${round}.` });
+        return fail(422, {
+          error: `No match IDs found for Round ${round}, ${year}. The round may not have been played yet.`,
+        });
       }
 
       let matchesScraped = 0;
@@ -70,9 +101,9 @@ export const actions: Actions = {
       }
 
       console.log(
-        `[afl-scraper] action: scrape complete — round=${round}, matchesScraped=${matchesScraped}`,
+        `[afl-scraper] action: scrape complete — year=${year}, round=${round}, matchesScraped=${matchesScraped}`,
       );
-      return { success: true, round, matchesScraped };
+      return { success: true, year, round, matchesScraped };
     } catch (err) {
       console.error("[afl-scraper] action: scrape FAILED:", err);
       return fail(500, {
