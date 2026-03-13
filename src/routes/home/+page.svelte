@@ -43,7 +43,13 @@
 				Signed in via <span class="font-medium capitalize">{data.session.provider}</span>
 			</p>
 			<Button href="home/kali-afl-scraper" variant="outline" size="sm">
-				AFL Stats Scraper
+				AFL Stats
+			</Button>
+			<Button href="home/global-friends" variant="outline" size="sm">
+				Global Friends
+			</Button>
+			<Button href="home/bpt" variant="outline" size="sm">
+				BPT
 			</Button>
 			<Button href="/auth/logout/{data.session.provider}" variant="outline" size="sm">
 				Sign out

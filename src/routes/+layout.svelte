@@ -13,5 +13,5 @@
 </script>
 
 <ModeWatcher />
-<Toaster richColors closeButton position="bottom-right" />
+<Toaster richColors={false} closeButton position="top-right" />
 <slot />
