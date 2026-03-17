@@ -4,14 +4,33 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      try {
+        var theme = localStorage.getItem('app-theme');
+        if (theme && theme !== 'serika') {
+          document.documentElement.dataset.theme = theme;
+        }
+        var font = localStorage.getItem('app-font');
+        var fontMap = {
+          'ibm-plex-mono': '"IBM Plex Mono", monospace',
+          'geist': '"Geist", sans-serif',
+          'fraunces': '"Fraunces", serif',
+          'dm-sans': '"DM Sans", sans-serif',
+          'syne': '"Syne", sans-serif'
+        };
+        if (font && fontMap[font]) {
+          document.documentElement.style.setProperty('--font-sans', fontMap[font]);
+        }
+      } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Geist:wght@400;500;600&family=Fraunces:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Syne:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     %sveltekit.head%
   </head>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Geist:wght@400;500;600&family=Fraunces:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Syne:wght@400;500;600&display=swap"
-    rel="stylesheet"
-  />
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">%sveltekit.body%</div>
   </body>

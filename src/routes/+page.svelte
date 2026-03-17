@@ -9,40 +9,138 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-<div class="min-h-svh flex flex-col items-center justify-center bg-background px-4">
-	<div class="w-full max-w-sm flex flex-col gap-4">
-		<div class="rounded-xl border border-border bg-card py-12 flex items-center justify-center">
-			<Logo size={96} class="text-primary" />
+<div class="root">
+	<main class="card">
+		<div class="logo-wrap">
+			<Logo size={52} class="logo-icon" />
+			<span class="wordmark">kali</span>
 		</div>
 
-		<div class="rounded-xl border border-border bg-card p-6 text-center">
-			<h1 class="text-2xl font-semibold tracking-tight">Welcome to Kali</h1>
-		</div>
+		<div class="divider"></div>
 
-		<div class="rounded-xl border border-border bg-card p-6 text-center">
-			<p class="text-sm text-muted-foreground">Please login to continue</p>
-		</div>
-
-		<div class="rounded-xl border border-border bg-card p-6 text-center">
+		<div class="body">
 			{#if data.session}
-				<p class="text-sm text-muted-foreground mb-3">
-					Signed in as <span class="text-foreground font-medium">{data.session.user.name || data.session.user.email}</span>
+				<p class="greeting">
+					signed in as&nbsp;<span class="name">{data.session.user.name || data.session.user.email}</span>
 				</p>
-				<div class="flex flex-col gap-2">
-					<Button href="/home" class="w-full">Go to Home</Button>
-					<Button href="/auth/logout/{data.session.provider}" variant="destructive" class="w-full">
-						Sign out
+				<div class="actions">
+					<Button href="/home" class="btn-full">enter</Button>
+					<Button href="/auth/logout/{data.session.provider}" variant="destructive" class="btn-full">
+						sign out
 					</Button>
 				</div>
 			{:else}
-				<Button href="/auth/login" class="w-full">Login</Button>
+				<p class="tagline">your workspace awaits</p>
+				<Button href="/auth/login" class="btn-full">sign in</Button>
 			{/if}
 		</div>
+	</main>
 
-		<div class="flex items-center justify-center gap-2">
-			<DarkToggle />
-			<ThemePicker />
-			<FontPicker />
-		</div>
-	</div>
+	<footer class="prefs">
+		<DarkToggle />
+		<ThemePicker />
+		<FontPicker />
+	</footer>
 </div>
+
+<style>
+	.root {
+		min-height: 100svh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background-color: var(--background);
+		padding: 1.5rem;
+		gap: 1.25rem;
+	}
+
+	.card {
+		width: 100%;
+		max-width: 22rem;
+		background-color: var(--card);
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
+		overflow: hidden;
+		animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.logo-wrap {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 2.5rem 2rem 2rem;
+	}
+
+	.logo-wrap :global(.logo-icon) {
+		color: var(--primary);
+	}
+
+	.wordmark {
+		font-size: 1.5rem;
+		font-weight: 600;
+		letter-spacing: -0.03em;
+		color: var(--foreground);
+	}
+
+	.divider {
+		height: 1px;
+		background-color: var(--border);
+		margin: 0 1.5rem;
+	}
+
+	.body {
+		padding: 1.75rem 2rem 2.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+
+	.tagline {
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
+		text-align: center;
+		letter-spacing: 0.02em;
+	}
+
+	.greeting {
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
+		text-align: center;
+		letter-spacing: 0.01em;
+	}
+
+	.name {
+		color: var(--foreground);
+		font-weight: 500;
+	}
+
+	.actions {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.body :global(.btn-full) {
+		width: 100%;
+	}
+
+	.prefs {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		animation: rise 0.4s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+</style>

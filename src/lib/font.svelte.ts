@@ -12,8 +12,6 @@ export const fonts: { id: Font; label: string; stack: string }[] = [
   { id: "syne", label: "Syne", stack: '"Syne", sans-serif' },
 ];
 
-const STORAGE_KEY = "app-font";
-
 function createFontStore() {
   let current = $state<Font>("ibm-plex-mono");
 
@@ -22,12 +20,6 @@ function createFontStore() {
     if (!match) return;
     current = font;
     document.documentElement.style.setProperty("--font-sans", match.stack);
-    localStorage.setItem(STORAGE_KEY, font);
-  }
-
-  function init() {
-    const saved = localStorage.getItem(STORAGE_KEY) as Font | null;
-    apply(saved ?? "ibm-plex-mono");
   }
 
   return {
@@ -35,7 +27,6 @@ function createFontStore() {
       return current;
     },
     apply,
-    init,
   };
 }
 

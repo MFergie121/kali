@@ -1,13 +1,14 @@
-export type Theme = "serika" | "retro" | "iceberg-light" | "lil-dragon";
+export type Theme = "serika" | "retro" | "iceberg-light" | "lil-dragon" | "nord" | "forest" | "cyberpunk";
 
 export const themes: { id: Theme; label: string }[] = [
   { id: "serika", label: "Serika" },
   { id: "retro", label: "Retro" },
   { id: "iceberg-light", label: "Iceberg Light" },
   { id: "lil-dragon", label: "Lil Dragon" },
+  { id: "nord", label: "Nord" },
+  { id: "forest", label: "Forest" },
+  { id: "cyberpunk", label: "Cyberpunk" },
 ];
-
-const STORAGE_KEY = "app-theme";
 
 function createThemeStore() {
   let current = $state<Theme>("serika");
@@ -19,12 +20,6 @@ function createThemeStore() {
     } else {
       document.documentElement.dataset.theme = theme;
     }
-    localStorage.setItem(STORAGE_KEY, theme);
-  }
-
-  function init() {
-    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    apply(saved ?? "serika");
   }
 
   return {
@@ -32,7 +27,6 @@ function createThemeStore() {
       return current;
     },
     apply,
-    init,
   };
 }
 

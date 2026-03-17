@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let expandedUsers = $state<Set<number>>(new Set());
+	let expandedUsers = new SvelteSet<number>();
 
 	function toggleUser(id: number) {
 		if (expandedUsers.has(id)) {
@@ -12,96 +13,152 @@
 		} else {
 			expandedUsers.add(id);
 		}
-		expandedUsers = new Set(expandedUsers);
 	}
 
-	function formatDate(iso: string | null | undefined) {
+	function formatDateShort(iso: string | null | undefined) {
 		if (!iso) return '—';
-		return new Date(iso).toLocaleString();
+		return new Date(iso).toLocaleDateString('en-AU', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
+	}
+
+	function usagePct(usage: number, limit: number | null): number {
+		if (!limit) return 0;
+		return Math.min(100, Math.round((usage / limit) * 100));
+	}
+
+	function isCritical(pct: number): boolean {
+		return pct >= 90;
 	}
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6 p-6">
+<div class="mx-auto max-w-3xl space-y-6 p-6">
+
+	<!-- Header -->
 	<div>
-		<h1 class="text-2xl font-bold">API Key Management</h1>
-		<p class="text-muted-foreground mt-1 text-sm">
-			Manage API users and their keys. Keys are linked to OAuth accounts.
+		<h1 class="text-2xl font-bold">API Usage</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
+			Monitor usage and manage keys for each authenticated user.
 		</p>
 	</div>
 
+	<!-- Success banner -->
 	{#if form && 'createdToken' in form && form.createdToken}
-		<div class="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950">
-			<p class="text-sm font-medium text-green-800 dark:text-green-200">
-				Key "<strong>{form.createdName}</strong>" created. Copy it now — it won't be shown again.
+		<div class="rounded-lg border border-border bg-muted p-4">
+			<p class="text-sm font-medium text-foreground">
+				Key "<strong>{form.createdName}</strong>" created — copy it now, it won't be shown again.
 			</p>
-			<code class="mt-2 block break-all rounded bg-green-100 px-3 py-2 font-mono text-sm text-green-900 dark:bg-green-900 dark:text-green-100">
+			<code class="mt-2 block break-all rounded-md bg-background px-3 py-2 font-mono text-sm text-foreground">
 				{form.createdToken}
 			</code>
 		</div>
 	{/if}
 
+	<!-- Error banner -->
 	{#if form && 'error' in form && form.error}
-		<div class="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-			<p class="text-sm text-red-700 dark:text-red-300">{form.error}</p>
+		<div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+			<p class="text-sm text-destructive">{form.error}</p>
 		</div>
 	{/if}
 
+	<!-- Empty state -->
 	{#if data.users.length === 0}
 		<div class="rounded-lg border border-dashed p-8 text-center">
-			<p class="text-muted-foreground text-sm">
+			<p class="text-sm text-muted-foreground">
 				No users yet. Users are created automatically when someone logs in via OAuth.
 			</p>
 		</div>
+
 	{:else}
-		<div class="space-y-3">
+		<div class="space-y-2">
 			{#each data.users as user (user.id)}
 				{@const userKeys = data.keysByUser[user.id] ?? []}
 				{@const isExpanded = expandedUsers.has(user.id)}
+				{@const pct = usagePct(user.apiUsage, user.apiLimit)}
+				{@const critical = isCritical(pct)}
+				{@const activeKeys = userKeys.filter(k => !k.revoked).length}
 
-				<div class="rounded-lg border">
+				<div class="overflow-hidden rounded-lg border border-border">
+
 					<!-- User row -->
 					<button
 						type="button"
-						class="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50"
+						class="flex w-full items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/50"
 						onclick={() => toggleUser(user.id)}
 					>
-						<div class="flex items-center gap-3">
-							<div>
-								<p class="font-medium">{user.name}</p>
-								<p class="text-muted-foreground text-sm">{user.email} · {user.provider}</p>
-							</div>
+						<!-- Avatar -->
+						<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+							{user.name?.[0]?.toUpperCase() ?? '?'}
 						</div>
-						<div class="flex items-center gap-6 text-sm">
-							<div class="text-right">
-								<p class="font-mono">{user.apiUsage.toLocaleString()}{user.apiLimit !== null ? ` / ${user.apiLimit.toLocaleString()}` : ''}</p>
-								<p class="text-muted-foreground">calls{user.apiLimit !== null ? ' (limited)' : ' (unlimited)'}</p>
+
+						<!-- Identity + usage -->
+						<div class="min-w-0 flex-1">
+							<div class="flex items-center justify-between gap-4">
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium text-foreground">{user.name}</p>
+									<p class="truncate font-mono text-xs text-muted-foreground">{user.email}</p>
+								</div>
+								<div class="flex shrink-0 items-center gap-4 text-right">
+									<div class="hidden sm:block">
+										<p class="text-xs text-muted-foreground">last active</p>
+										<p class="text-xs font-medium text-foreground">{formatDateShort(user.lastActiveAt)}</p>
+									</div>
+									<div>
+										<p class="text-xs text-muted-foreground">keys</p>
+										<p class="text-xs font-medium text-foreground">{activeKeys} active</p>
+									</div>
+									<svg
+										class="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
+										fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+									</svg>
+								</div>
 							</div>
-							<div class="text-right">
-								<p>{formatDate(user.lastActiveAt)}</p>
-								<p class="text-muted-foreground">last active</p>
+
+							<!-- Usage bar -->
+							<div class="mt-3">
+								{#if user.apiLimit !== null}
+									<div class="mb-1 flex items-center justify-between">
+										<span class="font-mono text-xs text-muted-foreground">
+											{user.apiUsage.toLocaleString()} / {user.apiLimit.toLocaleString()} calls
+										</span>
+										<span class="font-mono text-xs font-semibold {critical ? 'text-destructive' : 'text-primary'}">
+											{pct}%
+										</span>
+									</div>
+									<div class="h-1 w-full overflow-hidden rounded-full bg-muted">
+										<div
+											class="h-full rounded-full transition-all duration-500 {critical ? 'bg-destructive' : 'bg-primary'}"
+											style="width: {pct}%"
+										></div>
+									</div>
+								{:else}
+									<div class="flex items-center justify-between">
+										<div class="h-1 flex-1 rounded-full bg-muted">
+											<div class="h-full w-full rounded-full bg-border"></div>
+										</div>
+										<span class="ml-3 shrink-0 font-mono text-xs text-muted-foreground">
+											{user.apiUsage.toLocaleString()} calls · unlimited
+										</span>
+									</div>
+								{/if}
 							</div>
-							<div class="text-right">
-								<p>{userKeys.length} key{userKeys.length !== 1 ? 's' : ''}</p>
-								<p class="text-muted-foreground">since {formatDate(user.createdAt).split(',')[0]}</p>
-							</div>
-							<span class="text-muted-foreground">{isExpanded ? '▲' : '▼'}</span>
 						</div>
 					</button>
 
+					<!-- Expanded panel -->
 					{#if isExpanded}
-						<div class="border-t p-4 space-y-4">
+						<div class="space-y-5 border-t border-border bg-muted/30 px-5 py-5">
 
-							<!-- Set limit form -->
-							<form
-								method="POST"
-								action="?/setLimit"
-								use:enhance
-								class="flex items-end gap-3"
-							>
+							<!-- Set limit -->
+							<form method="POST" action="?/setLimit" use:enhance class="flex items-end gap-3">
 								<input type="hidden" name="userId" value={user.id} />
 								<div class="flex-1">
-									<label class="text-sm font-medium" for="limit-{user.id}">
-										API call limit (blank = unlimited)
+									<label class="mb-1.5 block text-xs font-medium text-foreground" for="limit-{user.id}">
+										Call limit <span class="font-normal text-muted-foreground">(leave blank for unlimited)</span>
 									</label>
 									<input
 										id="limit-{user.id}"
@@ -110,86 +167,99 @@
 										min="0"
 										value={user.apiLimit ?? ''}
 										placeholder="Unlimited"
-										class="mt-1 block w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-background"
+										class="block w-full rounded-md border border-input bg-background px-3 py-1.5 font-mono text-sm text-foreground placeholder-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
 									/>
 								</div>
 								<button
 									type="submit"
-									class="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+									class="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
 								>
-									Save limit
+									Save
 								</button>
 							</form>
 
-							<!-- Existing keys -->
+							<!-- Keys table -->
 							{#if userKeys.length > 0}
-								<table class="w-full text-sm">
-									<thead>
-										<tr class="border-b text-left text-muted-foreground">
-											<th class="pb-2 font-medium">Name</th>
-											<th class="pb-2 font-medium">Created</th>
-											<th class="pb-2 font-medium">Last used</th>
-											<th class="pb-2 font-medium">Status</th>
-											<th class="pb-2"></th>
-										</tr>
-									</thead>
-									<tbody>
-										{#each userKeys as key (key.id)}
-											<tr class="border-b last:border-0">
-												<td class="py-2 font-mono text-xs">{key.name}</td>
-												<td class="py-2 text-muted-foreground">{formatDate(key.createdAt)}</td>
-												<td class="py-2 text-muted-foreground">{formatDate(key.lastUsedAt)}</td>
-												<td class="py-2">
-													{#if key.revoked}
-														<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-900 dark:text-red-300">Revoked</span>
-													{:else}
-														<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">Active</span>
-													{/if}
-												</td>
-												<td class="py-2 text-right">
-													{#if !key.revoked}
-														<form method="POST" action="?/revokeKey" use:enhance>
-															<input type="hidden" name="id" value={key.id} />
-															<button
-																type="submit"
-																class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-																onclick={(e) => { if (!confirm('Revoke this key?')) e.preventDefault(); }}
-															>
-																Revoke
-															</button>
-														</form>
-													{/if}
-												</td>
-											</tr>
-										{/each}
-									</tbody>
-								</table>
+								<div>
+									<p class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">API Keys</p>
+									<div class="overflow-hidden rounded-md border border-border">
+										<table class="w-full text-xs">
+											<thead>
+												<tr class="border-b border-border bg-muted">
+													<th class="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
+													<th class="px-3 py-2 text-left font-medium text-muted-foreground">Created</th>
+													<th class="px-3 py-2 text-left font-medium text-muted-foreground">Last used</th>
+													<th class="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+													<th class="px-3 py-2"></th>
+												</tr>
+											</thead>
+											<tbody class="divide-y divide-border">
+												{#each userKeys as key (key.id)}
+													<tr class="bg-card">
+														<td class="px-3 py-2 font-mono text-foreground">{key.name}</td>
+														<td class="px-3 py-2 text-muted-foreground">{formatDateShort(key.createdAt)}</td>
+														<td class="px-3 py-2 text-muted-foreground">{formatDateShort(key.lastUsedAt)}</td>
+														<td class="px-3 py-2">
+															{#if key.revoked}
+																<span class="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+																	<span class="h-1.5 w-1.5 rounded-full bg-destructive"></span>
+																	Revoked
+																</span>
+															{:else}
+																<span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+																	<span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
+																	Active
+																</span>
+															{/if}
+														</td>
+														<td class="px-3 py-2 text-right">
+															{#if !key.revoked}
+																<form method="POST" action="?/revokeKey" use:enhance>
+																	<input type="hidden" name="id" value={key.id} />
+																	<button
+																		type="submit"
+																		class="rounded px-2 py-0.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+																		onclick={(e) => { if (!confirm('Revoke this key?')) e.preventDefault(); }}
+																	>
+																		Revoke
+																	</button>
+																</form>
+															{/if}
+														</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								</div>
 							{:else}
-								<p class="text-muted-foreground text-sm">No keys yet.</p>
+								<p class="text-xs text-muted-foreground">No keys yet.</p>
 							{/if}
 
-							<!-- Generate new key form -->
+							<!-- New key form -->
 							<form
 								method="POST"
 								action="?/createKey"
 								use:enhance
-								class="flex items-end gap-3 border-t pt-4"
+								class="flex items-end gap-3 border-t border-border pt-4"
 							>
 								<input type="hidden" name="userId" value={user.id} />
 								<div class="flex-1">
-									<label class="text-sm font-medium" for="keyname-{user.id}">New key name</label>
+									<label class="mb-1.5 block text-xs font-medium text-foreground" for="keyname-{user.id}">
+										New key name
+									</label>
 									<input
 										id="keyname-{user.id}"
 										name="name"
 										type="text"
 										placeholder="e.g. My App"
 										required
-										class="mt-1 block w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring bg-background"
+										class="block w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
 									/>
 								</div>
 								<button
 									type="submit"
-									class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+									class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 								>
 									Generate key
 								</button>

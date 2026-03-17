@@ -1,19 +1,14 @@
 <script lang="ts">
-	import { fontStore } from '$lib/font.svelte';
-	import { themeStore } from '$lib/theme.svelte';
-	import { setMode } from 'mode-watcher';
-	import { onMount } from 'svelte';
-	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import { themeStore, type Theme } from '$lib/theme.svelte';
+	import { fontStore, type Font } from '$lib/font.svelte';
+	import { onMount } from 'svelte';
 
-	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	let { children, data }: { children: Snippet; data: any } = $props();
 
 	onMount(() => {
-		if (data.prefs) {
-			themeStore.apply(data.prefs.prefTheme as Parameters<typeof themeStore.apply>[0]);
-			fontStore.apply(data.prefs.prefFont as Parameters<typeof fontStore.apply>[0]);
-			setMode(data.prefs.prefDarkMode as 'light' | 'dark' | 'system');
-		}
+		if (data.prefs?.prefTheme) themeStore.apply(data.prefs.prefTheme as Theme);
+		if (data.prefs?.prefFont) fontStore.apply(data.prefs.prefFont as Font);
 	});
 </script>
 
