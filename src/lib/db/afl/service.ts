@@ -1,7 +1,9 @@
+import { randomBytes } from "node:crypto";
 import type { ScrapedMatch, ScrapedPlayerStat } from "$lib/afl/scraper";
 import { db } from "$lib/db/afl";
-import { matches, players, playerStats, teams } from "$lib/db/afl/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { apiKeys, apiUsers, matches, players, playerStats, teams } from "$lib/db/afl/schema";
+import type { ApiKey, ApiUser, Player, Team } from "$lib/db/afl/schema";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
@@ -386,4 +388,261 @@ export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
     .where(eq(matches.year, year))
     .orderBy(matches.round, players.name)
     .all();
+}
+
+// ─── Public API — Teams ───────────────────────────────────────────────────────
+
+export function getAllTeams(): Team[] {
+  return db.select().from(teams).orderBy(asc(teams.name)).all();
+}
+
+// ─── Public API — Matches (paginated) ────────────────────────────────────────
+
+export function getMatchesPaginated(opts: {
+  year?: number;
+  round?: number;
+  limit: number;
+  offset: number;
+}): { data: MatchRow[]; total: number } {
+  const conditions = [
+    opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
+    opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
+  ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const totalRow = db
+    .select({ total: sql<number>`count(*)` })
+    .from(matches)
+    .where(where)
+    .get();
+  const total = totalRow?.total ?? 0;
+
+  const rows = db
+    .select({
+      id: matches.id,
+      round: matches.round,
+      year: matches.year,
+      homeTeamId: matches.homeTeamId,
+      awayTeamId: matches.awayTeamId,
+      homeScore: matches.homeScore,
+      awayScore: matches.awayScore,
+      venue: matches.venue,
+      date: matches.date,
+      crowd: matches.crowd,
+      scrapedAt: matches.scrapedAt,
+    })
+    .from(matches)
+    .where(where)
+    .orderBy(desc(matches.year), desc(matches.round))
+    .limit(opts.limit)
+    .offset(opts.offset)
+    .all();
+
+  const allTeams = db.select().from(teams).all();
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+
+  const data: MatchRow[] = rows.map((r) => ({
+    id: r.id,
+    round: r.round,
+    year: r.year,
+    homeTeam: teamMap.get(r.homeTeamId)?.name ?? r.homeTeamId,
+    homeShortName: teamMap.get(r.homeTeamId)?.shortName ?? r.homeTeamId,
+    awayTeam: teamMap.get(r.awayTeamId)?.name ?? r.awayTeamId,
+    awayShortName: teamMap.get(r.awayTeamId)?.shortName ?? r.awayTeamId,
+    homeScore: r.homeScore,
+    awayScore: r.awayScore,
+    venue: r.venue,
+    date: r.date,
+    crowd: r.crowd,
+    scrapedAt: r.scrapedAt,
+  }));
+
+  return { data, total };
+}
+
+// ─── Public API — Players (paginated) ────────────────────────────────────────
+
+export function getPlayersPaginated(opts: {
+  teamId?: string;
+  limit: number;
+  offset: number;
+}): { data: Player[]; total: number } {
+  const where = opts.teamId !== undefined ? eq(players.teamId, opts.teamId) : undefined;
+
+  const totalRow = db
+    .select({ total: sql<number>`count(*)` })
+    .from(players)
+    .where(where)
+    .get();
+  const total = totalRow?.total ?? 0;
+
+  const data = db
+    .select()
+    .from(players)
+    .where(where)
+    .orderBy(asc(players.name))
+    .limit(opts.limit)
+    .offset(opts.offset)
+    .all();
+
+  return { data, total };
+}
+
+// ─── Public API — Player Stats (paginated) ───────────────────────────────────
+
+export function getPlayerStatsPaginated(opts: {
+  matchId?: number;
+  playerId?: number;
+  year?: number;
+  round?: number;
+  limit: number;
+  offset: number;
+}): { data: PlayerStatRow[]; total: number } {
+  const conditions = [
+    opts.matchId !== undefined ? eq(playerStats.matchId, opts.matchId) : undefined,
+    opts.playerId !== undefined ? eq(playerStats.playerId, opts.playerId) : undefined,
+    opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
+    opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
+  ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const totalRow = db
+    .select({ total: sql<number>`count(*)` })
+    .from(playerStats)
+    .innerJoin(players, eq(playerStats.playerId, players.id))
+    .innerJoin(matches, eq(playerStats.matchId, matches.id))
+    .where(where)
+    .get();
+  const total = totalRow?.total ?? 0;
+
+  const data = db
+    .select({
+      matchId: playerStats.matchId,
+      playerName: players.name,
+      teamId: players.teamId,
+      kicks: playerStats.kicks,
+      handballs: playerStats.handballs,
+      disposals: playerStats.disposals,
+      marks: playerStats.marks,
+      goals: playerStats.goals,
+      behinds: playerStats.behinds,
+      tackles: playerStats.tackles,
+      hitouts: playerStats.hitouts,
+      goalAssists: playerStats.goalAssists,
+      inside50s: playerStats.inside50s,
+      clearances: playerStats.clearances,
+      clangers: playerStats.clangers,
+      rebound50s: playerStats.rebound50s,
+      freesFor: playerStats.freesFor,
+      freesAgainst: playerStats.freesAgainst,
+      aflFantasyPts: playerStats.aflFantasyPts,
+      supercoachPts: playerStats.supercoachPts,
+    })
+    .from(playerStats)
+    .innerJoin(players, eq(playerStats.playerId, players.id))
+    .innerJoin(matches, eq(playerStats.matchId, matches.id))
+    .where(where)
+    .orderBy(desc(playerStats.disposals))
+    .limit(opts.limit)
+    .offset(opts.offset)
+    .all();
+
+  return { data, total };
+}
+
+// ─── API Users ────────────────────────────────────────────────────────────────
+
+export function getOrCreateUser(opts: {
+  email: string;
+  name: string;
+  provider: string;
+}): ApiUser {
+  const now = new Date().toISOString();
+  db.insert(apiUsers)
+    .values({ email: opts.email, name: opts.name, provider: opts.provider, createdAt: now, lastActiveAt: now })
+    .onConflictDoUpdate({
+      target: apiUsers.email,
+      set: { name: opts.name, provider: opts.provider, lastActiveAt: now },
+    })
+    .run();
+  return db.select().from(apiUsers).where(eq(apiUsers.email, opts.email)).get()!;
+}
+
+export function listUsers(): ApiUser[] {
+  return db.select().from(apiUsers).orderBy(desc(apiUsers.createdAt)).all();
+}
+
+export function setApiLimit(userId: number, limit: number | null): void {
+  db.update(apiUsers).set({ apiLimit: limit }).where(eq(apiUsers.id, userId)).run();
+}
+
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+
+export function createApiKey(userId: number, name: string): string {
+  const key = randomBytes(32).toString("hex");
+  const now = new Date().toISOString();
+  db.insert(apiKeys).values({ userId, key, name, createdAt: now }).run();
+  return key;
+}
+
+export function listApiKeysForUser(userId: number): ApiKey[] {
+  return db
+    .select()
+    .from(apiKeys)
+    .where(eq(apiKeys.userId, userId))
+    .orderBy(desc(apiKeys.createdAt))
+    .all();
+}
+
+export function listAllApiKeys(): (ApiKey & { userName: string; userEmail: string })[] {
+  return db
+    .select({
+      id: apiKeys.id,
+      userId: apiKeys.userId,
+      key: apiKeys.key,
+      name: apiKeys.name,
+      createdAt: apiKeys.createdAt,
+      lastUsedAt: apiKeys.lastUsedAt,
+      revoked: apiKeys.revoked,
+      userName: apiUsers.name,
+      userEmail: apiUsers.email,
+    })
+    .from(apiKeys)
+    .innerJoin(apiUsers, eq(apiKeys.userId, apiUsers.id))
+    .orderBy(desc(apiKeys.createdAt))
+    .all();
+}
+
+export function revokeApiKey(id: number): void {
+  db.update(apiKeys).set({ revoked: 1 }).where(eq(apiKeys.id, id)).run();
+}
+
+export function validateApiKey(key: string): { valid: boolean; rateLimited?: boolean } {
+  const row = db
+    .select({
+      keyId: apiKeys.id,
+      revoked: apiKeys.revoked,
+      userId: apiKeys.userId,
+      apiUsage: apiUsers.apiUsage,
+      apiLimit: apiUsers.apiLimit,
+    })
+    .from(apiKeys)
+    .innerJoin(apiUsers, eq(apiKeys.userId, apiUsers.id))
+    .where(eq(apiKeys.key, key))
+    .get();
+
+  if (!row || row.revoked) return { valid: false };
+
+  if (row.apiLimit !== null && row.apiUsage >= row.apiLimit) {
+    return { valid: false, rateLimited: true };
+  }
+
+  const now = new Date().toISOString();
+  db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, row.keyId)).run();
+  db.update(apiUsers)
+    .set({ lastActiveAt: now, apiUsage: row.apiUsage + 1 })
+    .where(eq(apiUsers.id, row.userId))
+    .run();
+
+  return { valid: true };
 }

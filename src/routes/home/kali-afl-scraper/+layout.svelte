@@ -32,7 +32,8 @@
 	] as const;
 
 	const apiDocsNavItems = [
-		{ href: '/home/kali-afl-scraper/api-docs/main-usage', label: 'Main Usage' }
+		{ href: '/home/kali-afl-scraper/api-docs', label: 'Docs' },
+		{ href: '/home/kali-afl-scraper/api-usage', label: 'Usage' }
 	] as const;
 
 	let statsOpen = $state(true);

@@ -75,6 +75,33 @@ export const playerStats = sqliteTable(
 	(t) => [uniqueIndex('player_stats_player_match_idx').on(t.playerId, t.matchId)]
 );
 
+// ─── API Users ────────────────────────────────────────────────────────────────
+
+export const apiUsers = sqliteTable('api_users', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	email: text('email').notNull().unique(),
+	name: text('name').notNull(),
+	provider: text('provider').notNull(), // 'github' | 'google'
+	createdAt: text('created_at').notNull(),
+	lastActiveAt: text('last_active_at'),
+	apiUsage: integer('api_usage').notNull().default(0),
+	apiLimit: integer('api_limit')
+});
+
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+
+export const apiKeys = sqliteTable('api_keys', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('user_id')
+		.notNull()
+		.references(() => apiUsers.id, { onDelete: 'cascade' }),
+	key: text('key').notNull().unique(),
+	name: text('name').notNull(),
+	createdAt: text('created_at').notNull(),
+	lastUsedAt: text('last_used_at'),
+	revoked: integer('revoked').notNull().default(0)
+});
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type Team = typeof teams.$inferSelect;
@@ -84,3 +111,7 @@ export type PlayerStat = typeof playerStats.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
 export type NewPlayer = typeof players.$inferInsert;
 export type NewPlayerStat = typeof playerStats.$inferInsert;
+export type ApiUser = typeof apiUsers.$inferSelect;
+export type NewApiUser = typeof apiUsers.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;

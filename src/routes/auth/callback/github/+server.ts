@@ -6,6 +6,7 @@ import {
   getGitHubUser,
   getOAuthCookies,
 } from "../../../../auth";
+import { getOrCreateUser } from "$lib/db/afl/service";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -33,6 +34,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       stored.codeVerifier,
     );
     const user = await getGitHubUser(tokens.access_token);
+    getOrCreateUser({ email: user.email, name: user.name, provider: "github" });
 
     await createSession(cookies, {
       user,

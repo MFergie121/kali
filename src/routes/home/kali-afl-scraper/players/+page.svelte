@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Select from '$lib/components/ui/select';
@@ -47,7 +48,17 @@
 		{ key: 'supercoachPts' as StatKey, label: 'Supercoach Pts' }
 	] as const;
 
-	let selectedStat = $state<StatKey>('disposals');
+	let selectedStat = $state<StatKey>(
+		untrack(() => {
+			if (browser) return (sessionStorage.getItem('afl-players-stat') as StatKey) ?? 'disposals';
+			return 'disposals';
+		})
+	);
+	let showAvg = $state(
+		untrack(() => browser && sessionStorage.getItem('afl-players-showAvg') === 'true')
+	);
+	let playerSearch = $state('');
+	let roundSearch = $state('');
 
 	const allRounds = $derived(
 		[...new Set(data.rows.map((r) => r.round))].sort((a, b) => a - b)
@@ -56,15 +67,87 @@
 
 	// Initialise with all data; reset whenever year changes (data.rows changes).
 	// untrack tells Svelte the initial capture is intentional — the $effect handles updates.
-	let selectedRounds = $state<Set<number>>(untrack(() => new Set(data.rows.map((r) => r.round))));
+	let selectedRounds = $state<Set<number>>(
+		untrack(() => {
+			if (browser) {
+				const saved = sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`);
+				if (saved) {
+					const valid = new Set(data.rows.map((r) => r.round));
+					return new Set((JSON.parse(saved) as number[]).filter((r) => valid.has(r)));
+				}
+			}
+			return new Set(data.rows.map((r) => r.round));
+		})
+	);
 	let selectedPlayers = $state<Set<string>>(
-		untrack(() => new Set(data.rows.map((r) => r.playerName)))
+		untrack(() => {
+			if (browser) {
+				const saved = sessionStorage.getItem(`afl-players-players-${data.selectedYear}`);
+				if (saved) {
+					const valid = new Set(data.rows.map((r) => r.playerName));
+					return new Set((JSON.parse(saved) as string[]).filter((p) => valid.has(p)));
+				}
+			}
+			return new Set(data.rows.map((r) => r.playerName));
+		})
 	);
 
 	$effect(() => {
-		selectedRounds = new Set(allRounds);
-		selectedPlayers = new Set(allPlayers);
+		const savedRounds = browser
+			? sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`)
+			: null;
+		if (savedRounds) {
+			const valid = new Set(allRounds);
+			selectedRounds = new Set((JSON.parse(savedRounds) as number[]).filter((r) => valid.has(r)));
+		} else {
+			selectedRounds = new Set(allRounds);
+		}
+
+		const savedPlayers = browser
+			? sessionStorage.getItem(`afl-players-players-${data.selectedYear}`)
+			: null;
+		if (savedPlayers) {
+			const valid = new Set(allPlayers);
+			selectedPlayers = new Set(
+				(JSON.parse(savedPlayers) as string[]).filter((p) => valid.has(p))
+			);
+		} else {
+			selectedPlayers = new Set(allPlayers);
+		}
 	});
+
+	$effect(() => {
+		if (browser) sessionStorage.setItem('afl-players-stat', selectedStat);
+	});
+	$effect(() => {
+		if (browser) sessionStorage.setItem('afl-players-showAvg', String(showAvg));
+	});
+	$effect(() => {
+		if (browser)
+			sessionStorage.setItem(
+				`afl-players-rounds-${data.selectedYear}`,
+				JSON.stringify([...selectedRounds])
+			);
+	});
+	$effect(() => {
+		if (browser)
+			sessionStorage.setItem(
+				`afl-players-players-${data.selectedYear}`,
+				JSON.stringify([...selectedPlayers])
+			);
+	});
+
+	const filteredPlayers = $derived(
+		playerSearch.trim() === ''
+			? allPlayers
+			: allPlayers.filter((p) => p.toLowerCase().includes(playerSearch.toLowerCase()))
+	);
+
+	const filteredRounds = $derived(
+		roundSearch.trim() === ''
+			? allRounds
+			: allRounds.filter((r) => roundLabel(r).toLowerCase().includes(roundSearch.toLowerCase()))
+	);
 
 	const visibleRounds = $derived(allRounds.filter((r) => selectedRounds.has(r)));
 	const visiblePlayers = $derived(allPlayers.filter((p) => selectedPlayers.has(p)));
@@ -74,6 +157,18 @@
 		for (const row of data.rows) {
 			if (!map.has(row.playerName)) map.set(row.playerName, new Map());
 			map.get(row.playerName)!.set(row.round, row[selectedStat]);
+		}
+		return map;
+	});
+
+	const playerAvg = $derived.by(() => {
+		const map = new Map<string, number>();
+		for (const p of visiblePlayers) {
+			const playerMap = lookup.get(p);
+			const values = visibleRounds
+				.map((r) => playerMap?.get(r))
+				.filter((v) => v !== undefined) as number[];
+			map.set(p, values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0);
 		}
 		return map;
 	});
@@ -145,7 +240,11 @@
 		</Select.Root>
 
 		<!-- Players filter -->
-		<DropdownMenu.Root>
+		<DropdownMenu.Root
+			onOpenChange={(open) => {
+				if (!open) playerSearch = '';
+			}}
+		>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
 					<Button variant="outline" size="sm" {...props}>
@@ -154,6 +253,15 @@
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content class="max-h-80 w-56 overflow-y-auto">
+				<div class="border-b border-border px-2 pb-1.5 pt-1">
+					<input
+						type="text"
+						placeholder="Search players…"
+						bind:value={playerSearch}
+						class="w-full rounded bg-transparent px-1 py-0.5 text-xs outline-none placeholder:text-muted-foreground"
+						onkeydown={(e) => e.stopPropagation()}
+					/>
+				</div>
 				<div class="flex gap-1 border-b border-border px-2 pb-1.5 pt-1">
 					<button
 						class="flex-1 rounded px-2 py-0.5 text-xs hover:bg-accent"
@@ -172,19 +280,29 @@
 						Clear
 					</button>
 				</div>
-				{#each allPlayers as p (p)}
+				{#each filteredPlayers as p (p)}
 					<DropdownMenu.CheckboxItem
 						checked={selectedPlayers.has(p)}
-						onCheckedChange={(v) => togglePlayer(p, v)}
+						onSelect={(e) => {
+							e.preventDefault();
+							togglePlayer(p, !selectedPlayers.has(p));
+						}}
 					>
 						{p}
 					</DropdownMenu.CheckboxItem>
 				{/each}
+				{#if filteredPlayers.length === 0}
+					<p class="px-3 py-2 text-xs text-muted-foreground">No players match</p>
+				{/if}
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 
 		<!-- Rounds filter -->
-		<DropdownMenu.Root>
+		<DropdownMenu.Root
+			onOpenChange={(open) => {
+				if (!open) roundSearch = '';
+			}}
+		>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
 					<Button variant="outline" size="sm" {...props}>
@@ -193,6 +311,15 @@
 				{/snippet}
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Content class="max-h-80 w-44 overflow-y-auto">
+				<div class="border-b border-border px-2 pb-1.5 pt-1">
+					<input
+						type="text"
+						placeholder="Search rounds…"
+						bind:value={roundSearch}
+						class="w-full rounded bg-transparent px-1 py-0.5 text-xs outline-none placeholder:text-muted-foreground"
+						onkeydown={(e) => e.stopPropagation()}
+					/>
+				</div>
 				<div class="flex gap-1 border-b border-border px-2 pb-1.5 pt-1">
 					<button
 						class="flex-1 rounded px-2 py-0.5 text-xs hover:bg-accent"
@@ -211,16 +338,31 @@
 						Clear
 					</button>
 				</div>
-				{#each allRounds as r (r)}
+				{#each filteredRounds as r (r)}
 					<DropdownMenu.CheckboxItem
 						checked={selectedRounds.has(r)}
-						onCheckedChange={(v) => toggleRound(r, v)}
+						onSelect={(e) => {
+							e.preventDefault();
+							toggleRound(r, !selectedRounds.has(r));
+						}}
 					>
 						{roundLabel(r)}
 					</DropdownMenu.CheckboxItem>
 				{/each}
+				{#if filteredRounds.length === 0}
+					<p class="px-3 py-2 text-xs text-muted-foreground">No rounds match</p>
+				{/if}
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
+
+		<!-- Avg toggle -->
+		<Button
+			variant={showAvg ? 'default' : 'outline'}
+			size="sm"
+			onclick={() => (showAvg = !showAvg)}
+		>
+			Avg
+		</Button>
 	</div>
 
 	<!-- Empty state: no data for year -->
@@ -257,6 +399,13 @@
 								{roundLabel(r)}
 							</th>
 						{/each}
+						{#if showAvg}
+							<th
+								class="min-w-14 whitespace-nowrap bg-muted/60 px-3 py-2 text-center font-semibold text-foreground"
+							>
+								Avg
+							</th>
+						{/if}
 					</tr>
 				</thead>
 				<tbody>
@@ -274,6 +423,13 @@
 									{val !== undefined ? val : '-'}
 								</td>
 							{/each}
+							{#if showAvg}
+								<td
+									class="bg-muted/20 px-3 py-1.5 text-center tabular-nums font-medium text-foreground"
+								>
+									{playerAvg.get(p)?.toFixed(1) ?? '-'}
+								</td>
+							{/if}
 						</tr>
 					{/each}
 				</tbody>
