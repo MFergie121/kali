@@ -85,7 +85,10 @@ export const apiUsers = sqliteTable('api_users', {
 	createdAt: text('created_at').notNull(),
 	lastActiveAt: text('last_active_at'),
 	apiUsage: integer('api_usage').notNull().default(0),
-	apiLimit: integer('api_limit')
+	apiLimit: integer('api_limit'),
+	prefTheme: text('pref_theme').notNull().default('serika'),
+	prefFont: text('pref_font').notNull().default('ibm-plex-mono'),
+	prefDarkMode: text('pref_dark_mode').notNull().default('system')
 });
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────

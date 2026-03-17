@@ -1,13 +1,14 @@
 <script lang="ts">
   import * as Select from '$lib/components/ui/select/index.js';
   import { fontStore, fonts, type Font } from '$lib/font.svelte';
+  import { syncPref } from '$lib/sync-prefs';
 </script>
 
 <Select.Root
   type="single"
   name="font"
   value={fontStore.current}
-  onValueChange={(v) => fontStore.apply(v as Font)}
+  onValueChange={(v) => { fontStore.apply(v as Font); syncPref({ font: v }); }}
 >
   <Select.Trigger class="w-44">
     {fonts.find((f) => f.id === fontStore.current)?.label ?? 'Font'}

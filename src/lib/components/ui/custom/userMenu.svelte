@@ -4,6 +4,7 @@
 	import { setMode, resetMode, userPrefersMode } from 'mode-watcher';
 	import { themeStore, themes, type Theme } from '$lib/theme.svelte';
 	import { fontStore, fonts, type Font } from '$lib/font.svelte';
+	import { syncPref } from '$lib/sync-prefs';
 	import { goto } from '$app/navigation';
 
 	let { session }: { session: UserSession } = $props();
@@ -51,6 +52,7 @@
 			onValueChange={(v) => {
 				if (v === 'system') resetMode();
 				else setMode(v as 'light' | 'dark');
+				syncPref({ darkMode: v });
 			}}
 		>
 			<DropdownMenu.RadioItem value="light">Light</DropdownMenu.RadioItem>
@@ -66,7 +68,7 @@
 			<DropdownMenu.SubContent>
 				<DropdownMenu.RadioGroup
 					value={themeStore.current}
-					onValueChange={(v) => themeStore.apply(v as Theme)}
+					onValueChange={(v) => { themeStore.apply(v as Theme); syncPref({ theme: v }); }}
 				>
 					{#each themes as theme (theme.id)}
 						<DropdownMenu.RadioItem value={theme.id}>{theme.label}</DropdownMenu.RadioItem>
@@ -81,7 +83,7 @@
 			<DropdownMenu.SubContent>
 				<DropdownMenu.RadioGroup
 					value={fontStore.current}
-					onValueChange={(v) => fontStore.apply(v as Font)}
+					onValueChange={(v) => { fontStore.apply(v as Font); syncPref({ font: v }); }}
 				>
 					{#each fonts as font (font.id)}
 						<DropdownMenu.RadioItem value={font.id}>{font.label}</DropdownMenu.RadioItem>

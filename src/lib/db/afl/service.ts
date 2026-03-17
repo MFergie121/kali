@@ -550,6 +550,27 @@ export function getPlayerStatsPaginated(opts: {
   return { data, total };
 }
 
+// ─── User Preferences ─────────────────────────────────────────────────────────
+
+export interface UserPreferences {
+  prefTheme: string;
+  prefFont: string;
+  prefDarkMode: string;
+}
+
+export function getUserPreferences(email: string): UserPreferences | null {
+  const row = db
+    .select({ prefTheme: apiUsers.prefTheme, prefFont: apiUsers.prefFont, prefDarkMode: apiUsers.prefDarkMode })
+    .from(apiUsers)
+    .where(eq(apiUsers.email, email))
+    .get();
+  return row ?? null;
+}
+
+export function upsertUserPreferences(email: string, prefs: Partial<UserPreferences>): void {
+  db.update(apiUsers).set(prefs).where(eq(apiUsers.email, email)).run();
+}
+
 // ─── API Users ────────────────────────────────────────────────────────────────
 
 export function getOrCreateUser(opts: {
