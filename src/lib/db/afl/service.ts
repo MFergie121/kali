@@ -470,6 +470,61 @@ export interface PlayerStatYearRow {
   supercoachPts: number;
 }
 
+export interface PlayerAdvancedStatYearRow {
+  playerName: string;
+  teamId: string;
+  round: number;
+  contestedPossessions: number;
+  uncontestedPossessions: number;
+  effectiveDisposals: number;
+  disposalEfficiencyPct: number;
+  contestedMarks: number;
+  goalAssists: number;
+  marksInside50: number;
+  onePercenters: number;
+  bounces: number;
+  centreClearances: number;
+  stoppageClearances: number;
+  scoreInvolvements: number;
+  metresGained: number;
+  turnovers: number;
+  intercepts: number;
+  tacklesInside50: number;
+  timeOnGroundPct: number;
+}
+
+export function getAllAdvancedPlayerStatsForYear(year: number): PlayerAdvancedStatYearRow[] {
+  return db
+    .select({
+      playerName: players.name,
+      teamId: players.teamId,
+      round: matches.round,
+      contestedPossessions: playerStatsAdvanced.contestedPossessions,
+      uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
+      effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
+      disposalEfficiencyPct: playerStatsAdvanced.disposalEfficiencyPct,
+      contestedMarks: playerStatsAdvanced.contestedMarks,
+      goalAssists: playerStatsAdvanced.goalAssists,
+      marksInside50: playerStatsAdvanced.marksInside50,
+      onePercenters: playerStatsAdvanced.onePercenters,
+      bounces: playerStatsAdvanced.bounces,
+      centreClearances: playerStatsAdvanced.centreClearances,
+      stoppageClearances: playerStatsAdvanced.stoppageClearances,
+      scoreInvolvements: playerStatsAdvanced.scoreInvolvements,
+      metresGained: playerStatsAdvanced.metresGained,
+      turnovers: playerStatsAdvanced.turnovers,
+      intercepts: playerStatsAdvanced.intercepts,
+      tacklesInside50: playerStatsAdvanced.tacklesInside50,
+      timeOnGroundPct: playerStatsAdvanced.timeOnGroundPct,
+    })
+    .from(playerStatsAdvanced)
+    .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
+    .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
+    .where(eq(matches.year, year))
+    .orderBy(matches.round, players.name)
+    .all();
+}
+
 export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
   return db
     .select({

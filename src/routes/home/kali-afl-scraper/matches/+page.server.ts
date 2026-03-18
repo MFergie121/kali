@@ -2,6 +2,7 @@ import { getMatchIdsForRound, scrapeMatchAdvancedStats, scrapeMatchStats } from 
 import {
   batchUpsertPlayerAdvancedStats,
   batchUpsertPlayerStats,
+  getAdvancedPlayerStatsForMatch,
   getMatchesForRoundAndYear,
   getPlayerStatsForMatch,
   getStoredRoundsForYear,
@@ -44,6 +45,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const matches = matchRows.map((m) => ({
     ...m,
     stats: getPlayerStatsForMatch(m.id),
+    advStats: getAdvancedPlayerStatsForMatch(m.id),
   }));
 
   return {

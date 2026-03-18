@@ -1,4 +1,4 @@
-import { getAllPlayerStatsForYear } from "$lib/db/afl/service";
+import { getAllAdvancedPlayerStatsForYear, getAllPlayerStatsForYear } from "$lib/db/afl/service";
 import type { PageServerLoad } from "./$types";
 
 const FIRST_YEAR = 2024;
@@ -19,6 +19,7 @@ export const load: PageServerLoad = async ({ url }) => {
   );
 
   const rows = getAllPlayerStatsForYear(selectedYear);
+  const advRows = getAllAdvancedPlayerStatsForYear(selectedYear);
 
-  return { rows, allYears, selectedYear };
+  return { rows, advRows, allYears, selectedYear };
 };

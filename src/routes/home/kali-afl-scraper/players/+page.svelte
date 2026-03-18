@@ -13,7 +13,12 @@
 		| 'kicks' | 'handballs' | 'disposals' | 'marks' | 'goals' | 'behinds'
 		| 'tackles' | 'hitouts' | 'goalAssists' | 'inside50s' | 'clearances'
 		| 'clangers' | 'rebound50s' | 'freesFor' | 'freesAgainst'
-		| 'aflFantasyPts' | 'supercoachPts';
+		| 'aflFantasyPts' | 'supercoachPts'
+		| 'contestedPossessions' | 'uncontestedPossessions' | 'effectiveDisposals'
+		| 'disposalEfficiencyPct' | 'contestedMarks' | 'marksInside50'
+		| 'onePercenters' | 'bounces' | 'centreClearances' | 'stoppageClearances'
+		| 'scoreInvolvements' | 'metresGained' | 'turnovers' | 'intercepts'
+		| 'tacklesInside50' | 'timeOnGroundPct';
 
 	const STAT_COLS = [
 		{ key: 'kicks'         as StatKey, label: 'Kicks'           },
@@ -35,6 +40,28 @@
 		{ key: 'supercoachPts' as StatKey, label: 'Supercoach Pts'  },
 	] as const;
 
+	const ADV_STAT_COLS = [
+		{ key: 'contestedPossessions'   as StatKey, label: 'Contested Poss.'      },
+		{ key: 'uncontestedPossessions' as StatKey, label: 'Uncontested Poss.'    },
+		{ key: 'effectiveDisposals'     as StatKey, label: 'Effective Disposals'  },
+		{ key: 'disposalEfficiencyPct'  as StatKey, label: 'Disposal Eff. %'      },
+		{ key: 'contestedMarks'         as StatKey, label: 'Contested Marks'      },
+		{ key: 'goalAssists'            as StatKey, label: 'Goal Assists (Adv)'   },
+		{ key: 'marksInside50'          as StatKey, label: 'Marks Inside 50'      },
+		{ key: 'onePercenters'          as StatKey, label: 'One Percenters'       },
+		{ key: 'bounces'                as StatKey, label: 'Bounces'              },
+		{ key: 'centreClearances'       as StatKey, label: 'Centre Clearances'    },
+		{ key: 'stoppageClearances'     as StatKey, label: 'Stoppage Clearances'  },
+		{ key: 'scoreInvolvements'      as StatKey, label: 'Score Involvements'   },
+		{ key: 'metresGained'           as StatKey, label: 'Metres Gained'        },
+		{ key: 'turnovers'              as StatKey, label: 'Turnovers'            },
+		{ key: 'intercepts'             as StatKey, label: 'Intercepts'           },
+		{ key: 'tacklesInside50'        as StatKey, label: 'Tackles Inside 50'    },
+		{ key: 'timeOnGroundPct'        as StatKey, label: 'Time On Ground %'     },
+	] as const;
+
+	const ADV_KEYS = new Set(ADV_STAT_COLS.map((c) => c.key));
+
 	let selectedStat = $state<StatKey>(
 		untrack(() => {
 			if (browser) return (sessionStorage.getItem('afl-players-stat') as StatKey) ?? 'disposals';
@@ -47,8 +74,11 @@
 	let playerSearch = $state('');
 	let roundSearch  = $state('');
 
-	const allRounds  = $derived([...new Set(data.rows.map((r) => r.round))].sort((a, b) => a - b));
-	const allPlayers = $derived([...new Set(data.rows.map((r) => r.playerName))].sort());
+	const isAdvStat = $derived(ADV_KEYS.has(selectedStat));
+	const activeRows = $derived(isAdvStat ? data.advRows : data.rows);
+
+	const allRounds  = $derived([...new Set(activeRows.map((r) => r.round))].sort((a, b) => a - b));
+	const allPlayers = $derived([...new Set(activeRows.map((r) => r.playerName))].sort());
 
 	let selectedRounds = $state<Set<number>>(
 		untrack(() => {
@@ -113,9 +143,9 @@
 
 	const lookup = $derived.by(() => {
 		const map = new Map<string, Map<number, number>>();
-		for (const row of data.rows) {
+		for (const row of activeRows) {
 			if (!map.has(row.playerName)) map.set(row.playerName, new Map());
-			map.get(row.playerName)!.set(row.round, row[selectedStat]);
+			map.get(row.playerName)!.set(row.round, (row as Record<string, unknown>)[selectedStat] as number ?? 0);
 		}
 		return map;
 	});
@@ -132,7 +162,9 @@
 		return map;
 	});
 
-	const selectedStatLabel = $derived(STAT_COLS.find((c) => c.key === selectedStat)?.label ?? selectedStat);
+	const selectedStatLabel = $derived(
+		[...STAT_COLS, ...ADV_STAT_COLS].find((c) => c.key === selectedStat)?.label ?? selectedStat
+	);
 
 	function roundLabel(r: number): string { return r === 0 ? 'Pre' : `R${r}`; }
 	function toggleRound(r: number, v: boolean) {
@@ -173,11 +205,21 @@
 				value={selectedStat}
 				onValueChange={(v) => { if (v) selectedStat = v as StatKey; }}
 			>
-				<Select.Trigger class="w-44">{selectedStatLabel}</Select.Trigger>
+				<Select.Trigger class="w-52">{selectedStatLabel}</Select.Trigger>
 				<Select.Content>
-					{#each STAT_COLS as col (col.key)}
-						<Select.Item value={col.key} label={col.label}>{col.label}</Select.Item>
-					{/each}
+					<Select.Group>
+						<Select.Label class="select-group-label">standard</Select.Label>
+						{#each STAT_COLS as col (col.key)}
+							<Select.Item value={col.key} label={col.label}>{col.label}</Select.Item>
+						{/each}
+					</Select.Group>
+					<Select.Separator />
+					<Select.Group>
+						<Select.Label class="select-group-label">advanced</Select.Label>
+						{#each ADV_STAT_COLS as col (col.key)}
+							<Select.Item value={col.key} label={col.label}>{col.label}</Select.Item>
+						{/each}
+					</Select.Group>
 				</Select.Content>
 			</Select.Root>
 
@@ -367,6 +409,16 @@
 		border: 1px solid var(--border);
 		border-radius: 0.3rem;
 		padding: 0 0.3rem;
+	}
+
+	/* ── Stat select group labels ── */
+	:global(.select-group-label) {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--muted-foreground);
+		padding: 0.375rem 0.75rem 0.125rem;
 	}
 
 	/* ── Filter dropdown internals ── */

@@ -10,6 +10,7 @@
 	let scraping = $state(false);
 	let scrapingInline = $state(false);
 	let expandedMatch = $state<number | null>(null);
+	let showAdvanced = $state(false);
 
 	const STAT_COLS = [
 		{ key: 'kicks',        label: 'K'   },
@@ -31,6 +32,28 @@
 		{ key: 'supercoachPts',label: 'SC'  },
 	] as const;
 
+	const ADV_STAT_COLS = [
+		{ key: 'contestedPossessions',   label: 'CP'   },
+		{ key: 'uncontestedPossessions', label: 'UP'   },
+		{ key: 'effectiveDisposals',     label: 'ED'   },
+		{ key: 'disposalEfficiencyPct',  label: 'DE%'  },
+		{ key: 'contestedMarks',         label: 'CM'   },
+		{ key: 'goalAssists',            label: 'GA'   },
+		{ key: 'marksInside50',          label: 'MI5'  },
+		{ key: 'onePercenters',          label: '1%'   },
+		{ key: 'bounces',                label: 'BO'   },
+		{ key: 'centreClearances',       label: 'CCL'  },
+		{ key: 'stoppageClearances',     label: 'SCL'  },
+		{ key: 'scoreInvolvements',      label: 'SI'   },
+		{ key: 'metresGained',           label: 'MG'   },
+		{ key: 'turnovers',              label: 'TO'   },
+		{ key: 'intercepts',             label: 'ITC'  },
+		{ key: 'tacklesInside50',        label: 'T5'   },
+		{ key: 'timeOnGroundPct',        label: 'TOG%' },
+	] as const;
+
+	const activeCols = $derived(showAdvanced ? ADV_STAT_COLS : STAT_COLS);
+
 	function roundLabel(r: number): string {
 		return r === 0 ? 'Pre-Season' : `Round ${r}`;
 	}
@@ -50,6 +73,15 @@
 		</div>
 
 		<div class="toolbar-right">
+			<button
+				class="adv-toggle"
+				class:adv-toggle-active={showAdvanced}
+				onclick={() => (showAdvanced = !showAdvanced)}
+				title={showAdvanced ? 'showing advanced stats' : 'showing standard stats'}
+			>
+				{showAdvanced ? 'adv' : 'std'}
+			</button>
+
 			<Select.Root
 				type="single"
 				value={String(data.selectedYear)}
@@ -151,8 +183,9 @@
 				{@const awayWon = (match.awayScore ?? 0) > (match.homeScore ?? 0)}
 				{@const homeSlug = teamSlug(match.homeTeam)}
 				{@const awaySlug = teamSlug(match.awayTeam)}
-				{@const homeStats = match.stats.filter((s) => s.teamId === homeSlug)}
-				{@const awayStats = match.stats.filter((s) => s.teamId === awaySlug)}
+				{@const activeStats = showAdvanced ? match.advStats : match.stats}
+				{@const homeStats = activeStats.filter((s) => s.teamId === homeSlug)}
+				{@const awayStats = activeStats.filter((s) => s.teamId === awaySlug)}
 
 				<div class="match-card">
 					<button
@@ -201,7 +234,7 @@
 											<thead>
 												<tr>
 													<th class="col-player">player</th>
-													{#each STAT_COLS as col (col.key)}
+													{#each activeCols as col (col.key)}
 														<th class="col-stat" title={col.key}>{col.label}</th>
 													{/each}
 												</tr>
@@ -210,8 +243,8 @@
 												{#each team.stats as stat (stat.playerName)}
 													<tr>
 														<td class="col-player cell-player">{stat.playerName}</td>
-														{#each STAT_COLS as col (col.key)}
-															<td class="col-stat cell-stat">{stat[col.key]}</td>
+														{#each activeCols as col (col.key)}
+															<td class="col-stat cell-stat">{(stat as Record<string, unknown>)[col.key] ?? '–'}</td>
 														{/each}
 													</tr>
 												{/each}
@@ -300,6 +333,37 @@
 		align-items: center;
 		gap: 0.625rem;
 		flex-wrap: wrap;
+	}
+
+	/* ── Adv toggle ── */
+	.adv-toggle {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		font-family: inherit;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.375rem;
+		border: 1px solid var(--border);
+		background: none;
+		color: var(--muted-foreground);
+		cursor: pointer;
+		transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+	}
+
+	.adv-toggle:hover {
+		background-color: var(--secondary);
+		color: var(--foreground);
+	}
+
+	.adv-toggle-active {
+		background-color: var(--primary);
+		border-color: var(--primary);
+		color: var(--primary-foreground);
+	}
+
+	.adv-toggle-active:hover {
+		background-color: color-mix(in oklch, var(--primary), black 10%);
 	}
 
 	.round-item {
