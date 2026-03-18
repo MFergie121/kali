@@ -58,6 +58,37 @@ export interface ScrapedMatchStats {
   _debug?: Record<string, unknown>;
 }
 
+// Advanced stats from ft_match_statistics?mid=xxx&advv=Y
+// Column order (17 td.statdata): CP UP ED DE% CM GA MI5 1% BO CCL SCL SI MG TO ITC T5 TOG%
+export interface ScrapedPlayerAdvancedStat {
+  playerName: string;
+  teamId: string;
+  contestedPossessions: number;
+  uncontestedPossessions: number;
+  effectiveDisposals: number;
+  disposalEfficiencyPct: number;
+  contestedMarks: number;
+  goalAssists: number;
+  marksInside50: number;
+  onePercenters: number;
+  bounces: number;
+  centreClearances: number;
+  stoppageClearances: number;
+  scoreInvolvements: number;
+  metresGained: number;
+  turnovers: number;
+  intercepts: number;
+  tacklesInside50: number;
+  timeOnGroundPct: number;
+}
+
+export interface ScrapedMatchAdvancedStats {
+  match: ScrapedMatch;
+  homeAdvStats: ScrapedPlayerAdvancedStat[];
+  awayAdvStats: ScrapedPlayerAdvancedStat[];
+  _debug?: Record<string, unknown>;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function num(s: string | undefined): number {
@@ -439,4 +470,156 @@ export async function scrapeMatchStats(
     `[afl-scraper] scrapeMatchStats: final match=${JSON.stringify(match)}`,
   );
   return { match, homeStats, awayStats, _debug };
+}
+
+// ─── Step 3b: Scrape advanced player stats for a match ────────────────────────
+
+export async function scrapeMatchAdvancedStats(
+  mid: number,
+): Promise<ScrapedMatchAdvancedStats> {
+  const url = `${BASE}/ft_match_statistics?mid=${mid}&advv=Y`;
+  console.log(`[afl-scraper] scrapeMatchAdvancedStats: fetching ${url}`);
+
+  const res = await fetch(url, { headers: HEADERS });
+  console.log(`[afl-scraper] scrapeMatchAdvancedStats: HTTP ${res.status}`);
+  const html = await res.text();
+  console.log(
+    `[afl-scraper] scrapeMatchAdvancedStats: HTML length=${html.length}`,
+  );
+
+  const root = parse(html);
+
+  // ── Score table — same structure as base page ─────────────────────────────
+  const scoreTable = root.querySelector("#matchscoretable");
+  if (!scoreTable) {
+    throw new Error(`#matchscoretable not found for mid=${mid} (advv=Y)`);
+  }
+  const scoreRows = scoreTable.querySelectorAll("tr");
+  if (scoreRows.length < 3) {
+    throw new Error(
+      `#matchscoretable has only ${scoreRows.length} rows for mid=${mid} (advv=Y)`,
+    );
+  }
+
+  const homeScoreCells = scoreRows[1].querySelectorAll("td");
+  const awayScoreCells = scoreRows[2].querySelectorAll("td");
+  const scoreHomeTeamName =
+    scoreRows[1].querySelector("a")?.text.trim() ??
+    homeScoreCells[0]?.text.trim() ??
+    "";
+  const scoreAwayTeamName =
+    scoreRows[2].querySelector("a")?.text.trim() ??
+    awayScoreCells[0]?.text.trim() ??
+    "";
+  const homeScore = num(homeScoreCells[homeScoreCells.length - 1]?.text);
+  const awayScore = num(awayScoreCells[awayScoreCells.length - 1]?.text);
+
+  // ── Body text for match metadata ─────────────────────────────────────────
+  const bodyText = root.text;
+  const roundMatch = bodyText.match(/Round\s+(\d+)/i);
+  const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
+  const venueMatch = bodyText.match(/Round\s+\d+,\s+([^,\n]+)/i);
+  const venue = venueMatch ? venueMatch[1].trim() : "";
+  const attendanceMatch = bodyText.match(/Attendance:\s*([\d,]+)/i);
+  const crowd = attendanceMatch
+    ? parseInt(attendanceMatch[1].replace(/,/g, ""), 10)
+    : null;
+  const dateMatch = bodyText.match(/\b(\w+day),\s+(\d+\w+\s+\w+\s+\d{4})/i);
+  const date = dateMatch ? `${dateMatch[1]}, ${dateMatch[2]}` : "";
+  const yearMatch = bodyText.match(/\b(20\d{2})\b/);
+  const year = yearMatch
+    ? parseInt(yearMatch[1], 10)
+    : new Date().getFullYear();
+
+  // ── Per-team stat sections ────────────────────────────────────────────────
+  const team1Section = root.querySelector("#match-statistics-team1-row");
+  const team2Section = root.querySelector("#match-statistics-team2-row");
+
+  if (!team1Section || !team2Section) {
+    throw new Error(
+      `Could not find team stat sections for mid=${mid} (advv=Y, team1=${!!team1Section}, team2=${!!team2Section})`,
+    );
+  }
+
+  function extractSectionTeamName(
+    section: ReturnType<typeof root.querySelector>,
+  ): string {
+    const raw = section!.querySelector("td.innertbtitle")?.text ?? "";
+    return raw
+      .replace(/\s*match statistics.*/i, "")
+      .replace(/\u00a0/g, " ")
+      .trim();
+  }
+
+  // Advanced stat column order (17 td.statdata cells):
+  // 0:CP 1:UP 2:ED 3:DE% 4:CM 5:GA 6:MI5 7:1% 8:BO 9:CCL 10:SCL 11:SI 12:MG 13:TO 14:ITC 15:T5 16:TOG%
+  function parseAdvancedStatRows(
+    section: ReturnType<typeof root.querySelector>,
+    teamId: string,
+  ): ScrapedPlayerAdvancedStat[] {
+    const rows = section!.querySelectorAll("tr.darkcolor, tr.lightcolor");
+    const stats: ScrapedPlayerAdvancedStat[] = [];
+
+    for (const row of rows) {
+      const playerName = row.querySelector("td a")?.text.trim() ?? "";
+      if (!playerName) continue;
+
+      const sd = row.querySelectorAll("td.statdata");
+      if (sd.length < 17) continue;
+
+      stats.push({
+        playerName,
+        teamId,
+        contestedPossessions: num(sd[0]?.text),
+        uncontestedPossessions: num(sd[1]?.text),
+        effectiveDisposals: num(sd[2]?.text),
+        disposalEfficiencyPct: num(sd[3]?.text),
+        contestedMarks: num(sd[4]?.text),
+        goalAssists: num(sd[5]?.text),
+        marksInside50: num(sd[6]?.text),
+        onePercenters: num(sd[7]?.text),
+        bounces: num(sd[8]?.text),
+        centreClearances: num(sd[9]?.text),
+        stoppageClearances: num(sd[10]?.text),
+        scoreInvolvements: num(sd[11]?.text),
+        metresGained: num(sd[12]?.text),
+        turnovers: num(sd[13]?.text),
+        intercepts: num(sd[14]?.text),
+        tacklesInside50: num(sd[15]?.text),
+        timeOnGroundPct: num(sd[16]?.text),
+      });
+    }
+
+    return stats;
+  }
+
+  const section1Name = extractSectionTeamName(team1Section);
+  const section2Name = extractSectionTeamName(team2Section);
+
+  const homeTeamInfo = nameToTeamInfo(section1Name || scoreHomeTeamName);
+  const awayTeamInfo = nameToTeamInfo(section2Name || scoreAwayTeamName);
+
+  const homeAdvStats = parseAdvancedStatRows(team1Section, homeTeamInfo.id);
+  const awayAdvStats = parseAdvancedStatRows(team2Section, awayTeamInfo.id);
+
+  console.log(
+    `[afl-scraper] scrapeMatchAdvancedStats: homeTeam=${homeTeamInfo.id}, homeAdv=${homeAdvStats.length}, awayAdv=${awayAdvStats.length}`,
+  );
+
+  const match: ScrapedMatch = {
+    mid,
+    round,
+    year,
+    homeTeam: homeTeamInfo,
+    awayTeam: awayTeamInfo,
+    homeScore,
+    awayScore,
+    venue,
+    date,
+    crowd,
+  };
+
+  const _debug = { section1Name, section2Name, homeScore, awayScore };
+
+  return { match, homeAdvStats, awayAdvStats, _debug };
 }

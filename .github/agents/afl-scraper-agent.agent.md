@@ -71,7 +71,7 @@ begins.
 
 ---
 
-### Step 3 — `scrapeMatchStats(mid): Promise<ScrapedMatchStats>`
+### Step 3a — `scrapeMatchStats(mid): Promise<ScrapedMatchStats>`
 
 **URL**: `ft_match_statistics?mid={mid}`
 
@@ -123,6 +123,40 @@ footywire HTML — never fragile heuristics like heading text scanning.
 | 14    | Frees Against   | `freesAgainst`  |
 | 15    | AFL Fantasy Pts | `aflFantasyPts` |
 | 16    | Supercoach Pts  | `supercoachPts` |
+
+---
+
+### Step 3b — `scrapeMatchAdvancedStats(mid): Promise<ScrapedMatchAdvancedStats>`
+
+**URL**: `ft_match_statistics?mid={mid}&advv=Y`
+
+Identical HTML structure to Step 3a (`#matchscoretable`, `#match-statistics-team1-row`, `#match-statistics-team2-row`, `tr.darkcolor`/`tr.lightcolor`, `td.statdata`). Returns `homeAdvStats` / `awayAdvStats` instead of `homeStats` / `awayStats`.
+
+#### Advanced Stat Column Order (fixed, 17 cells, 0-indexed)
+
+| Index | Header | Stat                    | Field                    |
+| ----- | ------ | ----------------------- | ------------------------ |
+| 0     | CP     | Contested Possessions   | `contestedPossessions`   |
+| 1     | UP     | Uncontested Possessions | `uncontestedPossessions` |
+| 2     | ED     | Effective Disposals     | `effectiveDisposals`     |
+| 3     | DE%    | Disposal Efficiency %   | `disposalEfficiencyPct`  |
+| 4     | CM     | Contested Marks         | `contestedMarks`         |
+| 5     | GA     | Goal Assists            | `goalAssists`            |
+| 6     | MI5    | Marks Inside 50         | `marksInside50`          |
+| 7     | 1%     | One Percenters          | `onePercenters`          |
+| 8     | BO     | Bounces                 | `bounces`                |
+| 9     | CCL    | Centre Clearances       | `centreClearances`       |
+| 10    | SCL    | Stoppage Clearances     | `stoppageClearances`     |
+| 11    | SI     | Score Involvements      | `scoreInvolvements`      |
+| 12    | MG     | Metres Gained           | `metresGained`           |
+| 13    | TO     | Turnovers               | `turnovers`              |
+| 14    | ITC    | Intercepts              | `intercepts`             |
+| 15    | T5     | Tackles Inside 50       | `tacklesInside50`        |
+| 16    | TOG%   | Time On Ground %        | `timeOnGroundPct`        |
+
+The scrape action calls both `scrapeMatchStats` and `scrapeMatchAdvancedStats` in parallel via `Promise.all` for each match ID.
+
+---
 
 #### Key selectors in `scrapeMatchStats`
 
@@ -198,6 +232,23 @@ interface ScrapedMatchStats {
   awayStats: ScrapedPlayerStat[];
   _debug?: Record<string, unknown>; // returned for debug scrape, not persisted
 }
+
+interface ScrapedPlayerAdvancedStat {
+  playerName: string;
+  teamId: string;
+  contestedPossessions; uncontestedPossessions; effectiveDisposals;
+  disposalEfficiencyPct; contestedMarks; goalAssists; marksInside50;
+  onePercenters; bounces; centreClearances; stoppageClearances;
+  scoreInvolvements; metresGained; turnovers; intercepts;
+  tacklesInside50; timeOnGroundPct: number;
+}
+
+interface ScrapedMatchAdvancedStats {
+  match: ScrapedMatch;
+  homeAdvStats: ScrapedPlayerAdvancedStat[];
+  awayAdvStats: ScrapedPlayerAdvancedStat[];
+  _debug?: Record<string, unknown>;
+}
 ```
 
 ---
@@ -241,6 +292,7 @@ without a browser User-Agent (returns HTTP 406).**
 | Player stats show column headers ("K", "G") as player names | A combined stats table was parsed instead of per-team sections — always use `#match-statistics-team1-row` / `team2-row` |
 | Carlton appearing in every match                            | Old bug: `/th-/` link scanning from site nav. Never query `a[href*="/th-"]` globally                                    |
 | `onConflictDoNothing` silently keeps stale data             | The service layer uses `onConflictDoUpdate` — re-scraping always overwrites                                             |
+| Advanced stats missing after re-scrape                      | Both `batchUpsertPlayerStats` and `batchUpsertPlayerAdvancedStats` are called; check `player_stats_advanced` table      |
 | `num()` returning 0 for missing cells                       | Expected — footywire sometimes omits cells for DNP players; row is filtered by `sd.length < 17`                         |
 | Round 0 treated as "no round"                               | Use `=== null` not `=== 0` to check for no completed round                                                              |
 

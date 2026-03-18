@@ -75,6 +75,41 @@ export const playerStats = sqliteTable(
 	(t) => [uniqueIndex('player_stats_player_match_idx').on(t.playerId, t.matchId)]
 );
 
+// ─── Player Advanced Stats ────────────────────────────────────────────────────
+// Source: ft_match_statistics?mid=xxx&advv=Y
+// Column order (17 td.statdata cells): CP UP ED DE% CM GA MI5 1% BO CCL SCL SI MG TO ITC T5 TOG%
+
+export const playerStatsAdvanced = sqliteTable(
+	'player_stats_advanced',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		playerId: integer('player_id')
+			.notNull()
+			.references(() => players.id),
+		matchId: integer('match_id')
+			.notNull()
+			.references(() => matches.id),
+		contestedPossessions: integer('contested_possessions').notNull().default(0),
+		uncontestedPossessions: integer('uncontested_possessions').notNull().default(0),
+		effectiveDisposals: integer('effective_disposals').notNull().default(0),
+		disposalEfficiencyPct: integer('disposal_efficiency_pct').notNull().default(0),
+		contestedMarks: integer('contested_marks').notNull().default(0),
+		goalAssists: integer('goal_assists').notNull().default(0),
+		marksInside50: integer('marks_inside_50').notNull().default(0),
+		onePercenters: integer('one_percenters').notNull().default(0),
+		bounces: integer('bounces').notNull().default(0),
+		centreClearances: integer('centre_clearances').notNull().default(0),
+		stoppageClearances: integer('stoppage_clearances').notNull().default(0),
+		scoreInvolvements: integer('score_involvements').notNull().default(0),
+		metresGained: integer('metres_gained').notNull().default(0),
+		turnovers: integer('turnovers').notNull().default(0),
+		intercepts: integer('intercepts').notNull().default(0),
+		tacklesInside50: integer('tackles_inside_50').notNull().default(0),
+		timeOnGroundPct: integer('time_on_ground_pct').notNull().default(0)
+	},
+	(t) => [uniqueIndex('player_stats_adv_player_match_idx').on(t.playerId, t.matchId)]
+);
+
 // ─── API Users ────────────────────────────────────────────────────────────────
 
 export const apiUsers = sqliteTable('api_users', {
@@ -111,9 +146,11 @@ export type Team = typeof teams.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type PlayerStat = typeof playerStats.$inferSelect;
+export type PlayerStatAdvanced = typeof playerStatsAdvanced.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
 export type NewPlayer = typeof players.$inferInsert;
 export type NewPlayerStat = typeof playerStats.$inferInsert;
+export type NewPlayerStatAdvanced = typeof playerStatsAdvanced.$inferInsert;
 export type ApiUser = typeof apiUsers.$inferSelect;
 export type NewApiUser = typeof apiUsers.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;

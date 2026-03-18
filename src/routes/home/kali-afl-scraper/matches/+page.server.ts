@@ -1,5 +1,6 @@
-import { getMatchIdsForRound, scrapeMatchStats } from "$lib/afl/scraper";
+import { getMatchIdsForRound, scrapeMatchAdvancedStats, scrapeMatchStats } from "$lib/afl/scraper";
 import {
+  batchUpsertPlayerAdvancedStats,
   batchUpsertPlayerStats,
   getMatchesForRoundAndYear,
   getPlayerStatsForMatch,
@@ -89,13 +90,18 @@ export const actions: Actions = {
         console.log(
           `[afl-scraper] action: scraping mid=${mid} (${matchesScraped + 1}/${mids.length})`,
         );
-        const data = await scrapeMatchStats(mid);
+        const [data, advData] = await Promise.all([
+          scrapeMatchStats(mid),
+          scrapeMatchAdvancedStats(mid),
+        ]);
         console.log(
           `[afl-scraper] action: persisting mid=${mid} — ${data.homeStats.length} home + ${data.awayStats.length} away players`,
         );
         await upsertMatch(data.match);
         batchUpsertPlayerStats(data.homeStats, mid);
         batchUpsertPlayerStats(data.awayStats, mid);
+        batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid);
+        batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid);
         matchesScraped++;
         console.log(`[afl-scraper] action: mid=${mid} done`);
       }

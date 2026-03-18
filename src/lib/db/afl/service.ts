@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import type { ScrapedMatch, ScrapedPlayerStat } from "$lib/afl/scraper";
+import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
 import { db } from "$lib/db/afl";
-import { apiKeys, apiUsers, matches, players, playerStats, teams } from "$lib/db/afl/schema";
+import { apiKeys, apiUsers, matches, players, playerStats, playerStatsAdvanced, teams } from "$lib/db/afl/schema";
 import type { ApiKey, ApiUser, Player, Team } from "$lib/db/afl/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
@@ -146,6 +146,118 @@ export function batchUpsertPlayerStats(
       })
       .run();
   }
+}
+
+// ─── Player Advanced Stats ────────────────────────────────────────────────────
+
+export function batchUpsertPlayerAdvancedStats(
+  stats: ScrapedPlayerAdvancedStat[],
+  matchId: number,
+): void {
+  for (const stat of stats) {
+    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId);
+
+    const statValues = {
+      playerId,
+      matchId,
+      contestedPossessions: stat.contestedPossessions,
+      uncontestedPossessions: stat.uncontestedPossessions,
+      effectiveDisposals: stat.effectiveDisposals,
+      disposalEfficiencyPct: stat.disposalEfficiencyPct,
+      contestedMarks: stat.contestedMarks,
+      goalAssists: stat.goalAssists,
+      marksInside50: stat.marksInside50,
+      onePercenters: stat.onePercenters,
+      bounces: stat.bounces,
+      centreClearances: stat.centreClearances,
+      stoppageClearances: stat.stoppageClearances,
+      scoreInvolvements: stat.scoreInvolvements,
+      metresGained: stat.metresGained,
+      turnovers: stat.turnovers,
+      intercepts: stat.intercepts,
+      tacklesInside50: stat.tacklesInside50,
+      timeOnGroundPct: stat.timeOnGroundPct,
+    };
+    db.insert(playerStatsAdvanced)
+      .values(statValues)
+      .onConflictDoUpdate({
+        target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
+        set: {
+          contestedPossessions: statValues.contestedPossessions,
+          uncontestedPossessions: statValues.uncontestedPossessions,
+          effectiveDisposals: statValues.effectiveDisposals,
+          disposalEfficiencyPct: statValues.disposalEfficiencyPct,
+          contestedMarks: statValues.contestedMarks,
+          goalAssists: statValues.goalAssists,
+          marksInside50: statValues.marksInside50,
+          onePercenters: statValues.onePercenters,
+          bounces: statValues.bounces,
+          centreClearances: statValues.centreClearances,
+          stoppageClearances: statValues.stoppageClearances,
+          scoreInvolvements: statValues.scoreInvolvements,
+          metresGained: statValues.metresGained,
+          turnovers: statValues.turnovers,
+          intercepts: statValues.intercepts,
+          tacklesInside50: statValues.tacklesInside50,
+          timeOnGroundPct: statValues.timeOnGroundPct,
+        },
+      })
+      .run();
+  }
+}
+
+export interface PlayerAdvancedStatRow {
+  matchId: number;
+  playerName: string;
+  teamId: string;
+  contestedPossessions: number;
+  uncontestedPossessions: number;
+  effectiveDisposals: number;
+  disposalEfficiencyPct: number;
+  contestedMarks: number;
+  goalAssists: number;
+  marksInside50: number;
+  onePercenters: number;
+  bounces: number;
+  centreClearances: number;
+  stoppageClearances: number;
+  scoreInvolvements: number;
+  metresGained: number;
+  turnovers: number;
+  intercepts: number;
+  tacklesInside50: number;
+  timeOnGroundPct: number;
+}
+
+export function getAdvancedPlayerStatsForMatch(matchId: number): PlayerAdvancedStatRow[] {
+  return db
+    .select({
+      matchId: playerStatsAdvanced.matchId,
+      playerName: players.name,
+      teamId: players.teamId,
+      contestedPossessions: playerStatsAdvanced.contestedPossessions,
+      uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
+      effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
+      disposalEfficiencyPct: playerStatsAdvanced.disposalEfficiencyPct,
+      contestedMarks: playerStatsAdvanced.contestedMarks,
+      goalAssists: playerStatsAdvanced.goalAssists,
+      marksInside50: playerStatsAdvanced.marksInside50,
+      onePercenters: playerStatsAdvanced.onePercenters,
+      bounces: playerStatsAdvanced.bounces,
+      centreClearances: playerStatsAdvanced.centreClearances,
+      stoppageClearances: playerStatsAdvanced.stoppageClearances,
+      scoreInvolvements: playerStatsAdvanced.scoreInvolvements,
+      metresGained: playerStatsAdvanced.metresGained,
+      turnovers: playerStatsAdvanced.turnovers,
+      intercepts: playerStatsAdvanced.intercepts,
+      tacklesInside50: playerStatsAdvanced.tacklesInside50,
+      timeOnGroundPct: playerStatsAdvanced.timeOnGroundPct,
+    })
+    .from(playerStatsAdvanced)
+    .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
+    .where(eq(playerStatsAdvanced.matchId, matchId))
+    .orderBy(desc(playerStatsAdvanced.contestedPossessions))
+    .all();
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
