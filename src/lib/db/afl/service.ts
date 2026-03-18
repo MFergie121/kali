@@ -229,6 +229,66 @@ export interface PlayerAdvancedStatRow {
   timeOnGroundPct: number;
 }
 
+export function getPlayerAdvancedStatsPaginated(opts: {
+  matchId?: number;
+  playerId?: number;
+  year?: number;
+  round?: number;
+  limit: number;
+  offset: number;
+}): { data: PlayerAdvancedStatRow[]; total: number } {
+  const conditions = [
+    opts.matchId !== undefined ? eq(playerStatsAdvanced.matchId, opts.matchId) : undefined,
+    opts.playerId !== undefined ? eq(playerStatsAdvanced.playerId, opts.playerId) : undefined,
+    opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
+    opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
+  ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const totalRow = db
+    .select({ total: sql<number>`count(*)` })
+    .from(playerStatsAdvanced)
+    .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
+    .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
+    .where(where)
+    .get();
+  const total = totalRow?.total ?? 0;
+
+  const data = db
+    .select({
+      matchId: playerStatsAdvanced.matchId,
+      playerName: players.name,
+      teamId: players.teamId,
+      contestedPossessions: playerStatsAdvanced.contestedPossessions,
+      uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
+      effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
+      disposalEfficiencyPct: playerStatsAdvanced.disposalEfficiencyPct,
+      contestedMarks: playerStatsAdvanced.contestedMarks,
+      goalAssists: playerStatsAdvanced.goalAssists,
+      marksInside50: playerStatsAdvanced.marksInside50,
+      onePercenters: playerStatsAdvanced.onePercenters,
+      bounces: playerStatsAdvanced.bounces,
+      centreClearances: playerStatsAdvanced.centreClearances,
+      stoppageClearances: playerStatsAdvanced.stoppageClearances,
+      scoreInvolvements: playerStatsAdvanced.scoreInvolvements,
+      metresGained: playerStatsAdvanced.metresGained,
+      turnovers: playerStatsAdvanced.turnovers,
+      intercepts: playerStatsAdvanced.intercepts,
+      tacklesInside50: playerStatsAdvanced.tacklesInside50,
+      timeOnGroundPct: playerStatsAdvanced.timeOnGroundPct,
+    })
+    .from(playerStatsAdvanced)
+    .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
+    .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
+    .where(where)
+    .orderBy(desc(playerStatsAdvanced.contestedPossessions))
+    .limit(opts.limit)
+    .offset(opts.offset)
+    .all();
+
+  return { data, total };
+}
+
 export function getAdvancedPlayerStatsForMatch(matchId: number): PlayerAdvancedStatRow[] {
   return db
     .select({
