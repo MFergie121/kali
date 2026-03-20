@@ -28,7 +28,7 @@
 	const statsNavItems = [
 		{ href: '/home/kali-afl-scraper/matches', label: 'Matches & Stats' },
 		{ href: '/home/kali-afl-scraper/players', label: 'Players & Stats' },
-		{ href: '/home/kali-afl-scraper/section-2', label: 'Teams & Stats' }
+		{ href: '/home/kali-afl-scraper/teams', label: 'Teams & Stats' }
 	] as const;
 
 	const apiDocsNavItems = [

@@ -31,7 +31,7 @@ export interface ScrapedTeam {
 
 export interface ScrapedPlayerStat {
   playerName: string;
-  footywireId: string;
+  onlineId: string;
   teamId: string;
   kicks: number;
   handballs: number;
@@ -63,7 +63,7 @@ export interface ScrapedMatchStats {
 // Column order (17 td.statdata): CP UP ED DE% CM GA MI5 1% BO CCL SCL SI MG TO ITC T5 TOG%
 export interface ScrapedPlayerAdvancedStat {
   playerName: string;
-  footywireId: string;
+  onlineId: string;
   teamId: string;
   contestedPossessions: number;
   uncontestedPossessions: number;
@@ -401,7 +401,7 @@ export async function scrapeMatchStats(
       // href format: "pp-{team-slug}--{player-name-slug}"
       // The name slug (after "--") is stable even when the player transfers teams.
       // The team slug portion is retroactively updated by footywire on transfers.
-      const footywireId = href.includes("--")
+      const onlineId = href.includes("--")
         ? href.split("--").pop()!
         : playerName.toLowerCase().replace(/\s+/g, "-");
 
@@ -410,7 +410,7 @@ export async function scrapeMatchStats(
 
       stats.push({
         playerName,
-        footywireId,
+        onlineId,
         teamId,
         kicks: num(sd[0]?.text),
         handballs: num(sd[1]?.text),
@@ -580,7 +580,7 @@ export async function scrapeMatchAdvancedStats(
       if (!playerName) continue;
 
       const href = anchor?.getAttribute("href") ?? "";
-      const footywireId = href.includes("--")
+      const onlineId = href.includes("--")
         ? href.split("--").pop()!
         : playerName.toLowerCase().replace(/\s+/g, "-");
 
@@ -589,7 +589,7 @@ export async function scrapeMatchAdvancedStats(
 
       stats.push({
         playerName,
-        footywireId,
+        onlineId,
         teamId,
         contestedPossessions: num(sd[0]?.text),
         uncontestedPossessions: num(sd[1]?.text),

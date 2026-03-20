@@ -29,6 +29,11 @@
 	}
 
 	// ── Toggle compare mode ───────────────────────────────────────────────────
+	// Sync compareMode when compareTeamId is set via h2h dropdown navigation
+	$effect(() => {
+		if (data.compareTeamId) compareMode = true;
+	});
+
 	$effect(() => {
 		if (compareMode) activeTab = 'h2h';
 		else if (data.compareTeamId) nav({ compare: null });

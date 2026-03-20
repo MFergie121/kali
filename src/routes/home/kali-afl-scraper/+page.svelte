@@ -22,7 +22,7 @@
 			badge: `${data.snapshot.totalPlayers.toLocaleString()} players`
 		},
 		{
-			href: '/home/kali-afl-scraper/section-2',
+			href: '/home/kali-afl-scraper/teams',
 			label: 'teams & stats',
 			description: 'Season-level breakdowns by team',
 			badge: 'season breakdowns'

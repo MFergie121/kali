@@ -48,17 +48,17 @@ export const actions: Actions = {
 
 	setLimit: async ({ request }) => {
 		const data = await request.formData();
-		const userId = parseInt(data.get('userId') as string, 10);
+		const keyId = parseInt(data.get('keyId') as string, 10);
 		const limitRaw = (data.get('limit') as string)?.trim();
 
-		if (isNaN(userId) || userId < 1) return fail(400, { error: 'Invalid user.' });
+		if (isNaN(keyId) || keyId < 1) return fail(400, { error: 'Invalid key.' });
 
 		const limit = limitRaw === '' || limitRaw === 'null' ? null : parseInt(limitRaw, 10);
 		if (limit !== null && (isNaN(limit) || limit < 0)) {
 			return fail(400, { error: 'Limit must be a non-negative integer or blank for unlimited.' });
 		}
 
-		setApiLimit(userId, limit);
+		setApiLimit(keyId, limit);
 		return { limitUpdated: true };
 	}
 };

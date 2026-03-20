@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
 import { db } from "$lib/db/afl";
-import { apiKeys, apiUsers, matches, players, playerStats, playerStatsAdvanced, teams } from "$lib/db/afl/schema";
-import type { ApiKey, ApiUser, Player, Team } from "$lib/db/afl/schema";
+import { apiKeys, kaliUsers, matches, players, playerStats, playerStatsAdvanced, teams } from "$lib/db/afl/schema";
+import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
     homeScore: scraped.homeScore,
     awayScore: scraped.awayScore,
     crowd: scraped.crowd,
-    scrapedAt: new Date().toISOString(),
+    sourcedAt: new Date().toISOString(),
   };
   db.insert(matches)
     .values(matchValues)
@@ -48,7 +48,7 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
         homeScore: matchValues.homeScore,
         awayScore: matchValues.awayScore,
         crowd: matchValues.crowd,
-        scrapedAt: matchValues.scrapedAt,
+        sourcedAt: matchValues.sourcedAt,
       },
     })
     .run();
@@ -59,27 +59,27 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
 export function getOrCreatePlayer(
   name: string,
   teamId: string,
-  footywireId: string,
+  onlineId: string,
 ): number {
-  // Look up by footywireId — stable across team transfers and name abbreviations.
+  // Look up by onlineId — stable across team transfers and name abbreviations.
   const existing = db
     .select({ id: players.id })
     .from(players)
-    .where(eq(players.footywireId, footywireId))
+    .where(eq(players.onlineId, onlineId))
     .get();
 
   if (existing) {
     // Keep name and teamId fresh without changing the row's identity.
     db.update(players)
       .set({ name, teamId })
-      .where(eq(players.footywireId, footywireId))
+      .where(eq(players.onlineId, onlineId))
       .run();
     return existing.id;
   }
 
   const result = db
     .insert(players)
-    .values({ name, teamId, footywireId })
+    .values({ name, teamId, onlineId })
     .onConflictDoNothing()
     .returning({ id: players.id })
     .get();
@@ -90,12 +90,12 @@ export function getOrCreatePlayer(
   const fallback = db
     .select({ id: players.id })
     .from(players)
-    .where(eq(players.footywireId, footywireId))
+    .where(eq(players.onlineId, onlineId))
     .get();
 
   if (!fallback)
     throw new Error(
-      `Failed to get or create player: ${name} (footywireId=${footywireId})`,
+      `Failed to get or create player: ${name} (onlineId=${onlineId})`,
     );
   return fallback.id;
 }
@@ -107,7 +107,7 @@ export function batchUpsertPlayerStats(
   matchId: number,
 ): void {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.footywireId);
+    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
 
     const statValues = {
       playerId,
@@ -167,7 +167,7 @@ export function batchUpsertPlayerAdvancedStats(
   matchId: number,
 ): void {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.footywireId);
+    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
 
     const statValues = {
       playerId,
@@ -349,7 +349,7 @@ export interface MatchRow {
   venue: string;
   date: string;
   crowd: number | null;
-  scrapedAt: string;
+  sourcedAt: string;
 }
 
 export interface PlayerStatRow {
@@ -417,7 +417,7 @@ export function getMatchesForRound(round: number): MatchRow[] {
       venue: matches.venue,
       date: matches.date,
       crowd: matches.crowd,
-      scrapedAt: matches.scrapedAt,
+      sourcedAt: matches.sourcedAt,
     })
     .from(matches)
     .where(eq(matches.round, round))
@@ -440,7 +440,7 @@ export function getMatchesForRound(round: number): MatchRow[] {
     venue: r.venue,
     date: r.date,
     crowd: r.crowd,
-    scrapedAt: r.scrapedAt,
+    sourcedAt: r.sourcedAt,
   }));
 }
 
@@ -460,7 +460,7 @@ export function getMatchesForRoundAndYear(
       venue: matches.venue,
       date: matches.date,
       crowd: matches.crowd,
-      scrapedAt: matches.scrapedAt,
+      sourcedAt: matches.sourcedAt,
     })
     .from(matches)
     .where(and(eq(matches.round, round), eq(matches.year, year)))
@@ -482,7 +482,7 @@ export function getMatchesForRoundAndYear(
     venue: r.venue,
     date: r.date,
     crowd: r.crowd,
-    scrapedAt: r.scrapedAt,
+    sourcedAt: r.sourcedAt,
   }));
 }
 
@@ -670,7 +670,7 @@ export function getMatchesPaginated(opts: {
       venue: matches.venue,
       date: matches.date,
       crowd: matches.crowd,
-      scrapedAt: matches.scrapedAt,
+      sourcedAt: matches.sourcedAt,
     })
     .from(matches)
     .where(where)
@@ -695,7 +695,7 @@ export function getMatchesPaginated(opts: {
     venue: r.venue,
     date: r.date,
     crowd: r.crowd,
-    scrapedAt: r.scrapedAt,
+    sourcedAt: r.sourcedAt,
   }));
 
   return { data, total };
@@ -801,41 +801,41 @@ export interface UserPreferences {
 
 export function getUserPreferences(email: string): UserPreferences | null {
   const row = db
-    .select({ prefTheme: apiUsers.prefTheme, prefFont: apiUsers.prefFont, prefDarkMode: apiUsers.prefDarkMode })
-    .from(apiUsers)
-    .where(eq(apiUsers.email, email))
+    .select({ prefTheme: kaliUsers.prefTheme, prefFont: kaliUsers.prefFont, prefDarkMode: kaliUsers.prefDarkMode })
+    .from(kaliUsers)
+    .where(eq(kaliUsers.email, email))
     .get();
   return row ?? null;
 }
 
 export function upsertUserPreferences(email: string, prefs: Partial<UserPreferences>): void {
-  db.update(apiUsers).set(prefs).where(eq(apiUsers.email, email)).run();
+  db.update(kaliUsers).set(prefs).where(eq(kaliUsers.email, email)).run();
 }
 
-// ─── API Users ────────────────────────────────────────────────────────────────
+// ─── Kali Users ───────────────────────────────────────────────────────────────
 
 export function getOrCreateUser(opts: {
   email: string;
   name: string;
   provider: string;
-}): ApiUser {
+}): KaliUser {
   const now = new Date().toISOString();
-  db.insert(apiUsers)
+  db.insert(kaliUsers)
     .values({ email: opts.email, name: opts.name, provider: opts.provider, createdAt: now, lastActiveAt: now })
     .onConflictDoUpdate({
-      target: apiUsers.email,
+      target: kaliUsers.email,
       set: { name: opts.name, provider: opts.provider, lastActiveAt: now },
     })
     .run();
-  return db.select().from(apiUsers).where(eq(apiUsers.email, opts.email)).get()!;
+  return db.select().from(kaliUsers).where(eq(kaliUsers.email, opts.email)).get()!;
 }
 
-export function listUsers(): ApiUser[] {
-  return db.select().from(apiUsers).orderBy(desc(apiUsers.createdAt)).all();
+export function listUsers(): KaliUser[] {
+  return db.select().from(kaliUsers).orderBy(desc(kaliUsers.createdAt)).all();
 }
 
-export function setApiLimit(userId: number, limit: number | null): void {
-  db.update(apiUsers).set({ apiLimit: limit }).where(eq(apiUsers.id, userId)).run();
+export function setApiLimit(keyId: number, limit: number | null): void {
+  db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId)).run();
 }
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
@@ -866,11 +866,13 @@ export function listAllApiKeys(): (ApiKey & { userName: string; userEmail: strin
       createdAt: apiKeys.createdAt,
       lastUsedAt: apiKeys.lastUsedAt,
       revoked: apiKeys.revoked,
-      userName: apiUsers.name,
-      userEmail: apiUsers.email,
+      usage: apiKeys.usage,
+      limit: apiKeys.limit,
+      userName: kaliUsers.name,
+      userEmail: kaliUsers.email,
     })
     .from(apiKeys)
-    .innerJoin(apiUsers, eq(apiKeys.userId, apiUsers.id))
+    .innerJoin(kaliUsers, eq(apiKeys.userId, kaliUsers.id))
     .orderBy(desc(apiKeys.createdAt))
     .all();
 }
@@ -885,25 +887,27 @@ export function validateApiKey(key: string): { valid: boolean; rateLimited?: boo
       keyId: apiKeys.id,
       revoked: apiKeys.revoked,
       userId: apiKeys.userId,
-      apiUsage: apiUsers.apiUsage,
-      apiLimit: apiUsers.apiLimit,
+      usage: apiKeys.usage,
+      limit: apiKeys.limit,
     })
     .from(apiKeys)
-    .innerJoin(apiUsers, eq(apiKeys.userId, apiUsers.id))
     .where(eq(apiKeys.key, key))
     .get();
 
   if (!row || row.revoked) return { valid: false };
 
-  if (row.apiLimit !== null && row.apiUsage >= row.apiLimit) {
+  if (row.limit !== null && row.usage >= row.limit) {
     return { valid: false, rateLimited: true };
   }
 
   const now = new Date().toISOString();
-  db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, row.keyId)).run();
-  db.update(apiUsers)
-    .set({ lastActiveAt: now, apiUsage: row.apiUsage + 1 })
-    .where(eq(apiUsers.id, row.userId))
+  db.update(apiKeys)
+    .set({ lastUsedAt: now, usage: row.usage + 1 })
+    .where(eq(apiKeys.id, row.keyId))
+    .run();
+  db.update(kaliUsers)
+    .set({ lastActiveAt: now })
+    .where(eq(kaliUsers.id, row.userId))
     .run();
 
   return { valid: true };

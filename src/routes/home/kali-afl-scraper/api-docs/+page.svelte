@@ -264,7 +264,7 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
       "venue":         "SCG",
       "date":          "2024-04-20T13:45:00",
       "crowd":         38214,
-      "scrapedAt":     "2024-04-21T00:12:44.231Z"
+      "sourcedAt":     "2024-04-21T00:12:44.231Z"
     }
     // ...
   ],
