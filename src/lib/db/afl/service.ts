@@ -56,20 +56,30 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
 
 // ─── Players ──────────────────────────────────────────────────────────────────
 
-export function getOrCreatePlayer(name: string, teamId: string): number {
-  // Look up by (name, teamId) to match the unique index — avoids reusing
-  // old player rows that have a stale teamId from a previous bad scrape.
+export function getOrCreatePlayer(
+  name: string,
+  teamId: string,
+  footywireId: string,
+): number {
+  // Look up by footywireId — stable across team transfers and name abbreviations.
   const existing = db
     .select({ id: players.id })
     .from(players)
-    .where(and(eq(players.name, name), eq(players.teamId, teamId)))
+    .where(eq(players.footywireId, footywireId))
     .get();
 
-  if (existing) return existing.id;
+  if (existing) {
+    // Keep name and teamId fresh without changing the row's identity.
+    db.update(players)
+      .set({ name, teamId })
+      .where(eq(players.footywireId, footywireId))
+      .run();
+    return existing.id;
+  }
 
   const result = db
     .insert(players)
-    .values({ name, teamId })
+    .values({ name, teamId, footywireId })
     .onConflictDoNothing()
     .returning({ id: players.id })
     .get();
@@ -80,12 +90,12 @@ export function getOrCreatePlayer(name: string, teamId: string): number {
   const fallback = db
     .select({ id: players.id })
     .from(players)
-    .where(and(eq(players.name, name), eq(players.teamId, teamId)))
+    .where(eq(players.footywireId, footywireId))
     .get();
 
   if (!fallback)
     throw new Error(
-      `Failed to get or create player: ${name} (teamId=${teamId})`,
+      `Failed to get or create player: ${name} (footywireId=${footywireId})`,
     );
   return fallback.id;
 }
@@ -97,11 +107,12 @@ export function batchUpsertPlayerStats(
   matchId: number,
 ): void {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId);
+    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.footywireId);
 
     const statValues = {
       playerId,
       matchId,
+      teamId: stat.teamId,
       kicks: stat.kicks,
       handballs: stat.handballs,
       disposals: stat.disposals,
@@ -125,6 +136,7 @@ export function batchUpsertPlayerStats(
       .onConflictDoUpdate({
         target: [playerStats.playerId, playerStats.matchId],
         set: {
+          teamId: statValues.teamId,
           kicks: statValues.kicks,
           handballs: statValues.handballs,
           disposals: statValues.disposals,
@@ -155,11 +167,12 @@ export function batchUpsertPlayerAdvancedStats(
   matchId: number,
 ): void {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId);
+    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.footywireId);
 
     const statValues = {
       playerId,
       matchId,
+      teamId: stat.teamId,
       contestedPossessions: stat.contestedPossessions,
       uncontestedPossessions: stat.uncontestedPossessions,
       effectiveDisposals: stat.effectiveDisposals,
@@ -183,6 +196,7 @@ export function batchUpsertPlayerAdvancedStats(
       .onConflictDoUpdate({
         target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
         set: {
+          teamId: statValues.teamId,
           contestedPossessions: statValues.contestedPossessions,
           uncontestedPossessions: statValues.uncontestedPossessions,
           effectiveDisposals: statValues.effectiveDisposals,
@@ -209,7 +223,7 @@ export function batchUpsertPlayerAdvancedStats(
 export interface PlayerAdvancedStatRow {
   matchId: number;
   playerName: string;
-  teamId: string;
+  teamId: string | null;
   contestedPossessions: number;
   uncontestedPossessions: number;
   effectiveDisposals: number;
@@ -258,7 +272,7 @@ export function getPlayerAdvancedStatsPaginated(opts: {
     .select({
       matchId: playerStatsAdvanced.matchId,
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStatsAdvanced.teamId,
       contestedPossessions: playerStatsAdvanced.contestedPossessions,
       uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
       effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
@@ -294,7 +308,7 @@ export function getAdvancedPlayerStatsForMatch(matchId: number): PlayerAdvancedS
     .select({
       matchId: playerStatsAdvanced.matchId,
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStatsAdvanced.teamId,
       contestedPossessions: playerStatsAdvanced.contestedPossessions,
       uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
       effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
@@ -341,7 +355,7 @@ export interface MatchRow {
 export interface PlayerStatRow {
   matchId: number;
   playerName: string;
-  teamId: string;
+  teamId: string | null;
   kicks: number;
   handballs: number;
   disposals: number;
@@ -477,7 +491,7 @@ export function getPlayerStatsForMatch(matchId: number): PlayerStatRow[] {
     .select({
       matchId: playerStats.matchId,
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStats.teamId,
       kicks: playerStats.kicks,
       handballs: playerStats.handballs,
       disposals: playerStats.disposals,
@@ -509,7 +523,7 @@ export function getPlayerStatsForMatch(matchId: number): PlayerStatRow[] {
 
 export interface PlayerStatYearRow {
   playerName: string;
-  teamId: string;
+  teamId: string | null;
   round: number;
   kicks: number;
   handballs: number;
@@ -532,7 +546,7 @@ export interface PlayerStatYearRow {
 
 export interface PlayerAdvancedStatYearRow {
   playerName: string;
-  teamId: string;
+  teamId: string | null;
   round: number;
   contestedPossessions: number;
   uncontestedPossessions: number;
@@ -557,7 +571,7 @@ export function getAllAdvancedPlayerStatsForYear(year: number): PlayerAdvancedSt
   return db
     .select({
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStatsAdvanced.teamId,
       round: matches.round,
       contestedPossessions: playerStatsAdvanced.contestedPossessions,
       uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
@@ -589,7 +603,7 @@ export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
   return db
     .select({
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStats.teamId,
       round: matches.round,
       kicks: playerStats.kicks,
       handballs: playerStats.handballs,
@@ -746,7 +760,7 @@ export function getPlayerStatsPaginated(opts: {
     .select({
       matchId: playerStats.matchId,
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: playerStats.teamId,
       kicks: playerStats.kicks,
       handballs: playerStats.handballs,
       disposals: playerStats.disposals,

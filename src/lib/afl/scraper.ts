@@ -31,6 +31,7 @@ export interface ScrapedTeam {
 
 export interface ScrapedPlayerStat {
   playerName: string;
+  footywireId: string;
   teamId: string;
   kicks: number;
   handballs: number;
@@ -62,6 +63,7 @@ export interface ScrapedMatchStats {
 // Column order (17 td.statdata): CP UP ED DE% CM GA MI5 1% BO CCL SCL SI MG TO ITC T5 TOG%
 export interface ScrapedPlayerAdvancedStat {
   playerName: string;
+  footywireId: string;
   teamId: string;
   contestedPossessions: number;
   uncontestedPossessions: number;
@@ -390,14 +392,25 @@ export async function scrapeMatchStats(
     const stats: ScrapedPlayerStat[] = [];
 
     for (const row of rows) {
-      const playerName = row.querySelector("td a")?.text.trim() ?? "";
+      const anchor = row.querySelector("td a");
+      const playerName =
+        anchor?.getAttribute("title")?.trim() ?? anchor?.text.trim() ?? "";
       if (!playerName) continue;
+
+      const href = anchor?.getAttribute("href") ?? "";
+      // href format: "pp-{team-slug}--{player-name-slug}"
+      // The name slug (after "--") is stable even when the player transfers teams.
+      // The team slug portion is retroactively updated by footywire on transfers.
+      const footywireId = href.includes("--")
+        ? href.split("--").pop()!
+        : playerName.toLowerCase().replace(/\s+/g, "-");
 
       const sd = row.querySelectorAll("td.statdata");
       if (sd.length < 17) continue;
 
       stats.push({
         playerName,
+        footywireId,
         teamId,
         kicks: num(sd[0]?.text),
         handballs: num(sd[1]?.text),
@@ -561,14 +574,22 @@ export async function scrapeMatchAdvancedStats(
     const stats: ScrapedPlayerAdvancedStat[] = [];
 
     for (const row of rows) {
-      const playerName = row.querySelector("td a")?.text.trim() ?? "";
+      const anchor = row.querySelector("td a");
+      const playerName =
+        anchor?.getAttribute("title")?.trim() ?? anchor?.text.trim() ?? "";
       if (!playerName) continue;
+
+      const href = anchor?.getAttribute("href") ?? "";
+      const footywireId = href.includes("--")
+        ? href.split("--").pop()!
+        : playerName.toLowerCase().replace(/\s+/g, "-");
 
       const sd = row.querySelectorAll("td.statdata");
       if (sd.length < 17) continue;
 
       stats.push({
         playerName,
+        footywireId,
         teamId,
         contestedPossessions: num(sd[0]?.text),
         uncontestedPossessions: num(sd[1]?.text),

@@ -37,9 +37,10 @@ export const players = sqliteTable(
 		name: text('name').notNull(),
 		teamId: text('team_id')
 			.notNull()
-			.references(() => teams.id)
+			.references(() => teams.id),
+		footywireId: text('footywire_id')
 	},
-	(t) => [uniqueIndex('players_name_team_idx').on(t.name, t.teamId)]
+	(t) => [uniqueIndex('players_footywire_idx').on(t.footywireId)]
 );
 
 // ─── Player Stats ─────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ export const playerStats = sqliteTable(
 		matchId: integer('match_id')
 			.notNull()
 			.references(() => matches.id),
+		teamId: text('team_id').references(() => teams.id),
 		kicks: integer('kicks').notNull().default(0),
 		handballs: integer('handballs').notNull().default(0),
 		disposals: integer('disposals').notNull().default(0),
@@ -89,6 +91,7 @@ export const playerStatsAdvanced = sqliteTable(
 		matchId: integer('match_id')
 			.notNull()
 			.references(() => matches.id),
+		teamId: text('team_id').references(() => teams.id),
 		contestedPossessions: integer('contested_possessions').notNull().default(0),
 		uncontestedPossessions: integer('uncontested_possessions').notNull().default(0),
 		effectiveDisposals: integer('effective_disposals').notNull().default(0),

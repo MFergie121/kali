@@ -7,8 +7,17 @@
 	let { children, data }: { children: Snippet; data: any } = $props();
 
 	onMount(() => {
-		if (data.prefs?.prefTheme) themeStore.apply(data.prefs.prefTheme as Theme);
-		if (data.prefs?.prefFont) fontStore.apply(data.prefs.prefFont as Font);
+		const localTheme = localStorage.getItem('app-theme');
+		const localFont = localStorage.getItem('app-font');
+
+		// Prefer localStorage over DB — localStorage is already applied by the
+		// blocking script in app.html, so we just need to sync the store state.
+		// Fall back to DB on first load when localStorage is empty.
+		const theme = (localTheme ?? data.prefs?.prefTheme) as Theme | null;
+		const font = (localFont ?? data.prefs?.prefFont) as Font | null;
+
+		if (theme) themeStore.apply(theme);
+		if (font) fontStore.apply(font);
 	});
 </script>
 

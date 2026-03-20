@@ -20,6 +20,7 @@ function createFontStore() {
     if (!match) return;
     current = font;
     document.documentElement.style.setProperty("--font-sans", match.stack);
+    try { localStorage.setItem('app-font', font); } catch (e) {}
   }
 
   return {

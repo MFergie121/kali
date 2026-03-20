@@ -20,6 +20,7 @@ function createThemeStore() {
     } else {
       document.documentElement.dataset.theme = theme;
     }
+    try { localStorage.setItem('app-theme', theme); } catch (e) {}
   }
 
   return {
