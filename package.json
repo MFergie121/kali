@@ -12,16 +12,16 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"db:clear": "npx tsx scripts/clear-afl-data.ts"
+		"db:clear": "npx tsx --env-file=.env scripts/clear-afl-data.ts"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.0",
 		"@lucide/svelte": "^0.561.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-node": "^5.5.4",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.2.1",
-		"@types/better-sqlite3": "^7.6.13",
 		"bits-ui": "^2.16.3",
 		"clsx": "^2.1.1",
 		"drizzle-kit": "^0.31.9",
@@ -35,11 +35,11 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
-		"better-sqlite3": "^12.6.2",
 		"drizzle-orm": "^0.45.1",
 		"jose": "^6.2.0",
 		"mode-watcher": "^1.1.0",
 		"node-html-parser": "^7.1.0",
+		"postgres": "^3.4.8",
 		"svelte-sonner": "^1.1.0"
 	}
 }

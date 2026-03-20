@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "api-documentation": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "0e161c4a4f3a3f5bd6949a1ebc833fd61d29f35a4fed307567a8114d003a95fc"
+    },
     "daisyui": {
       "source": "bobmatnyc/claude-mpm-skills",
       "sourceType": "github",
