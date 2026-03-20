@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ url }) => {
     currentYear,
   );
 
-  const storedRounds = getStoredRoundsForYear(selectedYear);
+  const storedRounds = await getStoredRoundsForYear(selectedYear);
 
   const rawRound = parseInt(url.searchParams.get("round") ?? "");
   const selectedRound =
@@ -40,13 +40,15 @@ export const load: PageServerLoad = async ({ url }) => {
 
   const hasData = storedRounds.includes(selectedRound);
   const matchRows = hasData
-    ? getMatchesForRoundAndYear(selectedRound, selectedYear)
+    ? await getMatchesForRoundAndYear(selectedRound, selectedYear)
     : [];
-  const matches = matchRows.map((m) => ({
-    ...m,
-    stats: getPlayerStatsForMatch(m.id),
-    advStats: getAdvancedPlayerStatsForMatch(m.id),
-  }));
+  const matches = await Promise.all(
+    matchRows.map(async (m) => ({
+      ...m,
+      stats: await getPlayerStatsForMatch(m.id),
+      advStats: await getAdvancedPlayerStatsForMatch(m.id),
+    })),
+  );
 
   return {
     allYears,
@@ -100,10 +102,10 @@ export const actions: Actions = {
           `[afl-scraper] action: persisting mid=${mid} — ${data.homeStats.length} home + ${data.awayStats.length} away players`,
         );
         await upsertMatch(data.match);
-        batchUpsertPlayerStats(data.homeStats, mid);
-        batchUpsertPlayerStats(data.awayStats, mid);
-        batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid);
-        batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid);
+        await batchUpsertPlayerStats(data.homeStats, mid);
+        await batchUpsertPlayerStats(data.awayStats, mid);
+        await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid);
+        await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid);
         matchesScraped++;
         console.log(`[afl-scraper] action: mid=${mid} done`);
       }

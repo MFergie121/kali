@@ -3,8 +3,8 @@ import { requireApiKey } from '$lib/api/auth';
 import { getPlayerStatsPaginated } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = ({ request, url }) => {
-	const denied = requireApiKey(request);
+export const GET: RequestHandler = async ({ request, url }) => {
+	const denied = await requireApiKey(request);
 	if (denied) return denied;
 
 	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '50', 10) || 50, 1), 200);
@@ -33,6 +33,6 @@ export const GET: RequestHandler = ({ request, url }) => {
 		return json({ error: 'Bad request: round must be a non-negative integer' }, { status: 400 });
 	}
 
-	const { data, total } = getPlayerStatsPaginated({ matchId, playerId, year, round, limit, offset });
+	const { data, total } = await getPlayerStatsPaginated({ matchId, playerId, year, round, limit, offset });
 	return json({ data, meta: { limit, offset, count: data.length, total } });
 };

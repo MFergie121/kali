@@ -18,8 +18,10 @@ export const load: PageServerLoad = async ({ url }) => {
     currentYear,
   );
 
-  const rows = getAllPlayerStatsForYear(selectedYear);
-  const advRows = getAllAdvancedPlayerStatsForYear(selectedYear);
+  const [rows, advRows] = await Promise.all([
+    getAllPlayerStatsForYear(selectedYear),
+    getAllAdvancedPlayerStatsForYear(selectedYear),
+  ]);
 
   return { rows, advRows, allYears, selectedYear };
 };

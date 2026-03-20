@@ -1,10 +1,13 @@
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: "./src/lib/db/afl/schema.ts",
+  schema: [
+    "./src/lib/db/afl/schema.ts",
+    "./src/lib/db/global-friends/schema.ts",
+  ],
   out: "./drizzle",
-  dialect: "sqlite",
+  dialect: "postgresql",
   dbCredentials: {
-    url: "./data/afl.db",
+    url: process.env.DATABASE_URL!,
   },
 });

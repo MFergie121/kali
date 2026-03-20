@@ -2,15 +2,18 @@
  * Clears all scraped AFL data from the database.
  * Preserves users and API keys.
  *
- * Usage: npx tsx scripts/clear-afl-data.ts
+ * Usage: DATABASE_URL=postgresql://... npx tsx scripts/clear-afl-data.ts
+ *    or: npx tsx --env-file=.env scripts/clear-afl-data.ts
  */
 
-import Database from "better-sqlite3";
-import { join } from "node:path";
+import postgres from "postgres";
 
-const db = new Database(join(process.cwd(), "data", "afl.db"));
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = OFF");
+if (!process.env.DATABASE_URL) {
+  console.error("Error: DATABASE_URL environment variable is not set.");
+  process.exit(1);
+}
+
+const sql = postgres(process.env.DATABASE_URL);
 
 const tables = [
   "player_stats_advanced",
@@ -20,16 +23,12 @@ const tables = [
   "teams",
 ];
 
-const clear = db.transaction(() => {
-  for (const table of tables) {
-    const result = db.prepare(`DELETE FROM ${table}`).run();
-    console.log(`  ${table}: ${result.changes} rows deleted`);
-  }
-});
-
 console.log("Clearing AFL data...");
-clear();
-console.log("Done.");
 
-db.pragma("foreign_keys = ON");
-db.close();
+for (const table of tables) {
+  await sql`DELETE FROM ${sql(table)}`;
+  console.log(`  ${table}: cleared`);
+}
+
+await sql.end();
+console.log("Done.");

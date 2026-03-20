@@ -9,8 +9,7 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const users = listUsers();
-	const keys = listAllApiKeys();
+	const [users, keys] = await Promise.all([listUsers(), listAllApiKeys()]);
 
 	// Group keys by userId for easy rendering
 	const keysByUser = new Map<number, typeof keys>();
@@ -32,7 +31,7 @@ export const actions: Actions = {
 		if (isNaN(userId) || userId < 1) return fail(400, { error: 'Invalid user.' });
 		if (!name) return fail(400, { error: 'Key name is required.' });
 
-		const token = createApiKey(userId, name);
+		const token = await createApiKey(userId, name);
 		return { createdToken: token, createdName: name };
 	},
 
@@ -42,7 +41,7 @@ export const actions: Actions = {
 
 		if (isNaN(id) || id < 1) return fail(400, { error: 'Invalid key ID.' });
 
-		revokeApiKey(id);
+		await revokeApiKey(id);
 		return { revoked: true };
 	},
 
@@ -58,7 +57,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Limit must be a non-negative integer or blank for unlimited.' });
 		}
 
-		setApiLimit(keyId, limit);
+		await setApiLimit(keyId, limit);
 		return { limitUpdated: true };
 	}
 };

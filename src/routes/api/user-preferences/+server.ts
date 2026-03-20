@@ -7,7 +7,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 	const session = await getSession(cookies);
 	if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const prefs = getUserPreferences(session.user.email);
+	const prefs = await getUserPreferences(session.user.email);
 	return json(prefs ?? { prefTheme: 'serika', prefFont: 'ibm-plex-mono', prefDarkMode: 'system' });
 };
 
@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (typeof body.darkMode === 'string') prefs.prefDarkMode = body.darkMode;
 
 	if (Object.keys(prefs).length > 0) {
-		upsertUserPreferences(session.user.email, prefs);
+		await upsertUserPreferences(session.user.email, prefs);
 	}
 
 	return json({ ok: true });

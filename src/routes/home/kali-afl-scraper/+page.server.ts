@@ -9,48 +9,45 @@ import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ locals }) => {
   // 1. DB Snapshot counts
-  const totalMatches = db.select({ c: count() }).from(matches).get()?.c ?? 0;
-  const totalPlayers = db.select({ c: count() }).from(players).get()?.c ?? 0;
-  const totalStatRecords =
-    db.select({ c: count() }).from(playerStats).get()?.c ?? 0;
-  const distinctYears = db
+  const [{ c: totalMatches }] = await db.select({ c: count() }).from(matches);
+  const [{ c: totalPlayers }] = await db.select({ c: count() }).from(players);
+  const [{ c: totalStatRecords }] = await db.select({ c: count() }).from(playerStats);
+  const distinctYears = await db
     .selectDistinct({ year: matches.year })
     .from(matches)
-    .orderBy(desc(matches.year))
-    .all();
+    .orderBy(desc(matches.year));
 
   // 2. Season Coverage Grid — for each year, which rounds are scraped
-  const seasonGrid = distinctYears.map(({ year }) => {
-    const rounds = db
-      .selectDistinct({ round: matches.round })
-      .from(matches)
-      .where(eq(matches.year, year))
-      .orderBy(asc(matches.round))
-      .all()
-      .map((r) => r.round);
-    return { year, rounds };
-  });
+  const seasonGrid = await Promise.all(
+    distinctYears.map(async ({ year }) => {
+      const roundRows = await db
+        .selectDistinct({ round: matches.round })
+        .from(matches)
+        .where(eq(matches.year, year))
+        .orderBy(asc(matches.round));
+      return { year, rounds: roundRows.map((r) => r.round) };
+    }),
+  );
 
   // 3. Latest Round Summary
-  const latestEntry = db
+  const [latestEntry] = await db
     .select({ round: matches.round, year: matches.year })
     .from(matches)
     .orderBy(desc(matches.year), desc(matches.round))
-    .limit(1)
-    .get();
+    .limit(1);
 
   const latestRound = latestEntry
     ? {
         round: latestEntry.round,
         year: latestEntry.year,
-        matches: getMatchesForRoundAndYear(latestEntry.round, latestEntry.year),
+        matches: await getMatchesForRoundAndYear(latestEntry.round, latestEntry.year),
       }
     : null;
 
   // 4. Top Performers — season totals for latest year
   const currentYear = latestEntry?.year ?? new Date().getFullYear();
 
-  const topByDisposals = db
+  const topByDisposals = await db
     .select({
       playerName: players.name,
       teamId: players.teamId,
@@ -62,10 +59,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     .where(eq(matches.year, currentYear))
     .groupBy(players.id)
     .orderBy(desc(sql`sum(${playerStats.disposals})`))
-    .limit(5)
-    .all();
+    .limit(5);
 
-  const topByGoals = db
+  const topByGoals = await db
     .select({
       playerName: players.name,
       teamId: players.teamId,
@@ -77,10 +73,9 @@ export const load: PageServerLoad = async ({ locals }) => {
     .where(eq(matches.year, currentYear))
     .groupBy(players.id)
     .orderBy(desc(sql`sum(${playerStats.goals})`))
-    .limit(5)
-    .all();
+    .limit(5);
 
-  const topByFantasy = db
+  const topByFantasy = await db
     .select({
       playerName: players.name,
       teamId: players.teamId,
@@ -92,8 +87,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     .where(eq(matches.year, currentYear))
     .groupBy(players.id)
     .orderBy(desc(sql`sum(${playerStats.aflFantasyPts})`))
-    .limit(5)
-    .all();
+    .limit(5);
 
   // 5. API Usage Snapshot for current user
   let apiSnapshot: {
@@ -104,9 +98,9 @@ export const load: PageServerLoad = async ({ locals }) => {
   } | null = null;
   const userEmail = (locals as any).session?.user?.email;
   if (userEmail) {
-    const user = db.select().from(users).where(eq(kaliUsers.email, userEmail)).get();
+    const [user] = await db.select().from(kaliUsers).where(eq(kaliUsers.email, userEmail));
     if (user) {
-      const keys = listApiKeysForUser(user.id);
+      const keys = await listApiKeysForUser(user.id);
       const activeKeys = keys.filter((k) => !k.revoked);
       apiSnapshot = {
         apiUsage: activeKeys.reduce((sum, k) => sum + k.usage, 0),

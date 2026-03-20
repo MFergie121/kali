@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { doublePrecision, integer, pgTable, serial, text } from "drizzle-orm/pg-core";
 
 // ─── Friends ──────────────────────────────────────────────────────────────────
 
-export const friends = sqliteTable("friends", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const friends = pgTable("friends", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   photoUrl: text("photo_url"),
   notes: text("notes"),
@@ -12,21 +12,21 @@ export const friends = sqliteTable("friends", {
   email: text("email"),
   createdAt: text("created_at")
     .notNull()
-    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+    .default(sql`now()`),
 });
 
 // ─── Friend Locations ─────────────────────────────────────────────────────────
 
-export const friendLocations = sqliteTable("friend_locations", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const friendLocations = pgTable("friend_locations", {
+  id: serial("id").primaryKey(),
   friendId: integer("friend_id")
     .notNull()
     .references(() => friends.id, { onDelete: "cascade" }),
   description: text("description"), // e.g. "lives here", "holiday home"
   city: text("city").notNull(),
   country: text("country").notNull(),
-  latitude: real("latitude").notNull(),
-  longitude: real("longitude").notNull(),
+  latitude: doublePrecision("latitude").notNull(),
+  longitude: doublePrecision("longitude").notNull(),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

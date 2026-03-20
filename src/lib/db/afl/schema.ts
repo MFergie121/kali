@@ -1,13 +1,15 @@
 import {
+  boolean,
   integer,
-  sqliteTable,
+  pgTable,
+  serial,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 // ─── Teams ───────────────────────────────────────────────────────────────────
 
-export const teams = sqliteTable("teams", {
+export const teams = pgTable("teams", {
   id: text("id").primaryKey(), // slug e.g. "sydney-swans"
   name: text("name").notNull(),
   shortName: text("short_name").notNull(),
@@ -15,7 +17,7 @@ export const teams = sqliteTable("teams", {
 
 // ─── Matches ─────────────────────────────────────────────────────────────────
 
-export const matches = sqliteTable("matches", {
+export const matches = pgTable("matches", {
   id: integer("id").primaryKey(), // footywire match id (mid)
   round: integer("round").notNull(),
   year: integer("year").notNull(),
@@ -35,10 +37,10 @@ export const matches = sqliteTable("matches", {
 
 // ─── Players ─────────────────────────────────────────────────────────────────
 
-export const players = sqliteTable(
+export const players = pgTable(
   "players",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     name: text("name").notNull(),
     teamId: text("team_id")
       .notNull()
@@ -50,10 +52,10 @@ export const players = sqliteTable(
 
 // ─── Player Stats ─────────────────────────────────────────────────────────────
 
-export const playerStats = sqliteTable(
+export const playerStats = pgTable(
   "player_stats",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     playerId: integer("player_id")
       .notNull()
       .references(() => players.id),
@@ -88,10 +90,10 @@ export const playerStats = sqliteTable(
 // Source: ft_match_statistics?mid=xxx&advv=Y
 // Column order (17 td.statdata cells): CP UP ED DE% CM GA MI5 1% BO CCL SCL SI MG TO ITC T5 TOG%
 
-export const playerStatsAdvanced = sqliteTable(
+export const playerStatsAdvanced = pgTable(
   "player_stats_advanced",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     playerId: integer("player_id")
       .notNull()
       .references(() => players.id),
@@ -128,8 +130,8 @@ export const playerStatsAdvanced = sqliteTable(
 
 // ─── Kali Users ───────────────────────────────────────────────────────────────
 
-export const kaliUsers = sqliteTable("kali_users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const kaliUsers = pgTable("kali_users", {
+  id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   provider: text("provider").notNull(), // 'github' | 'google'
@@ -142,8 +144,8 @@ export const kaliUsers = sqliteTable("kali_users", {
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
-export const apiKeys = sqliteTable("api_keys", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
   userId: integer("user_id")
     .notNull()
     .references(() => kaliUsers.id, { onDelete: "cascade" }),
@@ -151,7 +153,7 @@ export const apiKeys = sqliteTable("api_keys", {
   name: text("name").notNull(),
   createdAt: text("created_at").notNull(),
   lastUsedAt: text("last_used_at"),
-  revoked: integer("revoked").notNull().default(0),
+  revoked: boolean("revoked").notNull().default(false),
   usage: integer("usage").notNull().default(0),
   limit: integer("limit"),
 });

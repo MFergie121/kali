@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { validateApiKey } from '$lib/db/afl/service';
 
-export function requireApiKey(request: Request): Response | null {
+export async function requireApiKey(request: Request): Promise<Response | null> {
 	const authHeader = request.headers.get('Authorization');
 	const key = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
@@ -9,7 +9,7 @@ export function requireApiKey(request: Request): Response | null {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const result = validateApiKey(key);
+	const result = await validateApiKey(key);
 
 	if (!result.valid) {
 		if (result.rateLimited) {

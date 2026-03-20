@@ -39,7 +39,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     }
 
     const user = decodeGoogleIdToken(tokens.id_token);
-    getOrCreateUser({ email: user.email, name: user.name, provider: "google" });
+    await getOrCreateUser({ email: user.email, name: user.name, provider: "google" });
 
     await createSession(cookies, {
       user,
@@ -50,7 +50,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
         ? Math.floor(Date.now() / 1000) + tokens.expires_in
         : undefined,
     });
-  } catch {
+  } catch (err) {
+    console.error("[google callback] auth failed:", err);
     redirect(302, "/auth/login?error=auth_failed");
   }
 

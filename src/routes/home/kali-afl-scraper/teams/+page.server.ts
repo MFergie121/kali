@@ -94,7 +94,7 @@ function buildSummary(games: TeamGameRow[], ladderPos: number): TeamSummary {
 export const load: PageServerLoad = async ({ url }) => {
 	const currentYear = new Date().getFullYear();
 	const allYears    = Array.from({ length: currentYear - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);
-	const allTeams    = getAllTeams();
+	const allTeams    = await getAllTeams();
 	const teamMap     = new Map(allTeams.map(t => [t.id, t]));
 
 	if (allTeams.length === 0) {
@@ -109,12 +109,12 @@ export const load: PageServerLoad = async ({ url }) => {
 	const compareTeamId  = url.searchParams.get('compare') || null;
 
 	// All matches for the year (for standings + team games)
-	const yearMatches = db.select({
+	const yearMatches = await db.select({
 		id: matches.id, round: matches.round, year: matches.year,
 		date: matches.date, venue: matches.venue,
 		homeTeamId: matches.homeTeamId, awayTeamId: matches.awayTeamId,
 		homeScore: matches.homeScore, awayScore: matches.awayScore, crowd: matches.crowd,
-	}).from(matches).where(eq(matches.year, selectedYear)).orderBy(desc(matches.round)).all();
+	}).from(matches).where(eq(matches.year, selectedYear)).orderBy(desc(matches.round));
 
 	// Compute standings
 	const pts = new Map<string, { wins: number; for: number; against: number }>();
@@ -148,7 +148,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	const gameDetails: Record<number, GameDetail> = {};
 
 	if (matchIds.length > 0) {
-		const statsRows = db.select({
+		const statsRows = await db.select({
 			matchId: playerStats.matchId, playerName: players.name, teamId: players.teamId,
 			kicks: playerStats.kicks, handballs: playerStats.handballs, disposals: playerStats.disposals,
 			marks: playerStats.marks, goals: playerStats.goals, behinds: playerStats.behinds,
@@ -156,7 +156,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			clearances: playerStats.clearances, clangers: playerStats.clangers,
 			rebound50s: playerStats.rebound50s, freesFor: playerStats.freesFor, freesAgainst: playerStats.freesAgainst,
 		}).from(playerStats).innerJoin(players, eq(playerStats.playerId, players.id))
-		  .where(inArray(playerStats.matchId, matchIds)).all();
+		  .where(inArray(playerStats.matchId, matchIds));
 
 		const byMatch = new Map<number, typeof statsRows>();
 		for (const r of statsRows) {
@@ -209,7 +209,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		compareGames   = makeTeamGames(cmpRows, compareTeamId, teamMap);
 		compareSummary = buildSummary(compareGames, ladderPos(compareTeamId));
 
-		const h2hRows = db.select({
+		const h2hRows = await db.select({
 			id: matches.id, round: matches.round, year: matches.year,
 			date: matches.date, venue: matches.venue,
 			homeTeamId: matches.homeTeamId, awayTeamId: matches.awayTeamId,
@@ -217,7 +217,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		}).from(matches).where(or(
 			and(eq(matches.homeTeamId, selectedTeamId), eq(matches.awayTeamId, compareTeamId)),
 			and(eq(matches.homeTeamId, compareTeamId), eq(matches.awayTeamId, selectedTeamId)),
-		)).orderBy(desc(matches.year), desc(matches.round)).all();
+		)).orderBy(desc(matches.year), desc(matches.round));
 
 		h2hGames = makeTeamGames(h2hRows, selectedTeamId, teamMap);
 	}

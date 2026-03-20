@@ -3,7 +3,7 @@ import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from 
 import { db } from "$lib/db/afl";
 import { apiKeys, kaliUsers, matches, players, playerStats, playerStatsAdvanced, teams } from "$lib/db/afl/schema";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ export async function upsertTeam(team: {
   name: string;
   shortName: string;
 }) {
-  db.insert(teams).values(team).onConflictDoNothing().run();
+  await db.insert(teams).values(team).onConflictDoNothing();
 }
 
 // ─── Matches ──────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
     crowd: scraped.crowd,
     sourcedAt: new Date().toISOString(),
   };
-  db.insert(matches)
+  await db.insert(matches)
     .values(matchValues)
     .onConflictDoUpdate({
       target: matches.id,
@@ -50,48 +50,43 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
         crowd: matchValues.crowd,
         sourcedAt: matchValues.sourcedAt,
       },
-    })
-    .run();
+    });
 }
 
 // ─── Players ──────────────────────────────────────────────────────────────────
 
-export function getOrCreatePlayer(
+export async function getOrCreatePlayer(
   name: string,
   teamId: string,
   onlineId: string,
-): number {
+): Promise<number> {
   // Look up by onlineId — stable across team transfers and name abbreviations.
-  const existing = db
+  const [existing] = await db
     .select({ id: players.id })
     .from(players)
-    .where(eq(players.onlineId, onlineId))
-    .get();
+    .where(eq(players.onlineId, onlineId));
 
   if (existing) {
     // Keep name and teamId fresh without changing the row's identity.
-    db.update(players)
+    await db.update(players)
       .set({ name, teamId })
-      .where(eq(players.onlineId, onlineId))
-      .run();
+      .where(eq(players.onlineId, onlineId));
     return existing.id;
   }
 
-  const result = db
+  const [result] = await db
     .insert(players)
     .values({ name, teamId, onlineId })
     .onConflictDoNothing()
-    .returning({ id: players.id })
-    .get();
+    .returning({ id: players.id });
 
   if (result) return result.id;
 
   // Race condition fallback
-  const fallback = db
+  const [fallback] = await db
     .select({ id: players.id })
     .from(players)
-    .where(eq(players.onlineId, onlineId))
-    .get();
+    .where(eq(players.onlineId, onlineId));
 
   if (!fallback)
     throw new Error(
@@ -102,12 +97,12 @@ export function getOrCreatePlayer(
 
 // ─── Player Stats ─────────────────────────────────────────────────────────────
 
-export function batchUpsertPlayerStats(
+export async function batchUpsertPlayerStats(
   stats: ScrapedPlayerStat[],
   matchId: number,
-): void {
+): Promise<void> {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
+    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
 
     const statValues = {
       playerId,
@@ -131,7 +126,7 @@ export function batchUpsertPlayerStats(
       aflFantasyPts: stat.aflFantasyPts,
       supercoachPts: stat.supercoachPts,
     };
-    db.insert(playerStats)
+    await db.insert(playerStats)
       .values(statValues)
       .onConflictDoUpdate({
         target: [playerStats.playerId, playerStats.matchId],
@@ -155,19 +150,18 @@ export function batchUpsertPlayerStats(
           aflFantasyPts: statValues.aflFantasyPts,
           supercoachPts: statValues.supercoachPts,
         },
-      })
-      .run();
+      });
   }
 }
 
 // ─── Player Advanced Stats ────────────────────────────────────────────────────
 
-export function batchUpsertPlayerAdvancedStats(
+export async function batchUpsertPlayerAdvancedStats(
   stats: ScrapedPlayerAdvancedStat[],
   matchId: number,
-): void {
+): Promise<void> {
   for (const stat of stats) {
-    const playerId = getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
+    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
 
     const statValues = {
       playerId,
@@ -191,7 +185,7 @@ export function batchUpsertPlayerAdvancedStats(
       tacklesInside50: stat.tacklesInside50,
       timeOnGroundPct: stat.timeOnGroundPct,
     };
-    db.insert(playerStatsAdvanced)
+    await db.insert(playerStatsAdvanced)
       .values(statValues)
       .onConflictDoUpdate({
         target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
@@ -215,8 +209,7 @@ export function batchUpsertPlayerAdvancedStats(
           tacklesInside50: statValues.tacklesInside50,
           timeOnGroundPct: statValues.timeOnGroundPct,
         },
-      })
-      .run();
+      });
   }
 }
 
@@ -243,14 +236,14 @@ export interface PlayerAdvancedStatRow {
   timeOnGroundPct: number;
 }
 
-export function getPlayerAdvancedStatsPaginated(opts: {
+export async function getPlayerAdvancedStatsPaginated(opts: {
   matchId?: number;
   playerId?: number;
   year?: number;
   round?: number;
   limit: number;
   offset: number;
-}): { data: PlayerAdvancedStatRow[]; total: number } {
+}): Promise<{ data: PlayerAdvancedStatRow[]; total: number }> {
   const conditions = [
     opts.matchId !== undefined ? eq(playerStatsAdvanced.matchId, opts.matchId) : undefined,
     opts.playerId !== undefined ? eq(playerStatsAdvanced.playerId, opts.playerId) : undefined,
@@ -259,16 +252,15 @@ export function getPlayerAdvancedStatsPaginated(opts: {
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const totalRow = db
-    .select({ total: sql<number>`count(*)` })
+  const [totalRow] = await db
+    .select({ total: count() })
     .from(playerStatsAdvanced)
     .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
     .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
-    .where(where)
-    .get();
+    .where(where);
   const total = totalRow?.total ?? 0;
 
-  const data = db
+  const data = await db
     .select({
       matchId: playerStatsAdvanced.matchId,
       playerName: players.name,
@@ -297,13 +289,12 @@ export function getPlayerAdvancedStatsPaginated(opts: {
     .where(where)
     .orderBy(desc(playerStatsAdvanced.contestedPossessions))
     .limit(opts.limit)
-    .offset(opts.offset)
-    .all();
+    .offset(opts.offset);
 
   return { data, total };
 }
 
-export function getAdvancedPlayerStatsForMatch(matchId: number): PlayerAdvancedStatRow[] {
+export async function getAdvancedPlayerStatsForMatch(matchId: number): Promise<PlayerAdvancedStatRow[]> {
   return db
     .select({
       matchId: playerStatsAdvanced.matchId,
@@ -330,8 +321,7 @@ export function getAdvancedPlayerStatsForMatch(matchId: number): PlayerAdvancedS
     .from(playerStatsAdvanced)
     .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
     .where(eq(playerStatsAdvanced.matchId, matchId))
-    .orderBy(desc(playerStatsAdvanced.contestedPossessions))
-    .all();
+    .orderBy(desc(playerStatsAdvanced.contestedPossessions));
 }
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -375,37 +365,34 @@ export interface PlayerStatRow {
   supercoachPts: number;
 }
 
-export function getStoredRounds(): number[] {
-  const rows = db
+export async function getStoredRounds(): Promise<number[]> {
+  const rows = await db
     .selectDistinct({ round: matches.round })
     .from(matches)
-    .orderBy(desc(matches.round))
-    .all();
+    .orderBy(desc(matches.round));
   return rows.map((r) => r.round);
 }
 
-export function getStoredRoundsForYear(year: number): number[] {
-  const rows = db
+export async function getStoredRoundsForYear(year: number): Promise<number[]> {
+  const rows = await db
     .selectDistinct({ round: matches.round })
     .from(matches)
     .where(eq(matches.year, year))
-    .orderBy(desc(matches.round))
-    .all();
+    .orderBy(desc(matches.round));
   return rows.map((r) => r.round);
 }
 
-export function getLatestStoredRound(): number | null {
-  const row = db
+export async function getLatestStoredRound(): Promise<number | null> {
+  const [row] = await db
     .select({ round: matches.round })
     .from(matches)
     .orderBy(desc(matches.round))
-    .limit(1)
-    .get();
+    .limit(1);
   return row?.round ?? null;
 }
 
-export function getMatchesForRound(round: number): MatchRow[] {
-  const rows = db
+export async function getMatchesForRound(round: number): Promise<MatchRow[]> {
+  const rows = await db
     .select({
       id: matches.id,
       round: matches.round,
@@ -420,11 +407,9 @@ export function getMatchesForRound(round: number): MatchRow[] {
       sourcedAt: matches.sourcedAt,
     })
     .from(matches)
-    .where(eq(matches.round, round))
-    .all();
+    .where(eq(matches.round, round));
 
-  // Fetch team names separately (SQLite joins via Drizzle are more readable this way)
-  const allTeams = db.select().from(teams).all();
+  const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
   return rows.map((r) => ({
@@ -444,11 +429,11 @@ export function getMatchesForRound(round: number): MatchRow[] {
   }));
 }
 
-export function getMatchesForRoundAndYear(
+export async function getMatchesForRoundAndYear(
   round: number,
   year: number,
-): MatchRow[] {
-  const rows = db
+): Promise<MatchRow[]> {
+  const rows = await db
     .select({
       id: matches.id,
       round: matches.round,
@@ -463,10 +448,9 @@ export function getMatchesForRoundAndYear(
       sourcedAt: matches.sourcedAt,
     })
     .from(matches)
-    .where(and(eq(matches.round, round), eq(matches.year, year)))
-    .all();
+    .where(and(eq(matches.round, round), eq(matches.year, year)));
 
-  const allTeams = db.select().from(teams).all();
+  const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
   return rows.map((r) => ({
@@ -486,8 +470,8 @@ export function getMatchesForRoundAndYear(
   }));
 }
 
-export function getPlayerStatsForMatch(matchId: number): PlayerStatRow[] {
-  const rows = db
+export async function getPlayerStatsForMatch(matchId: number): Promise<PlayerStatRow[]> {
+  return db
     .select({
       matchId: playerStats.matchId,
       playerName: players.name,
@@ -513,10 +497,7 @@ export function getPlayerStatsForMatch(matchId: number): PlayerStatRow[] {
     .from(playerStats)
     .innerJoin(players, eq(playerStats.playerId, players.id))
     .where(eq(playerStats.matchId, matchId))
-    .orderBy(desc(playerStats.disposals))
-    .all();
-
-  return rows;
+    .orderBy(desc(playerStats.disposals));
 }
 
 // ─── Year-wide pivot query ────────────────────────────────────────────────────
@@ -567,7 +548,7 @@ export interface PlayerAdvancedStatYearRow {
   timeOnGroundPct: number;
 }
 
-export function getAllAdvancedPlayerStatsForYear(year: number): PlayerAdvancedStatYearRow[] {
+export async function getAllAdvancedPlayerStatsForYear(year: number): Promise<PlayerAdvancedStatYearRow[]> {
   return db
     .select({
       playerName: players.name,
@@ -595,11 +576,10 @@ export function getAllAdvancedPlayerStatsForYear(year: number): PlayerAdvancedSt
     .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
     .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
     .where(eq(matches.year, year))
-    .orderBy(matches.round, players.name)
-    .all();
+    .orderBy(matches.round, players.name);
 }
 
-export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
+export async function getAllPlayerStatsForYear(year: number): Promise<PlayerStatYearRow[]> {
   return db
     .select({
       playerName: players.name,
@@ -627,38 +607,36 @@ export function getAllPlayerStatsForYear(year: number): PlayerStatYearRow[] {
     .innerJoin(players, eq(playerStats.playerId, players.id))
     .innerJoin(matches, eq(playerStats.matchId, matches.id))
     .where(eq(matches.year, year))
-    .orderBy(matches.round, players.name)
-    .all();
+    .orderBy(matches.round, players.name);
 }
 
 // ─── Public API — Teams ───────────────────────────────────────────────────────
 
-export function getAllTeams(): Team[] {
-  return db.select().from(teams).orderBy(asc(teams.name)).all();
+export async function getAllTeams(): Promise<Team[]> {
+  return db.select().from(teams).orderBy(asc(teams.name));
 }
 
 // ─── Public API — Matches (paginated) ────────────────────────────────────────
 
-export function getMatchesPaginated(opts: {
+export async function getMatchesPaginated(opts: {
   year?: number;
   round?: number;
   limit: number;
   offset: number;
-}): { data: MatchRow[]; total: number } {
+}): Promise<{ data: MatchRow[]; total: number }> {
   const conditions = [
     opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
     opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const totalRow = db
-    .select({ total: sql<number>`count(*)` })
+  const [totalRow] = await db
+    .select({ total: count() })
     .from(matches)
-    .where(where)
-    .get();
+    .where(where);
   const total = totalRow?.total ?? 0;
 
-  const rows = db
+  const rows = await db
     .select({
       id: matches.id,
       round: matches.round,
@@ -676,10 +654,9 @@ export function getMatchesPaginated(opts: {
     .where(where)
     .orderBy(desc(matches.year), desc(matches.round))
     .limit(opts.limit)
-    .offset(opts.offset)
-    .all();
+    .offset(opts.offset);
 
-  const allTeams = db.select().from(teams).all();
+  const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
   const data: MatchRow[] = rows.map((r) => ({
@@ -703,42 +680,40 @@ export function getMatchesPaginated(opts: {
 
 // ─── Public API — Players (paginated) ────────────────────────────────────────
 
-export function getPlayersPaginated(opts: {
+export async function getPlayersPaginated(opts: {
   teamId?: string;
   limit: number;
   offset: number;
-}): { data: Player[]; total: number } {
+}): Promise<{ data: Player[]; total: number }> {
   const where = opts.teamId !== undefined ? eq(players.teamId, opts.teamId) : undefined;
 
-  const totalRow = db
-    .select({ total: sql<number>`count(*)` })
+  const [totalRow] = await db
+    .select({ total: count() })
     .from(players)
-    .where(where)
-    .get();
+    .where(where);
   const total = totalRow?.total ?? 0;
 
-  const data = db
+  const data = await db
     .select()
     .from(players)
     .where(where)
     .orderBy(asc(players.name))
     .limit(opts.limit)
-    .offset(opts.offset)
-    .all();
+    .offset(opts.offset);
 
   return { data, total };
 }
 
 // ─── Public API — Player Stats (paginated) ───────────────────────────────────
 
-export function getPlayerStatsPaginated(opts: {
+export async function getPlayerStatsPaginated(opts: {
   matchId?: number;
   playerId?: number;
   year?: number;
   round?: number;
   limit: number;
   offset: number;
-}): { data: PlayerStatRow[]; total: number } {
+}): Promise<{ data: PlayerStatRow[]; total: number }> {
   const conditions = [
     opts.matchId !== undefined ? eq(playerStats.matchId, opts.matchId) : undefined,
     opts.playerId !== undefined ? eq(playerStats.playerId, opts.playerId) : undefined,
@@ -747,16 +722,15 @@ export function getPlayerStatsPaginated(opts: {
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const totalRow = db
-    .select({ total: sql<number>`count(*)` })
+  const [totalRow] = await db
+    .select({ total: count() })
     .from(playerStats)
     .innerJoin(players, eq(playerStats.playerId, players.id))
     .innerJoin(matches, eq(playerStats.matchId, matches.id))
-    .where(where)
-    .get();
+    .where(where);
   const total = totalRow?.total ?? 0;
 
-  const data = db
+  const data = await db
     .select({
       matchId: playerStats.matchId,
       playerName: players.name,
@@ -785,8 +759,7 @@ export function getPlayerStatsPaginated(opts: {
     .where(where)
     .orderBy(desc(playerStats.disposals))
     .limit(opts.limit)
-    .offset(opts.offset)
-    .all();
+    .offset(opts.offset);
 
   return { data, total };
 }
@@ -799,64 +772,62 @@ export interface UserPreferences {
   prefDarkMode: string;
 }
 
-export function getUserPreferences(email: string): UserPreferences | null {
-  const row = db
+export async function getUserPreferences(email: string): Promise<UserPreferences | null> {
+  const [row] = await db
     .select({ prefTheme: kaliUsers.prefTheme, prefFont: kaliUsers.prefFont, prefDarkMode: kaliUsers.prefDarkMode })
     .from(kaliUsers)
-    .where(eq(kaliUsers.email, email))
-    .get();
+    .where(eq(kaliUsers.email, email));
   return row ?? null;
 }
 
-export function upsertUserPreferences(email: string, prefs: Partial<UserPreferences>): void {
-  db.update(kaliUsers).set(prefs).where(eq(kaliUsers.email, email)).run();
+export async function upsertUserPreferences(email: string, prefs: Partial<UserPreferences>): Promise<void> {
+  await db.update(kaliUsers).set(prefs).where(eq(kaliUsers.email, email));
 }
 
 // ─── Kali Users ───────────────────────────────────────────────────────────────
 
-export function getOrCreateUser(opts: {
+export async function getOrCreateUser(opts: {
   email: string;
   name: string;
   provider: string;
-}): KaliUser {
+}): Promise<KaliUser> {
   const now = new Date().toISOString();
-  db.insert(kaliUsers)
+  await db.insert(kaliUsers)
     .values({ email: opts.email, name: opts.name, provider: opts.provider, createdAt: now, lastActiveAt: now })
     .onConflictDoUpdate({
       target: kaliUsers.email,
       set: { name: opts.name, provider: opts.provider, lastActiveAt: now },
-    })
-    .run();
-  return db.select().from(kaliUsers).where(eq(kaliUsers.email, opts.email)).get()!;
+    });
+  const [user] = await db.select().from(kaliUsers).where(eq(kaliUsers.email, opts.email));
+  return user!;
 }
 
-export function listUsers(): KaliUser[] {
-  return db.select().from(kaliUsers).orderBy(desc(kaliUsers.createdAt)).all();
+export async function listUsers(): Promise<KaliUser[]> {
+  return db.select().from(kaliUsers).orderBy(desc(kaliUsers.createdAt));
 }
 
-export function setApiLimit(keyId: number, limit: number | null): void {
-  db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId)).run();
+export async function setApiLimit(keyId: number, limit: number | null): Promise<void> {
+  await db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId));
 }
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
-export function createApiKey(userId: number, name: string): string {
+export async function createApiKey(userId: number, name: string): Promise<string> {
   const key = randomBytes(32).toString("hex");
   const now = new Date().toISOString();
-  db.insert(apiKeys).values({ userId, key, name, createdAt: now }).run();
+  await db.insert(apiKeys).values({ userId, key, name, createdAt: now });
   return key;
 }
 
-export function listApiKeysForUser(userId: number): ApiKey[] {
+export async function listApiKeysForUser(userId: number): Promise<ApiKey[]> {
   return db
     .select()
     .from(apiKeys)
     .where(eq(apiKeys.userId, userId))
-    .orderBy(desc(apiKeys.createdAt))
-    .all();
+    .orderBy(desc(apiKeys.createdAt));
 }
 
-export function listAllApiKeys(): (ApiKey & { userName: string; userEmail: string })[] {
+export async function listAllApiKeys(): Promise<(ApiKey & { userName: string; userEmail: string })[]> {
   return db
     .select({
       id: apiKeys.id,
@@ -873,16 +844,15 @@ export function listAllApiKeys(): (ApiKey & { userName: string; userEmail: strin
     })
     .from(apiKeys)
     .innerJoin(kaliUsers, eq(apiKeys.userId, kaliUsers.id))
-    .orderBy(desc(apiKeys.createdAt))
-    .all();
+    .orderBy(desc(apiKeys.createdAt));
 }
 
-export function revokeApiKey(id: number): void {
-  db.update(apiKeys).set({ revoked: 1 }).where(eq(apiKeys.id, id)).run();
+export async function revokeApiKey(id: number): Promise<void> {
+  await db.update(apiKeys).set({ revoked: true }).where(eq(apiKeys.id, id));
 }
 
-export function validateApiKey(key: string): { valid: boolean; rateLimited?: boolean } {
-  const row = db
+export async function validateApiKey(key: string): Promise<{ valid: boolean; rateLimited?: boolean }> {
+  const [row] = await db
     .select({
       keyId: apiKeys.id,
       revoked: apiKeys.revoked,
@@ -891,8 +861,7 @@ export function validateApiKey(key: string): { valid: boolean; rateLimited?: boo
       limit: apiKeys.limit,
     })
     .from(apiKeys)
-    .where(eq(apiKeys.key, key))
-    .get();
+    .where(eq(apiKeys.key, key));
 
   if (!row || row.revoked) return { valid: false };
 
@@ -901,14 +870,12 @@ export function validateApiKey(key: string): { valid: boolean; rateLimited?: boo
   }
 
   const now = new Date().toISOString();
-  db.update(apiKeys)
+  await db.update(apiKeys)
     .set({ lastUsedAt: now, usage: row.usage + 1 })
-    .where(eq(apiKeys.id, row.keyId))
-    .run();
-  db.update(kaliUsers)
+    .where(eq(apiKeys.id, row.keyId));
+  await db.update(kaliUsers)
     .set({ lastActiveAt: now })
-    .where(eq(kaliUsers.id, row.userId))
-    .run();
+    .where(eq(kaliUsers.id, row.userId));
 
   return { valid: true };
 }

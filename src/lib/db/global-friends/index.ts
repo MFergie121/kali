@@ -1,12 +1,8 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { env } from '$env/dynamic/private';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
-import { join } from 'path';
 
-const dbPath = join(process.cwd(), 'data', 'global-friends.db');
-const sqlite = new Database(dbPath);
+const client = postgres(env.DATABASE_URL);
 
-sqlite.pragma('journal_mode = WAL');
-sqlite.pragma('foreign_keys = ON');
-
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
