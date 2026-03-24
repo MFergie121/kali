@@ -18,9 +18,10 @@ SvelteKit application backed by PostgreSQL (Drizzle ORM), deployed to Cloud Run 
 npm install
 ```
 
-### 2. Create a local database
+### 2. Start PostgreSQL and create a local database
 
 ```bash
+brew services start postgresql@16
 createdb kali-afl
 ```
 
@@ -74,8 +75,8 @@ The app will be available at `http://localhost:5173`.
 
 For OAuth login to work locally, your GitHub and Google OAuth apps must have `http://localhost:5173` registered as an allowed redirect URI.
 
-- **GitHub:** Go to your OAuth App settings → *Authorization callback URL* → add `http://localhost:5173/auth/callback/github`
-- **Google:** Go to your OAuth Client → *Authorised redirect URIs* → add `http://localhost:5173/auth/callback/google`
+- **GitHub:** Go to your OAuth App settings → _Authorization callback URL_ → add `http://localhost:5173/auth/callback/github`
+- **Google:** Go to your OAuth Client → _Authorised redirect URIs_ → add `http://localhost:5173/auth/callback/google`
 
 > In production these point to the Cloud Run URL. You can use separate OAuth apps for dev and prod, or add both URIs to the same app.
 
@@ -95,14 +96,14 @@ If your database password contains special characters, they must be URL-encoded 
 
 ## Useful Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start local dev server |
-| `npm run build` | Build for production |
-| `npm run check` | Run Svelte type checks |
-| `npm run db:push` | Sync Drizzle schema to the database |
+| Command             | Description                             |
+| ------------------- | --------------------------------------- |
+| `npm run dev`       | Start local dev server                  |
+| `npm run build`     | Build for production                    |
+| `npm run check`     | Run Svelte type checks                  |
+| `npm run db:push`   | Sync Drizzle schema to the database     |
 | `npm run db:studio` | Open Drizzle Studio (visual DB browser) |
-| `npm run db:clear` | Clear AFL data from the database |
+| `npm run db:clear`  | Clear AFL data from the database        |
 
 ---
 
@@ -114,9 +115,9 @@ Schema changes must be applied to the production Cloud SQL database manually bef
 
 There are two distinct Drizzle workflows:
 
-| Command | When to use |
-|---|---|
-| `npm run db:push` | Local dev only — directly syncs schema, no migration files |
+| Command                                        | When to use                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| `npm run db:push`                              | Local dev only — directly syncs schema, no migration files          |
 | `drizzle-kit generate` + `drizzle-kit migrate` | Production — generates a SQL migration file, then applies it safely |
 
 > **Never run `db:push` against the production database.** It can drop columns or tables without warning.
