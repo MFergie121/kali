@@ -1,77 +1,52 @@
-import { env } from '$env/dynamic/private';
-import postgres from 'postgres';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import * as schema from './schema';
+// import { env } from '$env/dynamic/private';
+// import postgres from 'postgres';
+// import { drizzle } from 'drizzle-orm/postgres-js';
+// import * as schema from './schema';
+
+// // Cloud SQL URLs have no hostname (e.g. ://user:pass@/db) which breaks
+// // Node's URL parser. Insert a dummy host so we can parse it.
+// const url = new URL(env.DATABASE_URL.replace('@/', '@localhost/'));
+// const socketPath = url.searchParams.get('host');
+
+// const client = postgres({
+// 	user: decodeURIComponent(url.username),
+// 	pass: decodeURIComponent(url.password),
+// 	database: url.pathname.replace(/^\//, ''),
+// 	...(socketPath
+// 		? { host: socketPath }
+// 		: { host: url.hostname, ...(url.port && { port: Number(url.port) }) }),
+// });
+
+import { env } from "$env/dynamic/private";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
+
+// 1. Fail-fast validation
+if (!env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL is missing. If deploying to Cloud Run, check Secret Manager mappings.",
+  );
+}
 
 /**
- * Parse a Cloud SQL–style DATABASE_URL into postgres.js options.
- *
- * Cloud SQL URLs like `postgresql://user:pass@/dbname?host=/cloudsql/proj:region:inst`
- * have no hostname after the `@`, which makes them invalid per the URL spec.
- * Node's `new URL()` (used internally by postgres.js) rejects them.
- *
- * We parse the URL ourselves and pass an options object instead.
+ * 2. Driver Initialization
+ * The 'postgres' library is smart. If you pass the connection string directly,
+ * it handles most parsing. If you need to override the host for Unix sockets,
+ * you can do it in the options object.
  */
-function parseDbUrl(raw: string) {
-	// If the URL has an empty host (e.g. ://user:pass@/db), insert a dummy
-	// host so that `new URL()` can parse it. The dummy is never used for
-	// connecting when a unix-socket path is present.
-	const fixedUrl = raw.includes('@/')
-		? raw.replace('@/', '@localhost/')
-		: raw;
+const client = postgres(env.DATABASE_URL, {
+  // Cloud Run is serverless and scales horizontally.
+  // High 'max' values can quickly exhaust Cloud SQL connections.
+  max: 1,
 
-	const url = new URL(fixedUrl);
+  // Standard for Cloud SQL Auth Proxy to prevent 'prepared statement' errors
+  // during instance restarts or migrations.
+  prepare: false,
 
-	const socketPath = url.searchParams.get('host'); // Cloud SQL socket path
-
-	const opts: Record<string, unknown> = {
-		user: decodeURIComponent(url.username),
-		pass: decodeURIComponent(url.password),
-		database: url.pathname.replace(/^\//, ''),
-	};
-
-	if (socketPath) {
-		// Unix socket connection (Cloud SQL proxy on Cloud Run).
-		// Use `host` (not `path`) so postgres.js auto-appends /.s.PGSQL.5432
-		opts.host = socketPath;
-	} else {
-		// TCP connection (local dev / direct IP)
-		opts.host = url.hostname;
-		if (url.port) opts.port = Number(url.port);
-	}
-
-	return opts;
-}
-
-let _db: ReturnType<typeof drizzle<typeof schema>> | undefined;
-
-/** The parsed DATABASE_URL (sanitised — password replaced). Available after first db access. */
-export function getDbDebugInfo() {
-	const raw = env.DATABASE_URL;
-	if (!raw) return { status: 'DATABASE_URL is not set', parsed: null };
-	try {
-		const safe = raw.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
-		const opts = parseDbUrl(raw);
-		return {
-			status: 'ok',
-			sanitisedUrl: safe,
-			parsed: { ...opts, pass: '***' },
-			connected: !!_db,
-		};
-	} catch (e) {
-		return { status: 'parse error', error: String(e), rawLength: raw.length };
-	}
-}
-
-export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
-	get(_target, prop, receiver) {
-		if (!_db) {
-			const url = env.DATABASE_URL;
-			if (!url) throw new Error('DATABASE_URL is not set');
-			const opts = parseDbUrl(url);
-			const client = postgres(opts as any);
-			_db = drizzle(client, { schema });
-		}
-		return Reflect.get(_db, prop, receiver);
-	}
+  // If your URL string doesn't include the socket path,
+  // you can explicitly set it here, but usually, it's better to keep
+  // it in the connection string itself.
 });
+
+export const db = drizzle(client, { schema });
