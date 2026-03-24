@@ -3,8 +3,15 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import * as schema from './schema';
 
-const databaseUrl = new URL(env.DATABASE_URL);
-const socketPath = databaseUrl.searchParams.get('host');
+function getSocketPath(url: string) {
+	try {
+		return new URL(url).searchParams.get('host');
+	} catch {
+		return null;
+	}
+}
+
+const socketPath = getSocketPath(env.DATABASE_URL);
 
 const client = postgres(env.DATABASE_URL, {
 	...(socketPath && { host: socketPath })
