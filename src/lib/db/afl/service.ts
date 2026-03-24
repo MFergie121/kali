@@ -827,6 +827,11 @@ export async function listUsers(): Promise<KaliUser[]> {
   return db.select().from(kaliUsers).orderBy(desc(kaliUsers.createdAt));
 }
 
+export async function getUserByEmail(email: string): Promise<KaliUser | null> {
+  const [user] = await db.select().from(kaliUsers).where(eq(kaliUsers.email, email));
+  return user ?? null;
+}
+
 export async function setApiLimit(keyId: number, limit: number | null): Promise<void> {
   await db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId));
 }

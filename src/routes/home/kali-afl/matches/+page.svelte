@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
-	import type { ActionData, PageData } from './$types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
-	let scraping = $state(false);
-	let scrapingInline = $state(false);
 	let expandedMatch = $state<number | null>(null);
 	let showAdvanced = $state(false);
 
@@ -114,35 +111,8 @@
 				</Select.Content>
 			</Select.Root>
 
-			<form
-				method="POST"
-				action="?/scrape"
-				use:enhance={() => {
-					scraping = true;
-					return async ({ update }) => { await update(); scraping = false; };
-				}}
-			>
-				<input type="hidden" name="year"  value={data.selectedYear} />
-				<input type="hidden" name="round" value={data.selectedRound} />
-				<Button type="submit" disabled={scraping} size="sm">
-					{#if scraping}
-						<span class="spinner"></span>scraping…
-					{:else}
-						scrape round
-					{/if}
-				</Button>
-			</form>
 		</div>
 	</div>
-
-	<!-- ── Banners ── -->
-	{#if form && 'success' in form && form.success}
-		<div class="banner banner-success">
-			round {form.round}, {form.year} scraped — {form.matchesScraped} match{form.matchesScraped === 1 ? '' : 'es'} saved.
-		</div>
-	{:else if form && 'error' in form && form.error}
-		<div class="banner banner-error">{form.error}</div>
-	{/if}
 
 	<!-- ── Content ── -->
 	{#if !data.hasData}
@@ -154,20 +124,6 @@
 			</svg>
 			<p class="empty-title">no data for {roundLabel(data.selectedRound)}, {data.selectedYear}</p>
 			<p class="empty-sub">this round hasn't been scraped yet</p>
-			<form
-				method="POST"
-				action="?/scrape"
-				use:enhance={() => {
-					scrapingInline = true;
-					return async ({ update }) => { await update(); scrapingInline = false; };
-				}}
-			>
-				<input type="hidden" name="year"  value={data.selectedYear} />
-				<input type="hidden" name="round" value={data.selectedRound} />
-				<Button type="submit" disabled={scrapingInline} size="sm">
-					{#if scrapingInline}<span class="spinner"></span>scraping…{:else}scrape this round{/if}
-				</Button>
-			</form>
 		</div>
 
 	{:else}
@@ -260,32 +216,6 @@
 		</div>
 	{/if}
 
-	<!-- ── Debug ── -->
-	<details class="debug-section">
-		<summary class="debug-summary">debug scrape</summary>
-		<div class="debug-body">
-			<form
-				method="POST"
-				action="?/debugScrape"
-				use:enhance={() => { return async ({ update }) => { await update(); }; }}
-				class="debug-form"
-			>
-				<label class="debug-label" for="debug-mid">match id (mid)</label>
-				<input
-					id="debug-mid"
-					name="mid"
-					type="number"
-					min="1"
-					placeholder="e.g. 9928"
-					class="debug-input"
-				/>
-				<Button type="submit" variant="outline" size="sm">scrape (no write)</Button>
-			</form>
-			{#if form && 'debugResult' in form && form.debugResult}
-				<pre class="debug-pre">{form.debugResult}</pre>
-			{/if}
-		</div>
-	</details>
 
 </div>
 
@@ -382,39 +312,6 @@
 		flex-shrink: 0;
 	}
 
-	/* ── Spinner ── */
-	.spinner {
-		display: inline-block;
-		width: 0.75rem;
-		height: 0.75rem;
-		border: 1.5px solid currentColor;
-		border-top-color: transparent;
-		border-radius: 9999px;
-		animation: spin 0.6s linear infinite;
-		margin-right: 0.375rem;
-	}
-
-	@keyframes spin { to { transform: rotate(360deg); } }
-
-	/* ── Banners ── */
-	.banner {
-		padding: 0.625rem 1rem;
-		border-radius: 0.5rem;
-		font-size: 0.8125rem;
-		border: 1px solid;
-	}
-
-	.banner-success {
-		color: oklch(0.5 0.15 145);
-		background-color: oklch(0.5 0.15 145 / 0.08);
-		border-color: oklch(0.5 0.15 145 / 0.25);
-	}
-
-	.banner-error {
-		color: var(--destructive);
-		background-color: color-mix(in oklch, var(--destructive), transparent 90%);
-		border-color: color-mix(in oklch, var(--destructive), transparent 70%);
-	}
 
 	/* ── Empty state ── */
 	.empty-state {
@@ -654,70 +551,4 @@
 		background-color: color-mix(in oklch, var(--accent), transparent 85%);
 	}
 
-	/* ── Debug ── */
-	.debug-section {
-		border: 1px solid var(--border);
-		border-radius: 0.625rem;
-		overflow: hidden;
-	}
-
-	.debug-summary {
-		padding: 0.625rem 1rem;
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-		cursor: pointer;
-		letter-spacing: 0.02em;
-		list-style: none;
-		transition: color 0.12s ease;
-	}
-
-	.debug-summary:hover { color: var(--foreground); }
-	.debug-summary::-webkit-details-marker { display: none; }
-
-	.debug-body {
-		border-top: 1px solid var(--border);
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.debug-form {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		flex-wrap: wrap;
-	}
-
-	.debug-label {
-		font-size: 0.8125rem;
-		color: var(--muted-foreground);
-	}
-
-	.debug-input {
-		border: 1px solid var(--input);
-		background-color: var(--background);
-		color: var(--foreground);
-		border-radius: 0.375rem;
-		padding: 0.3rem 0.625rem;
-		font-size: 0.8125rem;
-		font-family: inherit;
-		outline: none;
-		transition: border-color 0.12s ease, box-shadow 0.12s ease;
-	}
-
-	.debug-input:focus {
-		border-color: var(--ring);
-		box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring), transparent 75%);
-	}
-
-	.debug-pre {
-		overflow-x: auto;
-		border-radius: 0.5rem;
-		background-color: color-mix(in oklch, var(--muted), transparent 50%);
-		padding: 0.875rem 1rem;
-		font-size: 0.6875rem;
-		color: var(--muted-foreground);
-		line-height: 1.6;
-	}
 </style>

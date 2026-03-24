@@ -1,5 +1,21 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { toast } from 'svelte-sonner';
 	import type { PageData } from './$types';
+
+	const WELCOME_MESSAGES: Record<string, string> = {
+		github: 'Signed in with GitHub',
+		google: 'Signed in with Google'
+	};
+
+	$effect(() => {
+		const welcome = page.url.searchParams.get('welcome');
+		if (welcome) {
+			const message = WELCOME_MESSAGES[welcome] ?? 'Signed in successfully';
+			toast.success(message, { description: 'Welcome back!' });
+			history.replaceState(null, '', '/home/kali-afl');
+		}
+	});
 
 	let { data }: { data: PageData } = $props();
 
@@ -10,31 +26,31 @@
 
 	const navItems = $derived([
 		{
-			href: '/home/kali-afl-scraper/matches',
+			href: '/home/kali-afl/matches',
 			label: 'matches & stats',
 			description: 'Browse scraped matches and player performance by round',
 			badge: `${data.snapshot.totalMatches.toLocaleString()} matches`
 		},
 		{
-			href: '/home/kali-afl-scraper/players',
+			href: '/home/kali-afl/players',
 			label: 'players & stats',
 			description: 'Player stat matrix across all rounds for any season',
 			badge: `${data.snapshot.totalPlayers.toLocaleString()} players`
 		},
 		{
-			href: '/home/kali-afl-scraper/teams',
+			href: '/home/kali-afl/teams',
 			label: 'teams & stats',
 			description: 'Season-level breakdowns by team',
 			badge: 'season breakdowns'
 		},
 		{
-			href: '/home/kali-afl-scraper/api-docs',
+			href: '/home/kali-afl/api-docs',
 			label: 'api docs',
 			description: 'REST API reference and endpoint guide',
 			badge: 'REST API reference'
 		},
 		{
-			href: '/home/kali-afl-scraper/api-usage',
+			href: '/home/kali-afl/api-usage',
 			label: 'api usage',
 			description: 'Manage API keys and monitor usage',
 			badge: 'key management'
@@ -98,7 +114,7 @@
 						<span class="chip">{data.latestRound.matches.length} match{data.latestRound.matches.length === 1 ? '' : 'es'}</span>
 					</div>
 					<a
-						href="/home/kali-afl-scraper/matches?year={data.latestRound.year}&round={data.latestRound.round}"
+						href="/home/kali-afl/matches?year={data.latestRound.year}&round={data.latestRound.round}"
 						class="view-link"
 					>view all →</a>
 				</div>
@@ -228,7 +244,7 @@
 			<div class="card api-card">
 				<div class="card-header">
 					<span class="section-label">api usage</span>
-					<a href="/home/kali-afl-scraper/api-usage" class="view-link">manage →</a>
+					<a href="/home/kali-afl/api-usage" class="view-link">manage →</a>
 				</div>
 				<div class="api-body">
 					<div class="api-stat-row">

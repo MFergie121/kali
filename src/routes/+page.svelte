@@ -24,7 +24,7 @@
 					signed in as&nbsp;<span class="name">{data.session.user.name || data.session.user.email}</span>
 				</p>
 				<div class="actions">
-					<Button href="/home" class="btn-full">enter</Button>
+					<Button href="/home/kali-afl" class="btn-full">enter</Button>
 					<Button href="/auth/logout/{data.session.provider}" variant="destructive" class="btn-full">
 						sign out
 					</Button>

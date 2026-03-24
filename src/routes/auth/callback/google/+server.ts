@@ -1,3 +1,4 @@
+import { getOrCreateUser } from "$lib/db/afl/service";
 import { redirect } from "@sveltejs/kit";
 import {
   clearOAuthCookies,
@@ -6,7 +7,6 @@ import {
   exchangeCodeForTokens,
   getOAuthCookies,
 } from "../../../../auth";
-import { getOrCreateUser } from "$lib/db/afl/service";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -30,7 +30,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
     let tokens;
     try {
-      tokens = await exchangeCodeForTokens("google", code, redirectUri, stored.codeVerifier);
+      tokens = await exchangeCodeForTokens(
+        "google",
+        code,
+        redirectUri,
+        stored.codeVerifier,
+      );
     } catch (err) {
       console.error("[google callback] token exchange failed:", err);
       redirect(302, "/auth/login?error=token_exchange_failed");
@@ -44,7 +49,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     const user = decodeGoogleIdToken(tokens.id_token);
 
     try {
-      await getOrCreateUser({ email: user.email, name: user.name, provider: "google" });
+      await getOrCreateUser({
+        email: user.email,
+        name: user.name,
+        provider: "google",
+      });
     } catch (err) {
       console.error("[google callback] db error:", err);
       redirect(302, "/auth/login?error=db_error");
@@ -65,5 +74,5 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     redirect(302, "/auth/login?error=auth_failed");
   }
 
-  redirect(302, "/home?welcome=google");
+  redirect(302, "/home/kali-afl?welcome=google");
 };

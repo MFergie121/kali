@@ -18,7 +18,7 @@
 		<p class="text-muted-foreground text-sm leading-relaxed">
 			Every request requires an API key passed in the <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">Authorization</code> header.
 			Keys are managed by an admin — visit the
-			<a href="/home/kali-afl-scraper/api-keys" class="text-primary underline underline-offset-4">API Keys</a>
+			<a href="/home/kali-afl/api-keys" class="text-primary underline underline-offset-4">API Keys</a>
 			page to generate one.
 		</p>
 		<div class="space-y-1">

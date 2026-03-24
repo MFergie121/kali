@@ -23,23 +23,23 @@
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	const dashboardHref = '/home/kali-afl-scraper';
+	const dashboardHref = '/home/kali-afl';
 
 	const statsNavItems = [
-		{ href: '/home/kali-afl-scraper/matches', label: 'Matches & Stats' },
-		{ href: '/home/kali-afl-scraper/players', label: 'Players & Stats' },
-		{ href: '/home/kali-afl-scraper/teams', label: 'Teams & Stats' }
+		{ href: '/home/kali-afl/matches', label: 'Matches & Stats' },
+		{ href: '/home/kali-afl/players', label: 'Players & Stats' },
+		{ href: '/home/kali-afl/teams', label: 'Teams & Stats' }
 	] as const;
 
 	const apiDocsNavItems = [
-		{ href: '/home/kali-afl-scraper/api-docs', label: 'Docs' },
-		{ href: '/home/kali-afl-scraper/api-usage', label: 'Usage' }
+		{ href: '/home/kali-afl/api-docs', label: 'Docs' },
+		{ href: '/home/kali-afl/api-usage', label: 'Usage' }
 	] as const;
 
 	let statsOpen = $state(true);
 	let apiDocsOpen = $state(true);
 
-	const isAflScraper = $derived(page.url.pathname.startsWith('/home/kali-afl-scraper'));
+	const isAflScraper = $derived(page.url.pathname.startsWith('/home/kali-afl'));
 	const isDashboardActive = $derived(
 		page.url.pathname === dashboardHref || page.url.pathname === `${dashboardHref}/`
 	);

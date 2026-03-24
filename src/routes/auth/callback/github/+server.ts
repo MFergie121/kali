@@ -1,3 +1,4 @@
+import { getOrCreateUser } from "$lib/db/afl/service";
 import { redirect } from "@sveltejs/kit";
 import {
   clearOAuthCookies,
@@ -6,7 +7,6 @@ import {
   getGitHubUser,
   getOAuthCookies,
 } from "../../../../auth";
-import { getOrCreateUser } from "$lib/db/afl/service";
 import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -30,7 +30,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
     let tokens;
     try {
-      tokens = await exchangeCodeForTokens("github", code, redirectUri, stored.codeVerifier);
+      tokens = await exchangeCodeForTokens(
+        "github",
+        code,
+        redirectUri,
+        stored.codeVerifier,
+      );
     } catch (err) {
       console.error("[github callback] token exchange failed:", err);
       redirect(302, "/auth/login?error=token_exchange_failed");
@@ -45,7 +50,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     }
 
     try {
-      await getOrCreateUser({ email: user.email, name: user.name, provider: "github" });
+      await getOrCreateUser({
+        email: user.email,
+        name: user.name,
+        provider: "github",
+      });
     } catch (err) {
       console.error("[github callback] db error:", err);
       redirect(302, "/auth/login?error=db_error");
@@ -66,5 +75,5 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     redirect(302, "/auth/login?error=auth_failed");
   }
 
-  redirect(302, "/home?welcome=github");
+  redirect(302, "/home/kali-afl?welcome=github");
 };
