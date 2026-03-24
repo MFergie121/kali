@@ -125,6 +125,22 @@
 						</Collapsible.Content>
 					</SidebarGroup>
 				</Collapsible.Root>
+				{#if data.isAdmin}
+					<SidebarGroup>
+						<SidebarGroupLabel>Admin</SidebarGroupLabel>
+						<SidebarGroupContent>
+							<SidebarMenu>
+								<SidebarMenuItem>
+									<SidebarMenuButton isActive={page.url.pathname === '/home/kali-afl/admin'}>
+										{#snippet child({ props })}
+											<a href="/home/kali-afl/admin" {...props}>Scraper</a>
+										{/snippet}
+									</SidebarMenuButton>
+								</SidebarMenuItem>
+							</SidebarMenu>
+						</SidebarGroupContent>
+					</SidebarGroup>
+				{/if}
 			</SidebarContent>
 			<SidebarRail />
 		</Sidebar>
