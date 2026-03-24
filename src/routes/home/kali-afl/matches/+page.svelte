@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
 	import type { PageData } from './$types';
 
@@ -52,12 +51,56 @@
 	const activeCols = $derived(showAdvanced ? ADV_STAT_COLS : STAT_COLS);
 
 	function roundLabel(r: number): string {
-		return r === 0 ? 'Pre-Season' : `Round ${r}`;
+		return r === 0 ? 'pre-season' : `round ${r}`;
 	}
 
 	function teamSlug(name: string): string {
 		return name.toLowerCase().replace(/\s+/g, '-');
 	}
+
+	function formatFixtureDate(dateStr: string | null): string {
+		if (!dateStr) return 'TBC';
+		const d = new Date(dateStr.replace(' ', 'T') + '+10:00');
+		if (isNaN(d.getTime())) return dateStr;
+		return new Intl.DateTimeFormat('en-AU', {
+			weekday: 'short',
+			day: 'numeric',
+			month: 'short',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true,
+			timeZone: 'Australia/Sydney',
+		}).format(d);
+	}
+
+	function roundChipClass(r: number): string {
+		if (r === data.selectedRound) return 'round-chip round-chip-on';
+		if (data.storedRounds.includes(r)) return 'round-chip round-chip-scraped';
+		if (data.upcomingByRound[r]?.length) return 'round-chip round-chip-upcoming';
+		return 'round-chip';
+	}
+
+	// Average hconfidence per gameid across all tipsters
+	const tipsByGame = $derived.by(() => {
+		const map = new Map<number, number>();
+		if (!data.roundTips.length) return map;
+		const groups = new Map<number, number[]>();
+		for (const tip of data.roundTips) {
+			if (!groups.has(tip.gameid)) groups.set(tip.gameid, []);
+			groups.get(tip.gameid)!.push(tip.hconfidence);
+		}
+		for (const [gameid, confs] of groups) {
+			map.set(gameid, confs.reduce((a, b) => a + b, 0) / confs.length);
+		}
+		return map;
+	});
+
+	// Show inline fixture when the selected round has upcoming games but no scraped data
+	const isUpcomingRound = $derived(
+		!data.hasData && !!(data.upcomingByRound[data.selectedRound]?.length)
+	);
+
+	const upcomingGames = $derived(data.upcomingByRound[data.selectedRound] ?? []);
 </script>
 
 <div class="page">
@@ -91,31 +134,77 @@
 					{/each}
 				</Select.Content>
 			</Select.Root>
+		</div>
+	</div>
 
-			<Select.Root
-				type="single"
-				value={String(data.selectedRound)}
-				onValueChange={(v) => { if (v) goto(`?year=${data.selectedYear}&round=${v}`); }}
-			>
-				<Select.Trigger class="select-trigger w-32">{roundLabel(data.selectedRound)}</Select.Trigger>
-				<Select.Content>
-					{#each data.allRounds as r (r)}
-						{@const has = data.storedRounds.includes(r)}
-						<Select.Item value={String(r)} label={roundLabel(r)}>
-							<span class="round-item">
-								<span>{roundLabel(r)}</span>
-								{#if has}<span class="round-dot"></span>{/if}
-							</span>
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-
+	<!-- ── Round chip bar ── -->
+	<div class="round-chips-panel">
+		<div class="round-chips-header">
+			<span class="round-chips-label">round</span>
+			<div class="round-chips-legend">
+				<span class="legend-item">
+					<span class="legend-swatch legend-swatch-scraped"></span>scraped
+				</span>
+				<span class="legend-item">
+					<span class="legend-swatch legend-swatch-upcoming"></span>upcoming
+				</span>
+			</div>
+		</div>
+		<div class="round-chips-grid">
+			{#each data.allRounds as r (r)}
+				<button
+					class={roundChipClass(r)}
+					onclick={() => goto(`?year=${data.selectedYear}&round=${r}`)}
+				>{r === 0 ? 'pre' : `r${r}`}</button>
+			{/each}
 		</div>
 	</div>
 
 	<!-- ── Content ── -->
-	{#if !data.hasData}
+	{#if isUpcomingRound}
+
+		<!-- Upcoming fixture (inline) -->
+		<div class="match-list">
+			<p class="list-meta">
+				upcoming · {roundLabel(data.selectedRound)}, {data.selectedYear}
+				<span class="list-count">{upcomingGames.length} game{upcomingGames.length === 1 ? '' : 's'}</span>
+				<span class="list-source">squiggle.com.au</span>
+			</p>
+
+			{#each upcomingGames as game (game.id)}
+				{@const homeConf = tipsByGame.get(game.id)}
+				{@const awayConf = homeConf != null ? 100 - homeConf : null}
+
+				<div class="match-card">
+					<div class="upcoming-header">
+						<div class="team team-home">
+							<span class="team-name">{game.hteam}</span>
+						</div>
+						<div class="score-block">
+							<span class="upcoming-vs">vs</span>
+							{#if game.venue}<span class="score-venue">{game.venue}</span>{/if}
+							<span class="score-venue">{formatFixtureDate(game.date)}</span>
+						</div>
+						<div class="team team-away">
+							<span class="team-name">{game.ateam}</span>
+						</div>
+					</div>
+
+					{#if homeConf != null && awayConf != null}
+						<div class="prob-wrap">
+							<span class="prob-pct prob-pct-home">{homeConf.toFixed(0)}%</span>
+							<div class="prob-bar">
+								<div class="prob-bar-fill" style="width: {homeConf}%"></div>
+							</div>
+							<span class="prob-pct prob-pct-away">{awayConf.toFixed(0)}%</span>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+
+	{:else if !data.hasData}
+
 		<div class="empty-state">
 			<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
 				<ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -127,6 +216,7 @@
 		</div>
 
 	{:else}
+
 		<div class="match-list">
 			<p class="list-meta">
 				{roundLabel(data.selectedRound)}, {data.selectedYear}
@@ -148,14 +238,12 @@
 						class="match-header"
 						onclick={() => (expandedMatch = isExpanded ? null : match.id)}
 					>
-						<!-- Home -->
 						<div class="team team-home">
 							<span class="team-name" class:team-winner={homeWon} class:team-loser={awayWon}>
 								{match.homeShortName}
 							</span>
 						</div>
 
-						<!-- Score -->
 						<div class="score-block">
 							<span class="score-main">
 								{match.homeScore ?? '–'}<span class="score-sep"> – </span>{match.awayScore ?? '–'}
@@ -163,14 +251,12 @@
 							<span class="score-venue">{match.venue}</span>
 						</div>
 
-						<!-- Away -->
 						<div class="team team-away">
 							<span class="team-name" class:team-winner={awayWon} class:team-loser={homeWon}>
 								{match.awayShortName}
 							</span>
 						</div>
 
-						<!-- Meta + chevron -->
 						<div class="match-meta">
 							<span class="match-date">{match.date}</span>
 							{#if match.crowd}
@@ -214,8 +300,8 @@
 				</div>
 			{/each}
 		</div>
-	{/if}
 
+	{/if}
 
 </div>
 
@@ -296,22 +382,110 @@
 		background-color: color-mix(in oklch, var(--primary), black 10%);
 	}
 
-	.round-item {
+	/* ── Round chip bar ── */
+	.round-chips-panel {
+		border: 1px solid var(--border);
+		border-radius: 0.625rem;
+		padding: 0.75rem 0.875rem;
+		background-color: color-mix(in oklch, var(--muted), transparent 65%);
+	}
+
+	.round-chips-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
-		width: 100%;
+		margin-bottom: 0.625rem;
 	}
 
-	.round-dot {
-		width: 0.375rem;
-		height: 0.375rem;
-		border-radius: 9999px;
-		background-color: var(--primary);
+	.round-chips-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--muted-foreground);
+	}
+
+	.round-chips-legend {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-size: 0.625rem;
+		color: var(--muted-foreground);
+		letter-spacing: 0.03em;
+	}
+
+	.legend-swatch {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 0.15rem;
 		flex-shrink: 0;
 	}
 
+	.legend-swatch-scraped {
+		background-color: var(--foreground);
+		opacity: 0.6;
+	}
+
+	.legend-swatch-upcoming {
+		background-color: var(--primary);
+		opacity: 0.7;
+	}
+
+	.round-chips-grid {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+
+	.round-chip {
+		font-size: 0.6875rem;
+		font-family: inherit;
+		padding: 0.2rem 0.5rem;
+		border-radius: 0.3rem;
+		border: 1px solid var(--border);
+		background: var(--card);
+		color: var(--muted-foreground);
+		cursor: pointer;
+		transition: all 0.1s ease;
+		opacity: 0.4;
+	}
+
+	.round-chip:hover {
+		border-color: var(--foreground);
+		color: var(--foreground);
+		opacity: 1;
+	}
+
+	.round-chip-on {
+		background-color: var(--foreground);
+		color: var(--background);
+		border-color: var(--foreground);
+		font-weight: 600;
+		opacity: 1;
+	}
+
+	.round-chip-on:hover {
+		opacity: 0.85;
+	}
+
+	.round-chip-scraped {
+		border-color: color-mix(in oklch, var(--primary), transparent 50%);
+		color: var(--foreground);
+		opacity: 1;
+	}
+
+	.round-chip-upcoming {
+		border-color: var(--primary);
+		color: var(--primary);
+		background: color-mix(in oklch, var(--primary), transparent 90%);
+		opacity: 1;
+	}
 
 	/* ── Empty state ── */
 	.empty-state {
@@ -365,6 +539,15 @@
 		letter-spacing: 0.02em;
 	}
 
+	.list-source {
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+		opacity: 0.6;
+		text-transform: none;
+		font-weight: 400;
+		letter-spacing: 0;
+	}
+
 	.match-list {
 		display: flex;
 		flex-direction: column;
@@ -411,9 +594,7 @@
 		transition: color 0.12s ease;
 	}
 
-	.team-winner {
-		color: var(--foreground);
-	}
+	.team-winner { color: var(--foreground); }
 
 	.team-loser {
 		color: var(--muted-foreground);
@@ -551,4 +732,56 @@
 		background-color: color-mix(in oklch, var(--accent), transparent 85%);
 	}
 
+	/* ── Upcoming fixture cards ── */
+	.upcoming-header {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.875rem 1.25rem;
+	}
+
+	.upcoming-vs {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		color: var(--muted-foreground);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	/* ── Win probability bar ── */
+	.prob-wrap {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		padding: 0.5rem 1.25rem 0.75rem;
+		border-top: 1px solid color-mix(in oklch, var(--border), transparent 50%);
+	}
+
+	.prob-pct {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: var(--muted-foreground);
+		white-space: nowrap;
+		min-width: 2.25rem;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.prob-pct-home { text-align: right; }
+	.prob-pct-away { text-align: left; }
+
+	.prob-bar {
+		flex: 1;
+		height: 0.25rem;
+		border-radius: 9999px;
+		background-color: color-mix(in oklch, var(--muted), transparent 30%);
+		overflow: hidden;
+	}
+
+	.prob-bar-fill {
+		height: 100%;
+		background-color: var(--primary);
+		border-radius: 9999px;
+		transition: width 0.4s ease;
+	}
 </style>

@@ -4,6 +4,14 @@ import {
   getPlayerStatsForMatch,
   getStoredRoundsForYear,
 } from "$lib/db/afl/service";
+import {
+  fetchSeasonFixture,
+  fetchTips,
+  getUpcomingGames,
+  getUpcomingRound,
+  type SquiggleGame,
+  type SquiggleTip,
+} from "$lib/afl/squiggle";
 import type { PageServerLoad } from "./$types";
 
 const FIRST_YEAR = 2024;
@@ -45,6 +53,32 @@ export const load: PageServerLoad = async ({ url }) => {
     })),
   );
 
+  // Fetch fixture from Squiggle (cached) — fail gracefully if the API is down
+  let upcomingByRound: Record<number, SquiggleGame[]> = {};
+  let upcomingRound: number | null = null;
+  let roundTips: SquiggleTip[] = [];
+
+  try {
+    const allGames = await fetchSeasonFixture(selectedYear);
+    const upcoming = getUpcomingGames(allGames);
+    for (const game of upcoming) {
+      if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
+      upcomingByRound[game.round].push(game);
+    }
+    upcomingRound = getUpcomingRound(allGames);
+
+    // Only fetch tips when viewing the actual upcoming round
+    if (upcomingRound !== null && selectedRound === upcomingRound) {
+      try {
+        roundTips = await fetchTips(selectedYear, upcomingRound);
+      } catch {
+        // Tips API down — predictions simply won't show
+      }
+    }
+  } catch {
+    // Squiggle is down — upcoming chips and fixture simply won't render
+  }
+
   return {
     allYears,
     allRounds,
@@ -53,5 +87,8 @@ export const load: PageServerLoad = async ({ url }) => {
     selectedRound,
     hasData,
     matches,
+    upcomingByRound,
+    upcomingRound,
+    roundTips,
   };
 };
