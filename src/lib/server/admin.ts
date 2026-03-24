@@ -1,9 +1,9 @@
-import { ADMIN_EMAIL, SCRAPE_SECRET } from "$env/static/private";
+import { env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 
 export async function requireAdmin(locals: App.Locals): Promise<void> {
   const session = await locals.auth();
-  if (!session || session.user.email !== ADMIN_EMAIL) {
+  if (!session || session.user.email !== env.ADMIN_EMAIL) {
     error(403, "Forbidden");
   }
 }
@@ -19,10 +19,10 @@ export async function requireAdminOrCron(
   const bearer = request.headers
     .get("Authorization")
     ?.replace(/^Bearer\s+/, "");
-  if (bearer && bearer === SCRAPE_SECRET) return;
+  if (bearer && bearer === env.SCRAPE_SECRET) return;
 
   const session = await locals.auth();
-  if (!session || session.user.email !== ADMIN_EMAIL) {
+  if (!session || session.user.email !== env.ADMIN_EMAIL) {
     error(403, "Forbidden");
   }
 }
