@@ -1,10 +1,4 @@
 import {
-  getAdvancedPlayerStatsForMatch,
-  getMatchesForRoundAndYear,
-  getPlayerStatsForMatch,
-  getStoredRoundsForYear,
-} from "$lib/db/afl/service";
-import {
   fetchSeasonFixture,
   fetchTips,
   getUpcomingGames,
@@ -12,9 +6,15 @@ import {
   type SquiggleGame,
   type SquiggleTip,
 } from "$lib/afl/squiggle";
+import {
+  getAdvancedPlayerStatsForMatch,
+  getMatchesForRoundAndYear,
+  getPlayerStatsForMatch,
+  getStoredRoundsForYear,
+} from "$lib/db/afl/service";
 import type { PageServerLoad } from "./$types";
 
-const FIRST_YEAR = 2024;
+const FIRST_YEAR = 2000;
 const MAX_ROUND = 27;
 
 export const load: PageServerLoad = async ({ url }) => {

@@ -13,7 +13,7 @@ import { requireAdmin } from "$lib/server/admin";
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
-const FIRST_YEAR = 2024;
+const FIRST_YEAR = 2000;
 const MAX_ROUND = 27;
 
 export const load: PageServerLoad = async (event) => {

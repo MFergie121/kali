@@ -217,7 +217,7 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
 							<td class="py-2 font-mono text-xs">year</td>
 							<td class="py-2 font-mono text-xs">integer</td>
 							<td class="py-2">No</td>
-							<td class="text-muted-foreground py-2">Filter by season year, e.g. <code class="bg-muted rounded px-1 font-mono text-xs">2024</code></td>
+							<td class="text-muted-foreground py-2">Filter by season year, e.g. <code class="bg-muted rounded px-1 font-mono text-xs">2000</code></td>
 						</tr>
 						<tr class="border-b">
 							<td class="py-2 font-mono text-xs">round</td>
@@ -243,7 +243,7 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
 
 			<div class="space-y-1">
 				<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Request</p>
-				<pre class="bg-muted rounded-md p-4 font-mono text-sm overflow-x-auto">curl "https://your-domain.com/api/afl/v1/matches?year=2024&round=5" \
+				<pre class="bg-muted rounded-md p-4 font-mono text-sm overflow-x-auto">curl "https://your-domain.com/api/afl/v1/matches?year=2000&round=5" \
   -H "Authorization: Bearer YOUR_API_KEY"</pre>
 			</div>
 
@@ -254,7 +254,7 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
     {
       "id":            9812,
       "round":         5,
-      "year":          2024,
+      "year":          2000,
       "homeTeam":      "Sydney Swans",
       "homeShortName": "SYD",
       "awayTeam":      "Greater Western Sydney",
@@ -262,9 +262,9 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
       "homeScore":     104,
       "awayScore":     87,
       "venue":         "SCG",
-      "date":          "2024-04-20T13:45:00",
+      "date":          "2000-04-20T13:45:00",
       "crowd":         38214,
-      "sourcedAt":     "2024-04-21T00:12:44.231Z"
+      "sourcedAt":     "2000-04-21T00:12:44.231Z"
     }
     // ...
   ],
@@ -410,10 +410,10 @@ GET /api/afl/v1/players?limit=50&offset=50</pre>
 GET /api/afl/v1/player-stats?match_id=9812
 
 # Season history for one player
-GET /api/afl/v1/player-stats?player_id=142&year=2024
+GET /api/afl/v1/player-stats?player_id=142&year=2000
 
 # All stats for an entire round
-GET /api/afl/v1/player-stats?year=2024&round=5&limit=200</pre>
+GET /api/afl/v1/player-stats?year=2000&round=5&limit=200</pre>
 			</div>
 
 			<div class="space-y-1">
