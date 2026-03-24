@@ -27,14 +27,29 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
   try {
     const redirectUri = `${url.origin}/auth/callback/github`;
-    const tokens = await exchangeCodeForTokens(
-      "github",
-      code,
-      redirectUri,
-      stored.codeVerifier,
-    );
-    const user = await getGitHubUser(tokens.access_token);
-    await getOrCreateUser({ email: user.email, name: user.name, provider: "github" });
+
+    let tokens;
+    try {
+      tokens = await exchangeCodeForTokens("github", code, redirectUri, stored.codeVerifier);
+    } catch (err) {
+      console.error("[github callback] token exchange failed:", err);
+      redirect(302, "/auth/login?error=token_exchange_failed");
+    }
+
+    let user;
+    try {
+      user = await getGitHubUser(tokens.access_token);
+    } catch (err) {
+      console.error("[github callback] failed to fetch user:", err);
+      redirect(302, "/auth/login?error=user_fetch_failed");
+    }
+
+    try {
+      await getOrCreateUser({ email: user.email, name: user.name, provider: "github" });
+    } catch (err) {
+      console.error("[github callback] db error:", err);
+      redirect(302, "/auth/login?error=db_error");
+    }
 
     await createSession(cookies, {
       user,
@@ -46,7 +61,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
         : undefined,
     });
   } catch (err) {
-    console.error("[github callback] auth failed:", err);
+    if ((err as any)?.status === 302) throw err;
+    console.error("[github callback] unexpected error:", err);
     redirect(302, "/auth/login?error=auth_failed");
   }
 

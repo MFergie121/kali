@@ -27,19 +27,28 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
   try {
     const redirectUri = `${url.origin}/auth/callback/google`;
-    const tokens = await exchangeCodeForTokens(
-      "google",
-      code,
-      redirectUri,
-      stored.codeVerifier,
-    );
+
+    let tokens;
+    try {
+      tokens = await exchangeCodeForTokens("google", code, redirectUri, stored.codeVerifier);
+    } catch (err) {
+      console.error("[google callback] token exchange failed:", err);
+      redirect(302, "/auth/login?error=token_exchange_failed");
+    }
 
     if (!tokens.id_token) {
-      redirect(302, "/auth/login?error=auth_failed");
+      console.error("[google callback] no id_token in response");
+      redirect(302, "/auth/login?error=no_id_token");
     }
 
     const user = decodeGoogleIdToken(tokens.id_token);
-    await getOrCreateUser({ email: user.email, name: user.name, provider: "google" });
+
+    try {
+      await getOrCreateUser({ email: user.email, name: user.name, provider: "google" });
+    } catch (err) {
+      console.error("[google callback] db error:", err);
+      redirect(302, "/auth/login?error=db_error");
+    }
 
     await createSession(cookies, {
       user,
@@ -51,7 +60,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
         : undefined,
     });
   } catch (err) {
-    console.error("[google callback] auth failed:", err);
+    if ((err as any)?.status === 302) throw err;
+    console.error("[google callback] unexpected error:", err);
     redirect(302, "/auth/login?error=auth_failed");
   }
 
