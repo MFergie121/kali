@@ -11,10 +11,19 @@ function getSocketPath(url: string) {
 	}
 }
 
-const socketPath = getSocketPath(env.DATABASE_URL);
+let _db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
-const client = postgres(env.DATABASE_URL, {
-	...(socketPath && { host: socketPath })
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+	get(_target, prop, receiver) {
+		if (!_db) {
+			const url = env.DATABASE_URL;
+			if (!url) throw new Error('DATABASE_URL is not set');
+			const socketPath = getSocketPath(url);
+			const client = postgres(url, {
+				...(socketPath && { host: socketPath })
+			});
+			_db = drizzle(client, { schema });
+		}
+		return Reflect.get(_db, prop, receiver);
+	}
 });
-
-export const db = drizzle(client, { schema });
