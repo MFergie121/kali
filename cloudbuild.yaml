@@ -1,40 +1,40 @@
 steps:
   # 1. Build the Docker image for linux/amd64 (required for Cloud Run)
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
-      - 'build'
-      - '--platform=linux/amd64'
-      - '-t'
-      - 'australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA'
-      - '-t'
-      - 'australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:latest'
-      - '.'
+      - "build"
+      - "--platform=linux/amd64"
+      - "-t"
+      - "australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA"
+      - "-t"
+      - "australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:latest"
+      - "."
 
   # 2. Push both tags to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
+  - name: "gcr.io/cloud-builders/docker"
     args:
-      - 'push'
-      - '--all-tags'
-      - 'australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app'
+      - "push"
+      - "--all-tags"
+      - "australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app"
 
   # 3. Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     entrypoint: gcloud
     args:
-      - 'run'
-      - 'deploy'
-      - 'kali-afl'
-      - '--image=australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA'
-      - '--region=australia-southeast1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--add-cloudsql-instances=$PROJECT_ID:australia-southeast1:kali-afl-db'
-      - '--update-secrets=DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest'
-      - '--update-env-vars=ORIGIN=https://kali-afl-173366351243.australia-southeast1.run.app'
+      - "run"
+      - "deploy"
+      - "kali-afl"
+      - "--image=australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA"
+      - "--region=australia-southeast1"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+      - "--add-cloudsql-instances=$PROJECT_ID:australia-southeast1:kali-afl-db"
+      - "--update-secrets=DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ADMIN_EMAIL=ADMIN_EMAIL:latest"
+      - "--update-env-vars=ORIGIN=https://kali-afl-173366351243.australia-southeast1.run.app"
 
 images:
-  - 'australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA'
-  - 'australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:latest'
+  - "australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:$COMMIT_SHA"
+  - "australia-southeast1-docker.pkg.dev/$PROJECT_ID/kali-afl/app:latest"
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -25,3 +25,6 @@ vite.config.ts.timestamp-*
 # SQLite database
 data/
 drizzle/
+
+# Personal documents
+priv_docs/
