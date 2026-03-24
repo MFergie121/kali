@@ -50,7 +50,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const topByDisposals = await db
     .select({
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: players.currentTeamId,
       total: sql<number>`cast(sum(${playerStats.disposals}) as int)`,
     })
     .from(playerStats)
@@ -64,7 +64,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const topByGoals = await db
     .select({
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: players.currentTeamId,
       total: sql<number>`cast(sum(${playerStats.goals}) as int)`,
     })
     .from(playerStats)
@@ -78,7 +78,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const topByFantasy = await db
     .select({
       playerName: players.name,
-      teamId: players.teamId,
+      teamId: players.currentTeamId,
       total: sql<number>`cast(sum(${playerStats.aflFantasyPts}) as int)`,
     })
     .from(playerStats)

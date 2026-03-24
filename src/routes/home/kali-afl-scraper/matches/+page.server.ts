@@ -102,10 +102,10 @@ export const actions: Actions = {
           `[afl-scraper] action: persisting mid=${mid} — ${data.homeStats.length} home + ${data.awayStats.length} away players`,
         );
         await upsertMatch(data.match);
-        await batchUpsertPlayerStats(data.homeStats, mid);
-        await batchUpsertPlayerStats(data.awayStats, mid);
-        await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid);
-        await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid);
+        await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
+        await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
+        await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid, data.match.year);
+        await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid, data.match.year);
         matchesScraped++;
         console.log(`[afl-scraper] action: mid=${mid} done`);
       }

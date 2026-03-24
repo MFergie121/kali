@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
 import { db } from "$lib/db/afl";
-import { apiKeys, kaliUsers, matches, players, playerStats, playerStatsAdvanced, teams } from "$lib/db/afl/schema";
+import { apiKeys, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams } from "$lib/db/afl/schema";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
@@ -59,28 +59,47 @@ export async function getOrCreatePlayer(
   name: string,
   teamId: string,
   onlineId: string,
+  year: number,
 ): Promise<number> {
   // Look up by onlineId — stable across team transfers and name abbreviations.
   const [existing] = await db
-    .select({ id: players.id })
+    .select({ id: players.id, currentTeamId: players.currentTeamId })
     .from(players)
     .where(eq(players.onlineId, onlineId));
 
   if (existing) {
-    // Keep name and teamId fresh without changing the row's identity.
+    if (existing.currentTeamId !== teamId) {
+      // Player has moved teams — close the current open assignment and open a new one.
+      await db.update(playerTeamAssignments)
+        .set({ endYear: year - 1 })
+        .where(and(
+          eq(playerTeamAssignments.playerId, existing.id),
+          isNull(playerTeamAssignments.endYear),
+        ));
+      await db.insert(playerTeamAssignments)
+        .values({ playerId: existing.id, teamId, startYear: year })
+        .onConflictDoNothing();
+    }
+    // Keep name and currentTeamId fresh without changing the row's identity.
     await db.update(players)
-      .set({ name, teamId })
+      .set({ name, currentTeamId: teamId })
       .where(eq(players.onlineId, onlineId));
     return existing.id;
   }
 
   const [result] = await db
     .insert(players)
-    .values({ name, teamId, onlineId })
+    .values({ name, currentTeamId: teamId, onlineId })
     .onConflictDoNothing()
     .returning({ id: players.id });
 
-  if (result) return result.id;
+  if (result) {
+    // Record the initial team assignment for this new player.
+    await db.insert(playerTeamAssignments)
+      .values({ playerId: result.id, teamId, startYear: year })
+      .onConflictDoNothing();
+    return result.id;
+  }
 
   // Race condition fallback
   const [fallback] = await db
@@ -100,9 +119,10 @@ export async function getOrCreatePlayer(
 export async function batchUpsertPlayerStats(
   stats: ScrapedPlayerStat[],
   matchId: number,
+  year: number,
 ): Promise<void> {
   for (const stat of stats) {
-    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
+    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
 
     const statValues = {
       playerId,
@@ -159,9 +179,10 @@ export async function batchUpsertPlayerStats(
 export async function batchUpsertPlayerAdvancedStats(
   stats: ScrapedPlayerAdvancedStat[],
   matchId: number,
+  year: number,
 ): Promise<void> {
   for (const stat of stats) {
-    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId);
+    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
 
     const statValues = {
       playerId,
@@ -685,7 +706,7 @@ export async function getPlayersPaginated(opts: {
   limit: number;
   offset: number;
 }): Promise<{ data: Player[]; total: number }> {
-  const where = opts.teamId !== undefined ? eq(players.teamId, opts.teamId) : undefined;
+  const where = opts.teamId !== undefined ? eq(players.currentTeamId, opts.teamId) : undefined;
 
   const [totalRow] = await db
     .select({ total: count() })

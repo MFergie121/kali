@@ -149,7 +149,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
 	if (matchIds.length > 0) {
 		const statsRows = await db.select({
-			matchId: playerStats.matchId, playerName: players.name, teamId: players.teamId,
+			matchId: playerStats.matchId, playerName: players.name, teamId: players.currentTeamId,
 			kicks: playerStats.kicks, handballs: playerStats.handballs, disposals: playerStats.disposals,
 			marks: playerStats.marks, goals: playerStats.goals, behinds: playerStats.behinds,
 			tackles: playerStats.tackles, hitouts: playerStats.hitouts, inside50s: playerStats.inside50s,

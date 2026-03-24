@@ -13,7 +13,7 @@
 	<main class="card">
 		<div class="logo-wrap">
 			<Logo size={52} class="logo-icon" />
-			<span class="wordmark">kali</span>
+			<span class="wordmark">Kali-AFL</span>
 		</div>
 
 		<div class="divider"></div>

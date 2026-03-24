@@ -7,6 +7,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+
 // ─── Teams ───────────────────────────────────────────────────────────────────
 
 export const teams = pgTable("teams", {
@@ -42,12 +43,33 @@ export const players = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
-    teamId: text("team_id")
+    currentTeamId: text("current_team_id")
       .notNull()
       .references(() => teams.id),
     onlineId: text("online_id"),
   },
   (t) => [uniqueIndex("players_online_id_idx").on(t.onlineId)],
+);
+
+// ─── Player Team Assignments ──────────────────────────────────────────────────
+
+export const playerTeamAssignments = pgTable(
+  "player_team_assignments",
+  {
+    id: serial("id").primaryKey(),
+    playerId: integer("player_id")
+      .notNull()
+      .references(() => players.id),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id),
+    startYear: integer("start_year").notNull(),
+    endYear: integer("end_year"), // null = currently at this club
+    reason: text("reason"),       // "trade" | "rookie" | "rookie-elevated" | "delisted" | "retirement"
+  },
+  (t) => [
+    uniqueIndex("pta_player_team_start_idx").on(t.playerId, t.teamId, t.startYear),
+  ],
 );
 
 // ─── Player Stats ─────────────────────────────────────────────────────────────
@@ -163,10 +185,12 @@ export const apiKeys = pgTable("api_keys", {
 export type Team = typeof teams.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Player = typeof players.$inferSelect;
+export type PlayerTeamAssignment = typeof playerTeamAssignments.$inferSelect;
 export type PlayerStat = typeof playerStats.$inferSelect;
 export type PlayerStatAdvanced = typeof playerStatsAdvanced.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
 export type NewPlayer = typeof players.$inferInsert;
+export type NewPlayerTeamAssignment = typeof playerTeamAssignments.$inferInsert;
 export type NewPlayerStat = typeof playerStats.$inferInsert;
 export type NewPlayerStatAdvanced = typeof playerStatsAdvanced.$inferInsert;
 export type KaliUser = typeof kaliUsers.$inferSelect;

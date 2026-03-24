@@ -50,7 +50,7 @@
 		<Sidebar variant="sidebar" collapsible="offcanvas">
 			<SidebarContent>
 				<SidebarGroup>
-					<SidebarGroupLabel>Kali AFL Stats</SidebarGroupLabel>
+					<SidebarGroupLabel>Kali-AFL Stats</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
 							<SidebarMenuItem>
@@ -138,7 +138,7 @@
 					{/if}
 					<a href="/home" class="flex items-center gap-2">
 						<Logo size={22} />
-						<span class="text-sm font-semibold">Kali</span>
+						<span class="text-sm font-semibold">Kali-AFL</span>
 					</a>
 				</div>
 				{#if data.session}

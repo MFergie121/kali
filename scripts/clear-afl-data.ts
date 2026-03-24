@@ -18,6 +18,7 @@ const sql = postgres(process.env.DATABASE_URL);
 const tables = [
   "player_stats_advanced",
   "player_stats",
+  "player_team_assignments",
   "players",
   "matches",
   "teams",
