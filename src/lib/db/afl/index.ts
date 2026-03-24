@@ -31,8 +31,9 @@ function parseDbUrl(raw: string) {
 	};
 
 	if (socketPath) {
-		// Unix socket connection (Cloud SQL proxy on Cloud Run)
-		opts.path = socketPath;
+		// Unix socket connection (Cloud SQL proxy on Cloud Run).
+		// Use `host` (not `path`) so postgres.js auto-appends /.s.PGSQL.5432
+		opts.host = socketPath;
 	} else {
 		// TCP connection (local dev / direct IP)
 		opts.host = url.hostname;
