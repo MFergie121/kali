@@ -81,7 +81,7 @@
 	const allRounds   = $derived([...new Set(activeRows.map(r => r.round))].sort((a, b) => a - b));
 	const allPlayers  = $derived([...new Set(activeRows.map(r => r.playerName))].sort());
 
-	let selectedRounds = $state<Set<number>>(() => {
+	let selectedRounds = $state<Set<number>>((() => {
 		if (browser) {
 			const saved = sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`);
 			if (saved) {
@@ -90,8 +90,8 @@
 			}
 		}
 		return new Set(data.rows.map(r => r.round));
-	});
-	let selectedPlayers = $state<Set<string>>(() => {
+	})());
+	let selectedPlayers = $state<Set<string>>((() => {
 		if (browser) {
 			const saved = sessionStorage.getItem(`afl-players-players-${data.selectedYear}`);
 			if (saved) {
@@ -100,7 +100,7 @@
 			}
 		}
 		return new Set(data.rows.map(r => r.playerName));
-	});
+	})());
 
 	$effect(() => {
 		const savedRounds = browser ? sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`) : null;
@@ -137,7 +137,7 @@
 		const map = new Map<string, Map<number, number>>();
 		for (const row of activeRows) {
 			if (!map.has(row.playerName)) map.set(row.playerName, new Map());
-			map.get(row.playerName)!.set(row.round, (row as Record<string, unknown>)[selectedStat] as number ?? 0);
+			map.get(row.playerName)!.set(row.round, (row as unknown as Record<string, unknown>)[selectedStat] as number ?? 0);
 		}
 		return map;
 	});
@@ -217,9 +217,7 @@
 	}
 
 	// ── Games tab ─────────────────────────────────────────────────────────────
-	let selectedPlayerId = $state<number>(
-		untrack(() => data.allPlayers[0]?.id ?? 0)
-	);
+	let selectedPlayerId = $state<number>(data.allPlayers[0]?.id ?? 0);
 	let gamesStatKey  = $state<StatKey>('disposals');
 	let selectedGameMatchId = $state<number | null>(null);
 	let gamesSortCol  = $state<string>('round');
@@ -234,7 +232,7 @@
 	const playerSeasonAvg = $derived.by(() => {
 		const games = selectedPlayerGames;
 		if (games.length === 0) return 0;
-		const vals = games.map(g => (g as Record<string, unknown>)[gamesStatKey] as number ?? 0);
+		const vals = games.map(g => (g as unknown as Record<string, unknown>)[gamesStatKey] as number ?? 0);
 		return vals.reduce((a, b) => a + b, 0) / vals.length;
 	});
 
@@ -290,7 +288,7 @@
 			}
 			cnt.set(p, (cnt.get(p) ?? 0) + 1);
 			for (const col of insightsCols) {
-				map.get(p)![col.key] += (row as Record<string, unknown>)[col.key] as number ?? 0;
+				map.get(p)![col.key] += (row as unknown as Record<string, unknown>)[col.key] as number ?? 0;
 			}
 		}
 		for (const [p, entry] of map) {
@@ -641,7 +639,7 @@
 					{@const HALF = 68}
 					{@const TH = HALF * 2 + 22}
 					{@const W = Math.max(1, chartGames.length * (BW + GAP) - GAP)}
-					{@const maxDelta = Math.max(1, ...chartGames.map(g => Math.abs(((g as Record<string,unknown>)[gamesStatKey] as number ?? 0) - playerSeasonAvg)))}
+					{@const maxDelta = Math.max(1, ...chartGames.map(g => Math.abs(((g as unknown as Record<string,unknown>)[gamesStatKey] as number ?? 0) - playerSeasonAvg)))}
 					<div class="chart-wrap">
 						<p class="chart-label">{gamesStatLabel} per round — baseline = season avg {playerSeasonAvg.toFixed(1)}</p>
 						<div class="chart-scroll">
@@ -649,7 +647,7 @@
 								<!-- Baseline -->
 								<line x1="0" y1={HALF} x2={W} y2={HALF} stroke="var(--border)" stroke-width="1"/>
 								{#each chartGames as g, i}
-									{@const val = (g as Record<string,unknown>)[gamesStatKey] as number ?? 0}
+									{@const val = (g as unknown as Record<string,unknown>)[gamesStatKey] as number ?? 0}
 									{@const delta = val - playerSeasonAvg}
 									{@const bh = Math.max(2, (Math.abs(delta) / maxDelta) * HALF)}
 									{@const bx = i * (BW + GAP)}
@@ -703,7 +701,7 @@
 						</thead>
 						<tbody>
 							{#each filteredSortedGames as g (g.matchId)}
-								{@const val = (g as Record<string,unknown>)[gamesStatKey] as number ?? 0}
+								{@const val = (g as unknown as Record<string,unknown>)[gamesStatKey] as number ?? 0}
 								{@const delta = val - playerSeasonAvg}
 								<tr
 									class="game-row"
