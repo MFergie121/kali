@@ -3,8 +3,9 @@
 	import { themeStore, type Theme } from '$lib/theme.svelte';
 	import { fontStore, type Font } from '$lib/font.svelte';
 	import { onMount } from 'svelte';
+	import type { LayoutData } from './$types';
 
-	let { children, data }: { children: Snippet; data: any } = $props();
+	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 
 	onMount(() => {
 		const localTheme = localStorage.getItem('app-theme');

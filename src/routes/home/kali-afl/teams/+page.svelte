@@ -8,8 +8,8 @@
 	let { data }: { data: PageData } = $props();
 
 	// ── Global state ──────────────────────────────────────────────────────────
-	let activeTab      = $state<'overview' | 'games' | 'h2h'>('overview');
 	let compareMode    = $state(!!data.compareTeamId);
+	let activeTab      = $state<'overview' | 'games' | 'h2h'>(compareMode ? 'h2h' : 'overview');
 	let selectedMatchId = $state<number | null>(null);
 
 	// ── Games tab state ───────────────────────────────────────────────────────
@@ -29,11 +29,12 @@
 	}
 
 	// ── Toggle compare mode ───────────────────────────────────────────────────
-	// Sync compareMode when compareTeamId is set via h2h dropdown navigation
+	// Sync compareMode when compareTeamId is set via navigation.
 	$effect(() => {
 		if (data.compareTeamId) compareMode = true;
 	});
 
+	// Sync activeTab when compareMode changes; clear URL param when turning off.
 	$effect(() => {
 		if (compareMode) activeTab = 'h2h';
 		else if (data.compareTeamId) nav({ compare: null });

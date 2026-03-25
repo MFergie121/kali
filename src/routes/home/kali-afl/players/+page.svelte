@@ -4,7 +4,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Select from '$lib/components/ui/select';
-	import { untrack } from 'svelte';
 	import type { PageData } from './$types';
 	import type { PlayerGameRow } from './+page.server';
 
@@ -69,13 +68,10 @@
 
 	// ── Matrix state ──────────────────────────────────────────────────────────
 	let selectedStat = $state<StatKey>(
-		untrack(() => {
-			if (browser) return (sessionStorage.getItem('afl-players-stat') as StatKey) ?? 'disposals';
-			return 'disposals';
-		})
+		browser ? (sessionStorage.getItem('afl-players-stat') as StatKey) ?? 'disposals' : 'disposals'
 	);
 	let showAvg = $state(
-		untrack(() => browser && sessionStorage.getItem('afl-players-showAvg') === 'true')
+		browser && sessionStorage.getItem('afl-players-showAvg') === 'true'
 	);
 	let playerSearch = $state('');
 	let sortByAvgDesc = $state(false);
@@ -85,30 +81,26 @@
 	const allRounds   = $derived([...new Set(activeRows.map(r => r.round))].sort((a, b) => a - b));
 	const allPlayers  = $derived([...new Set(activeRows.map(r => r.playerName))].sort());
 
-	let selectedRounds = $state<Set<number>>(
-		untrack(() => {
-			if (browser) {
-				const saved = sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`);
-				if (saved) {
-					const valid = new Set(data.rows.map(r => r.round));
-					return new Set((JSON.parse(saved) as number[]).filter(r => valid.has(r)));
-				}
+	let selectedRounds = $state<Set<number>>(() => {
+		if (browser) {
+			const saved = sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`);
+			if (saved) {
+				const valid = new Set(data.rows.map(r => r.round));
+				return new Set((JSON.parse(saved) as number[]).filter(r => valid.has(r)));
 			}
-			return new Set(data.rows.map(r => r.round));
-		})
-	);
-	let selectedPlayers = $state<Set<string>>(
-		untrack(() => {
-			if (browser) {
-				const saved = sessionStorage.getItem(`afl-players-players-${data.selectedYear}`);
-				if (saved) {
-					const valid = new Set(data.rows.map(r => r.playerName));
-					return new Set((JSON.parse(saved) as string[]).filter(p => valid.has(p)));
-				}
+		}
+		return new Set(data.rows.map(r => r.round));
+	});
+	let selectedPlayers = $state<Set<string>>(() => {
+		if (browser) {
+			const saved = sessionStorage.getItem(`afl-players-players-${data.selectedYear}`);
+			if (saved) {
+				const valid = new Set(data.rows.map(r => r.playerName));
+				return new Set((JSON.parse(saved) as string[]).filter(p => valid.has(p)));
 			}
-			return new Set(data.rows.map(r => r.playerName));
-		})
-	);
+		}
+		return new Set(data.rows.map(r => r.playerName));
+	});
 
 	$effect(() => {
 		const savedRounds = browser ? sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`) : null;

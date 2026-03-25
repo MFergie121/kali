@@ -51,7 +51,7 @@
 
 				const key = `${year}-${round}`;
 				bulkCurrent = { year, round };
-				bulkResults = { ...bulkResults, [key]: { status: 'running' } };
+				bulkResults[key] = { status: 'running' };
 
 				try {
 					const res = await fetch('/api/afl/admin/scrape', {
@@ -62,17 +62,17 @@
 					const json = await res.json();
 
 					if (json.success) {
-						bulkResults = { ...bulkResults, [key]: { status: 'done', matchesScraped: json.matchesScraped } };
+						bulkResults[key] = { status: 'done', matchesScraped: json.matchesScraped };
 						bulkDone++;
 					} else if (res.status === 422) {
-						bulkResults = { ...bulkResults, [key]: { status: 'skipped' } };
+						bulkResults[key] = { status: 'skipped' };
 						bulkSkipped++;
 					} else {
-						bulkResults = { ...bulkResults, [key]: { status: 'error', error: json.error ?? 'Unknown error' } };
+						bulkResults[key] = { status: 'error', error: json.error ?? 'Unknown error' };
 						bulkErrors++;
 					}
 				} catch (e) {
-					bulkResults = { ...bulkResults, [key]: { status: 'error', error: 'Network error' } };
+					bulkResults[key] = { status: 'error', error: 'Network error' };
 					bulkErrors++;
 				}
 			}

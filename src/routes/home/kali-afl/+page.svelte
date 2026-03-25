@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { toast } from 'svelte-sonner';
 	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 
 	const WELCOME_MESSAGES: Record<string, string> = {
 		github: 'Signed in with GitHub',
 		google: 'Signed in with Google'
 	};
 
-	$effect(() => {
+	onMount(() => {
 		const welcome = page.url.searchParams.get('welcome');
 		if (welcome) {
 			const message = WELCOME_MESSAGES[welcome] ?? 'Signed in successfully';
@@ -16,8 +19,6 @@
 			history.replaceState(null, '', '/home/kali-afl');
 		}
 	});
-
-	let { data }: { data: PageData } = $props();
 
 	type PerformerTab = 'disposals' | 'goals' | 'fantasy';
 	let activeTab = $state<PerformerTab>('disposals');

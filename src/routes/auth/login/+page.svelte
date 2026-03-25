@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import OAuthButtons from '$lib/components/ui/button/OAuthButtons.svelte';
 	import { toast } from 'svelte-sonner';
@@ -12,7 +13,7 @@
 		auth_failed: 'Authentication failed. Please try again.'
 	};
 
-	$effect(() => {
+	onMount(() => {
 		const error = page.url.searchParams.get('error');
 		if (error) {
 			const message = ERROR_MESSAGES[error] ?? 'Something went wrong. Please try again.';
