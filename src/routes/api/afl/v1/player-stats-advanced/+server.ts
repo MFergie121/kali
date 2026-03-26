@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { requireApiKey } from '$lib/api/auth';
-import { getPlayerAdvancedStatsPaginated } from '$lib/db/afl/service';
+import { getPlayerAdvancedStatsPaginated, VALID_PLAYER_ADVANCED_STAT_SORT_KEYS } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ request, url }) => {
@@ -14,6 +14,10 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	const playerIdParam = url.searchParams.get('player_id');
 	const yearParam = url.searchParams.get('year');
 	const roundParam = url.searchParams.get('round');
+	const teamId = url.searchParams.get('team_id') ?? undefined;
+	const sortBy = url.searchParams.get('sort_by') ?? undefined;
+	const orderParam = url.searchParams.get('order');
+	const order = orderParam === 'asc' ? 'asc' as const : orderParam === 'desc' ? 'desc' as const : undefined;
 
 	const matchId = matchIdParam ? parseInt(matchIdParam, 10) : undefined;
 	const playerId = playerIdParam ? parseInt(playerIdParam, 10) : undefined;
@@ -32,7 +36,13 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	if (roundParam && (isNaN(round!) || round! < 0)) {
 		return json({ error: 'Bad request: round must be a non-negative integer' }, { status: 400 });
 	}
+	if (sortBy && !VALID_PLAYER_ADVANCED_STAT_SORT_KEYS.includes(sortBy)) {
+		return json({ error: `Bad request: invalid sort_by '${sortBy}'. Valid values: ${VALID_PLAYER_ADVANCED_STAT_SORT_KEYS.join(', ')}` }, { status: 400 });
+	}
+	if (orderParam && orderParam !== 'asc' && orderParam !== 'desc') {
+		return json({ error: "Bad request: order must be 'asc' or 'desc'" }, { status: 400 });
+	}
 
-	const { data, total } = await getPlayerAdvancedStatsPaginated({ matchId, playerId, year, round, limit, offset });
+	const { data, total } = await getPlayerAdvancedStatsPaginated({ matchId, playerId, year, round, teamId, sortBy, order, limit, offset });
 	return json({ data, meta: { limit, offset, count: data.length, total } });
 };
