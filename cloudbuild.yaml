@@ -28,6 +28,7 @@ steps:
       - "--region=australia-southeast1"
       - "--platform=managed"
       - "--allow-unauthenticated"
+      - "--service-account=kali-afl-run@kali-490813.iam.gserviceaccount.com"
       - "--add-cloudsql-instances=$PROJECT_ID:australia-southeast1:kali-afl-db"
       - "--update-secrets=DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,GITHUB_CLIENT_ID=GITHUB_CLIENT_ID:latest,GITHUB_CLIENT_SECRET=GITHUB_CLIENT_SECRET:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,ADMIN_EMAIL=ADMIN_EMAIL:latest,SCRAPE_SECRET=SCRAPE_SECRET:latest"
       - "--update-env-vars=ORIGIN=https://kali-afl-173366351243.australia-southeast1.run.app"
