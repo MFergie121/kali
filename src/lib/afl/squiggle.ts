@@ -7,10 +7,10 @@ export interface SquiggleGame {
 	roundname: string;
 	year: number;
 	date: string | null; // "2026-03-15 19:25:00" AEST/AEDT, null if TBC
-	hteam: string;
-	ateam: string;
-	hteamid: number;
-	ateamid: number;
+	hteam: string | null; // null for unconfirmed finals
+	ateam: string | null; // null for unconfirmed finals
+	hteamid: number | null; // null for unconfirmed finals
+	ateamid: number | null; // null for unconfirmed finals
 	venue: string | null;
 	hscore: number | null;
 	ascore: number | null;

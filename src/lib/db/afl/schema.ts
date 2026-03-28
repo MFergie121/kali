@@ -45,10 +45,10 @@ export const fixtures = pgTable(
     round: integer("round").notNull(),
     year: integer("year").notNull(),
     date: text("date"), // nullable — "2026-03-15 19:25:00" AEST, null if TBC
-    hteam: text("hteam").notNull(),
-    ateam: text("ateam").notNull(),
-    hteamid: integer("hteamid").notNull(),
-    ateamid: integer("ateamid").notNull(),
+    hteam: text("hteam"), // null for unconfirmed finals
+    ateam: text("ateam"), // null for unconfirmed finals
+    hteamid: integer("hteamid"), // null for unconfirmed finals
+    ateamid: integer("ateamid"), // null for unconfirmed finals
     venue: text("venue"),
     hscore: integer("hscore"),
     ascore: integer("ascore"),

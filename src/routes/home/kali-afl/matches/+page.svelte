@@ -178,7 +178,7 @@
 				<div class="match-card">
 					<div class="upcoming-header">
 						<div class="team team-home">
-							<span class="team-name">{game.hteam}</span>
+							<span class="team-name">{game.hteam ?? 'TBD'}</span>
 						</div>
 						<div class="score-block">
 							<span class="upcoming-vs">vs</span>
@@ -186,7 +186,7 @@
 							<span class="score-venue">{formatFixtureDate(game.date)}</span>
 						</div>
 						<div class="team team-away">
-							<span class="team-name">{game.ateam}</span>
+							<span class="team-name">{game.ateam ?? 'TBD'}</span>
 						</div>
 					</div>
 
