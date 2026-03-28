@@ -1,16 +1,11 @@
+import { getUpcomingRound, type SquiggleGame } from "$lib/afl/squiggle";
 import {
-  fetchSeasonFixture,
-  fetchTips,
-  getUpcomingGames,
-  getUpcomingRound,
-  type SquiggleGame,
-  type SquiggleTip,
-} from "$lib/afl/squiggle";
-import {
-  getAdvancedPlayerStatsForMatch,
+  getAdvancedPlayerStatsForRound,
+  getFixturesForYear,
   getMatchesForRoundAndYear,
-  getPlayerStatsForMatch,
+  getPlayerStatsForRound,
   getStoredRoundsForYear,
+  getTipsForRound,
 } from "$lib/db/afl/service";
 import type { PageServerLoad } from "./$types";
 
@@ -45,38 +40,33 @@ export const load: PageServerLoad = async ({ url }) => {
   const matchRows = hasData
     ? await getMatchesForRoundAndYear(selectedRound, selectedYear)
     : [];
-  const matches = await Promise.all(
-    matchRows.map(async (m) => ({
-      ...m,
-      stats: await getPlayerStatsForMatch(m.id),
-      advStats: await getAdvancedPlayerStatsForMatch(m.id),
-    })),
-  );
 
-  // Fetch fixture from Squiggle (cached) — fail gracefully if the API is down
-  let upcomingByRound: Record<number, SquiggleGame[]> = {};
-  let upcomingRound: number | null = null;
-  let roundTips: SquiggleTip[] = [];
+  // Batch load all stats for the round instead of per-match
+  const statsMap = hasData
+    ? await getPlayerStatsForRound(selectedRound, selectedYear)
+    : new Map();
+  const advStatsMap = hasData
+    ? await getAdvancedPlayerStatsForRound(selectedRound, selectedYear)
+    : new Map();
 
-  try {
-    const allGames = await fetchSeasonFixture(selectedYear);
-    const upcoming = getUpcomingGames(allGames);
-    for (const game of upcoming) {
-      if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
-      upcomingByRound[game.round].push(game);
-    }
-    upcomingRound = getUpcomingRound(allGames);
+  const matches = matchRows.map((m) => ({
+    ...m,
+    stats: statsMap.get(m.id) ?? [],
+    advStats: advStatsMap.get(m.id) ?? [],
+  }));
 
-    // Only fetch tips when viewing the actual upcoming round
-    if (upcomingRound !== null && selectedRound === upcomingRound) {
-      try {
-        roundTips = await fetchTips(selectedYear, upcomingRound);
-      } catch {
-        // Tips API down — predictions simply won't show
-      }
-    }
-  } catch {
-    // Squiggle is down — upcoming chips and fixture simply won't render
+  // Read fixtures and tips from DB (synced via cron job)
+  const allFixtures = await getFixturesForYear(selectedYear);
+  const upcomingByRound: Record<number, typeof allFixtures> = {};
+  for (const game of allFixtures.filter((f) => f.complete < 100)) {
+    if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
+    upcomingByRound[game.round].push(game);
+  }
+  const upcomingRound = getUpcomingRound(allFixtures);
+
+  let roundTips = [];
+  if (upcomingRound !== null && selectedRound === upcomingRound) {
+    roundTips = await getTipsForRound(selectedYear, upcomingRound);
   }
 
   return {

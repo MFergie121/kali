@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
+import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat, SquiggleGame, SquiggleTip } from "$lib/afl/scraper";
 import { db } from "$lib/db/afl";
-import { apiKeys, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams } from "$lib/db/afl/schema";
+import { apiKeys, fixtures, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams, tips } from "$lib/db/afl/schema";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
 import { and, asc, count, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 
@@ -526,6 +526,175 @@ export async function getPlayerStatsForMatch(matchId: number): Promise<PlayerSta
     .innerJoin(players, eq(playerStats.playerId, players.id))
     .where(eq(playerStats.matchId, matchId))
     .orderBy(desc(playerStats.disposals));
+}
+
+// ─── Optimized batch queries for better performance ─────────────────────────
+
+export async function getPlayerStatsForRound(
+  round: number,
+  year: number,
+): Promise<Map<number, PlayerStatRow[]>> {
+  const allStats = await db
+    .select({
+      matchId: playerStats.matchId,
+      playerName: players.name,
+      teamId: playerStats.teamId,
+      kicks: playerStats.kicks,
+      handballs: playerStats.handballs,
+      disposals: playerStats.disposals,
+      marks: playerStats.marks,
+      goals: playerStats.goals,
+      behinds: playerStats.behinds,
+      tackles: playerStats.tackles,
+      hitouts: playerStats.hitouts,
+      goalAssists: playerStats.goalAssists,
+      inside50s: playerStats.inside50s,
+      clearances: playerStats.clearances,
+      clangers: playerStats.clangers,
+      rebound50s: playerStats.rebound50s,
+      freesFor: playerStats.freesFor,
+      freesAgainst: playerStats.freesAgainst,
+      aflFantasyPts: playerStats.aflFantasyPts,
+      supercoachPts: playerStats.supercoachPts,
+    })
+    .from(playerStats)
+    .innerJoin(players, eq(playerStats.playerId, players.id))
+    .innerJoin(matches, eq(playerStats.matchId, matches.id))
+    .where(and(eq(matches.round, round), eq(matches.year, year)))
+    .orderBy(playerStats.matchId, desc(playerStats.disposals));
+
+  // Group by match ID for easy lookup
+  const grouped = new Map<number, PlayerStatRow[]>();
+  for (const stat of allStats) {
+    if (!grouped.has(stat.matchId)) {
+      grouped.set(stat.matchId, []);
+    }
+    grouped.get(stat.matchId)!.push(stat);
+  }
+  return grouped;
+}
+
+export async function getAdvancedPlayerStatsForRound(
+  round: number,
+  year: number,
+): Promise<Map<number, PlayerAdvancedStatRow[]>> {
+  const allStats = await db
+    .select({
+      matchId: playerStatsAdvanced.matchId,
+      playerName: players.name,
+      teamId: playerStatsAdvanced.teamId,
+      contestedPossessions: playerStatsAdvanced.contestedPossessions,
+      uncontestedPossessions: playerStatsAdvanced.uncontestedPossessions,
+      effectiveDisposals: playerStatsAdvanced.effectiveDisposals,
+      disposalEfficiencyPct: playerStatsAdvanced.disposalEfficiencyPct,
+      contestedMarks: playerStatsAdvanced.contestedMarks,
+      goalAssists: playerStatsAdvanced.goalAssists,
+      marksInside50: playerStatsAdvanced.marksInside50,
+      onePercenters: playerStatsAdvanced.onePercenters,
+      bounces: playerStatsAdvanced.bounces,
+      centreClearances: playerStatsAdvanced.centreClearances,
+      stoppageClearances: playerStatsAdvanced.stoppageClearances,
+      scoreInvolvements: playerStatsAdvanced.scoreInvolvements,
+      metresGained: playerStatsAdvanced.metresGained,
+      turnovers: playerStatsAdvanced.turnovers,
+      intercepts: playerStatsAdvanced.intercepts,
+      tacklesInside50: playerStatsAdvanced.tacklesInside50,
+      timeOnGroundPct: playerStatsAdvanced.timeOnGroundPct,
+    })
+    .from(playerStatsAdvanced)
+    .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
+    .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
+    .where(and(eq(matches.round, round), eq(matches.year, year)))
+    .orderBy(playerStatsAdvanced.matchId, desc(playerStatsAdvanced.contestedPossessions));
+
+  // Group by match ID for easy lookup
+  const grouped = new Map<number, PlayerAdvancedStatRow[]>();
+  for (const stat of allStats) {
+    if (!grouped.has(stat.matchId)) {
+      grouped.set(stat.matchId, []);
+    }
+    grouped.get(stat.matchId)!.push(stat);
+  }
+  return grouped;
+}
+
+// ─── Fixtures & Tips (Squiggle Data) ──────────────────────────────────────────
+
+export async function upsertFixtures(games: SquiggleGame[]): Promise<void> {
+  if (games.length === 0) return;
+  const now = new Date().toISOString();
+  const values = games.map((g) => ({
+    id: g.id,
+    round: g.round,
+    year: g.year,
+    date: g.date,
+    hteam: g.hteam,
+    ateam: g.ateam,
+    hteamid: g.hteamid,
+    ateamid: g.ateamid,
+    venue: g.venue,
+    hscore: g.hscore,
+    ascore: g.ascore,
+    complete: g.complete,
+    winner: g.winner,
+    syncedAt: now,
+  }));
+  await db
+    .insert(fixtures)
+    .values(values)
+    .onConflictDoUpdate({
+      target: fixtures.id,
+      set: {
+        round: sql`excluded.round`,
+        date: sql`excluded.date`,
+        hscore: sql`excluded.hscore`,
+        ascore: sql`excluded.ascore`,
+        complete: sql`excluded.complete`,
+        winner: sql`excluded.winner`,
+        venue: sql`excluded.venue`,
+        syncedAt: sql`excluded.synced_at`,
+      },
+    });
+}
+
+export async function getFixturesForYear(year: number) {
+  return db
+    .select()
+    .from(fixtures)
+    .where(eq(fixtures.year, year))
+    .orderBy(asc(fixtures.round), asc(fixtures.date));
+}
+
+export async function upsertTips(
+  fetchedTips: SquiggleTip[],
+  year: number,
+  round: number,
+): Promise<void> {
+  if (fetchedTips.length === 0) return;
+  const now = new Date().toISOString();
+  const values = fetchedTips.map((t) => ({
+    gameId: t.gameid,
+    year,
+    round,
+    hteam: t.hteam,
+    ateam: t.ateam,
+    hconfidence: t.hconfidence,
+    source: t.source,
+    syncedAt: now,
+  }));
+  // Delete old tips for this round and sync with new ones
+  await db.delete(tips).where(and(eq(tips.year, year), eq(tips.round, round)));
+  if (values.length > 0) {
+    await db.insert(tips).values(values);
+  }
+}
+
+export async function getTipsForRound(year: number, round: number) {
+  return db
+    .select()
+    .from(tips)
+    .where(and(eq(tips.year, year), eq(tips.round, round)))
+    .orderBy(asc(tips.gameId));
 }
 
 // ─── Year-wide pivot query ────────────────────────────────────────────────────

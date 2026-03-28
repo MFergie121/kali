@@ -1,6 +1,5 @@
 const SQUIGGLE_BASE = 'https://api.squiggle.com.au';
 const HEADERS = { 'User-Agent': 'kali-afl/1.0' };
-const TTL = 604_800_000; // 7 days
 
 export interface SquiggleGame {
 	id: number;
@@ -27,24 +26,11 @@ export interface SquiggleTip {
 	gameid: number;
 }
 
-// Module-level in-memory cache — shared across all requests, resets on server restart
-let cache: { games: SquiggleGame[]; fetchedAt: number; year: number } = {
-	games: [],
-	fetchedAt: 0,
-	year: 0,
-};
-
 export async function fetchSeasonFixture(year: number): Promise<SquiggleGame[]> {
-	const now = Date.now();
-	if (cache.year === year && now - cache.fetchedAt < TTL) {
-		return cache.games;
-	}
 	const res = await fetch(`${SQUIGGLE_BASE}/?q=games;year=${year}`, { headers: HEADERS });
 	if (!res.ok) throw new Error(`Squiggle API error: ${res.status}`);
 	const data = (await res.json()) as { games: SquiggleGame[] };
-	const games = data.games ?? [];
-	cache = { games, fetchedAt: now, year };
-	return games;
+	return data.games ?? [];
 }
 
 export async function fetchTips(year: number, round: number): Promise<SquiggleTip[]> {

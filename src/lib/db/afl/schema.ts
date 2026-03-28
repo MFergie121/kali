@@ -36,6 +36,49 @@ export const matches = pgTable("matches", {
   sourcedAt: text("sourced_at").notNull(),
 });
 
+// ─── Fixtures (Squiggle) ──────────────────────────────────────────────────
+
+export const fixtures = pgTable(
+  "fixtures",
+  {
+    id: integer("id").primaryKey(), // Squiggle game ID
+    round: integer("round").notNull(),
+    year: integer("year").notNull(),
+    date: text("date"), // nullable — "2026-03-15 19:25:00" AEST, null if TBC
+    hteam: text("hteam").notNull(),
+    ateam: text("ateam").notNull(),
+    hteamid: integer("hteamid").notNull(),
+    ateamid: integer("ateamid").notNull(),
+    venue: text("venue"),
+    hscore: integer("hscore"),
+    ascore: integer("ascore"),
+    complete: integer("complete").notNull().default(0), // 0–100
+    winner: text("winner"),
+    syncedAt: text("synced_at").notNull(),
+  },
+  (t) => [uniqueIndex("fixtures_year_round_id_idx").on(t.year, t.round, t.id)],
+);
+
+// ─── Tips (Squiggle Tipster Predictions) ───────────────────────────────────
+
+export const tips = pgTable(
+  "tips",
+  {
+    id: serial("id").primaryKey(),
+    gameId: integer("game_id").notNull(), // Squiggle game ID
+    year: integer("year").notNull(),
+    round: integer("round").notNull(),
+    hteam: text("hteam").notNull(),
+    ateam: text("ateam").notNull(),
+    hconfidence: integer("hconfidence").notNull(), // % chance home team wins
+    source: text("source").notNull(), // tipster name
+    syncedAt: text("synced_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("tips_game_source_idx").on(t.gameId, t.source, t.syncedAt),
+  ],
+);
+
 // ─── Players ─────────────────────────────────────────────────────────────────
 
 export const players = pgTable(
@@ -184,11 +227,15 @@ export const apiKeys = pgTable("api_keys", {
 
 export type Team = typeof teams.$inferSelect;
 export type Match = typeof matches.$inferSelect;
+export type Fixture = typeof fixtures.$inferSelect;
+export type Tip = typeof tips.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type PlayerTeamAssignment = typeof playerTeamAssignments.$inferSelect;
 export type PlayerStat = typeof playerStats.$inferSelect;
 export type PlayerStatAdvanced = typeof playerStatsAdvanced.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
+export type NewFixture = typeof fixtures.$inferInsert;
+export type NewTip = typeof tips.$inferInsert;
 export type NewPlayer = typeof players.$inferInsert;
 export type NewPlayerTeamAssignment = typeof playerTeamAssignments.$inferInsert;
 export type NewPlayerStat = typeof playerStats.$inferInsert;

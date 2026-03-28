@@ -146,7 +146,10 @@ export async function getLatestCompletedRound(
 
     const firstCell = cells[0].text.trim();
 
-    const roundMatch = firstCell.match(/^Round\s+(\d+|P\d+|HA?)$/i);
+    // Match standard rounds (Round 1-27), preseason (P1, P2), finals variations
+    const roundMatch = firstCell.match(
+      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+    );
     if (roundMatch) {
       // Save result for the round we just finished scanning
       if (
@@ -163,9 +166,28 @@ export async function getLatestCompletedRound(
           `[afl-scraper] getLatestCompletedRound: round ${currentRound} — incomplete (hasGames=${currentRoundHasGames}, allComplete=${currentRoundComplete})`,
         );
       }
-      // Do NOT use || 0 — parseInt("0") = 0, which is a valid preseason round number
-      const parsed = parseInt(roundMatch[1], 10);
-      currentRound = isNaN(parsed) ? null : parsed;
+      // Determine round number from matched groups
+      let r = null;
+      if (roundMatch[1]) {
+        // Standard round (Round 1-27)
+        const parsed = parseInt(roundMatch[1], 10);
+        r = isNaN(parsed) ? null : parsed;
+      } else if (roundMatch[2]) {
+        // Preseason (P1, P2, etc.)
+        const parsed = parseInt(roundMatch[2], 10);
+        r = isNaN(parsed) ? null : -parsed;
+      } else if (roundMatch[3]) {
+        // Finals Week
+        const finalsWeek = parseInt(roundMatch[3], 10);
+        r = isNaN(finalsWeek) ? null : 24 + finalsWeek;
+      } else {
+        // Grand Final patterns
+        if (firstCell.match(/Grand\s+Final/i)) r = 28;
+        else if (firstCell.match(/Preliminary\s+Final/i)) r = 27;
+        else if (firstCell.match(/Semi\s+Final/i)) r = 26;
+        else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) r = 25;
+      }
+      currentRound = r;
       currentRoundComplete = true;
       currentRoundHasGames = false;
       console.log(
@@ -233,11 +255,32 @@ export async function getMatchIdsForRound(
     if (cells.length === 0) continue;
 
     const firstCell = cells[0].text.trim();
-    const roundMatch = firstCell.match(/^Round\s+(\d+|P\d+|HA?)$/i);
+    // Match standard rounds (Round 1-27), preseason (P1, P2), finals variations
+    const roundMatch = firstCell.match(
+      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+    );
     if (roundMatch) {
-      // Do NOT use || 0 — parseInt("0") = 0, which is valid for preseason
-      const parsed = parseInt(roundMatch[1], 10);
-      const r = isNaN(parsed) ? -1 : parsed;
+      // Determine round number from matched groups
+      let r = -1;
+      if (roundMatch[1]) {
+        // Standard round (Round 1-27)
+        r = parseInt(roundMatch[1], 10);
+      } else if (roundMatch[2]) {
+        // Preseason (P1, P2, etc.) — map to negative numbers for special handling
+        r = -parseInt(roundMatch[2], 10);
+      } else if (roundMatch[3]) {
+        // Finals Week (Finals Week 1, Finals Week 2, etc.)
+        // Map Finals Week 1 -> 25, Finals Week 2 -> 26, etc.
+        const finalsWeek = parseInt(roundMatch[3], 10);
+        r = 24 + finalsWeek;
+      } else {
+        // Grand Final patterns — we'll handle these specially if needed
+        // For now, map to high round numbers
+        if (firstCell.match(/Grand\s+Final/i)) r = 28;
+        else if (firstCell.match(/Preliminary\s+Final/i)) r = 27;
+        else if (firstCell.match(/Semi\s+Final/i)) r = 26;
+        else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) r = 25;
+      }
       const wasIn = inTargetRound;
       inTargetRound = r === round;
       console.log(
@@ -328,14 +371,21 @@ export async function scrapeMatchStats(
   // ── Score table ───────────────────────────────────────────────────────────
   // #matchscoretable: row[1] = home, row[2] = away. Last td = final score.
   // Team name comes from the anchor in the first td of each row.
-  const scoreTable = root.querySelector("#matchscoretable");
+  let scoreTable = root.querySelector("#matchscoretable");
   if (!scoreTable) {
-    throw new Error(`#matchscoretable not found for mid=${mid}`);
+    // Try alternate selector for older years (2021-2022)
+    scoreTable = root.querySelector("table.stats") || root.querySelector("table");
+    if (scoreTable) {
+      console.log(`[afl-scraper] scrapeMatchStats: using alternate table selector for mid=${mid}`);
+    } else {
+      throw new Error(`#matchscoretable not found for mid=${mid}`);
+    }
   }
+
   const scoreRows = scoreTable.querySelectorAll("tr");
   if (scoreRows.length < 3) {
     throw new Error(
-      `#matchscoretable has only ${scoreRows.length} rows for mid=${mid}`,
+      `Score table has only ${scoreRows.length} rows for mid=${mid}`,
     );
   }
 
@@ -359,8 +409,19 @@ export async function scrapeMatchStats(
   // ── Per-team stat sections ────────────────────────────────────────────────
   // #match-statistics-team1-row = home, #match-statistics-team2-row = away.
   // This matches the score table row order — confirmed from HTML structure.
-  const team1Section = root.querySelector("#match-statistics-team1-row");
-  const team2Section = root.querySelector("#match-statistics-team2-row");
+  let team1Section = root.querySelector("#match-statistics-team1-row");
+  let team2Section = root.querySelector("#match-statistics-team2-row");
+
+  // Fallback for older years — try alternate selectors
+  if (!team1Section || !team2Section) {
+    const allSections = root.querySelectorAll("table");
+    if (allSections.length >= 3) {
+      // Typically structure: score table, then team1 stats, then team2 stats
+      team1Section = team1Section || allSections[1];
+      team2Section = team2Section || allSections[2];
+      console.log(`[afl-scraper] scrapeMatchStats: using alternate section selectors for mid=${mid}`);
+    }
+  }
 
   if (!team1Section || !team2Section) {
     throw new Error(
@@ -503,14 +564,21 @@ export async function scrapeMatchAdvancedStats(
   const root = parse(html);
 
   // ── Score table — same structure as base page ─────────────────────────────
-  const scoreTable = root.querySelector("#matchscoretable");
+  let scoreTable = root.querySelector("#matchscoretable");
   if (!scoreTable) {
-    throw new Error(`#matchscoretable not found for mid=${mid} (advv=Y)`);
+    // Try alternate selector for older years
+    scoreTable = root.querySelector("table.stats") || root.querySelector("table");
+    if (scoreTable) {
+      console.log(`[afl-scraper] scrapeMatchAdvancedStats: using alternate table selector for mid=${mid}`);
+    } else {
+      throw new Error(`#matchscoretable not found for mid=${mid} (advv=Y)`);
+    }
   }
+
   const scoreRows = scoreTable.querySelectorAll("tr");
   if (scoreRows.length < 3) {
     throw new Error(
-      `#matchscoretable has only ${scoreRows.length} rows for mid=${mid} (advv=Y)`,
+      `Score table has only ${scoreRows.length} rows for mid=${mid} (advv=Y)`,
     );
   }
 
@@ -545,8 +613,18 @@ export async function scrapeMatchAdvancedStats(
     : new Date().getFullYear();
 
   // ── Per-team stat sections ────────────────────────────────────────────────
-  const team1Section = root.querySelector("#match-statistics-team1-row");
-  const team2Section = root.querySelector("#match-statistics-team2-row");
+  let team1Section = root.querySelector("#match-statistics-team1-row");
+  let team2Section = root.querySelector("#match-statistics-team2-row");
+
+  // Fallback for older years
+  if (!team1Section || !team2Section) {
+    const allSections = root.querySelectorAll("table");
+    if (allSections.length >= 3) {
+      team1Section = team1Section || allSections[1];
+      team2Section = team2Section || allSections[2];
+      console.log(`[afl-scraper] scrapeMatchAdvancedStats: using alternate section selectors for mid=${mid}`);
+    }
+  }
 
   if (!team1Section || !team2Section) {
     throw new Error(
