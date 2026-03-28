@@ -56,17 +56,24 @@ export const load: PageServerLoad = async ({ url }) => {
   }));
 
   // Read fixtures and tips from DB (synced via cron job)
-  const allFixtures = await getFixturesForYear(selectedYear);
-  const upcomingByRound: Record<number, typeof allFixtures> = {};
-  for (const game of allFixtures.filter((f) => f.complete < 100)) {
-    if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
-    upcomingByRound[game.round].push(game);
-  }
-  const upcomingRound = getUpcomingRound(allFixtures);
-
+  // Wrapped in try-catch so the page still loads if the tables haven't been created yet
+  let upcomingByRound: Record<number, Awaited<ReturnType<typeof getFixturesForYear>>> = {};
+  let upcomingRound: number | null = null;
   let roundTips: Awaited<ReturnType<typeof getTipsForRound>> = [];
-  if (upcomingRound !== null && selectedRound === upcomingRound) {
-    roundTips = await getTipsForRound(selectedYear, upcomingRound);
+
+  try {
+    const allFixtures = await getFixturesForYear(selectedYear);
+    for (const game of allFixtures.filter((f) => f.complete < 100)) {
+      if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
+      upcomingByRound[game.round].push(game);
+    }
+    upcomingRound = getUpcomingRound(allFixtures);
+
+    if (upcomingRound !== null && selectedRound === upcomingRound) {
+      roundTips = await getTipsForRound(selectedYear, upcomingRound);
+    }
+  } catch {
+    // fixtures/tips tables may not exist yet — page renders without fixture data
   }
 
   return {

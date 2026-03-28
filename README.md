@@ -18,14 +18,35 @@ SvelteKit application backed by PostgreSQL (Drizzle ORM), deployed to Cloud Run 
 npm install
 ```
 
-### 2. Start PostgreSQL and create a local database
+### 2. Set up PostgreSQL
+
+**Install and start** (Homebrew):
 
 ```bash
+brew install postgresql@16
 brew services start postgresql@16
+```
+
+**Create the database:**
+
+```bash
 createdb kali-afl
 ```
 
-> If you don't have PostgreSQL installed: `brew install postgresql@16 && brew services start postgresql@16`
+**Useful PostgreSQL commands:**
+
+| Command | Description |
+|---------|-------------|
+| `brew services start postgresql@16` | Start PostgreSQL |
+| `brew services stop postgresql@16` | Stop PostgreSQL |
+| `brew services restart postgresql@16` | Restart PostgreSQL |
+| `brew services list` | Show status of all services (check if PostgreSQL is running) |
+| `psql kali-afl` | Open a psql shell connected to the local DB |
+| `psql kali-afl -c "SELECT * FROM fixtures LIMIT 5;"` | Run a one-off query |
+| `createdb kali-afl` | Create the database (first time only) |
+| `dropdb kali-afl` | Delete the database entirely (destructive) |
+
+> **Connection string note:** Homebrew PostgreSQL on macOS uses your OS username as the default role (not `postgres`). The correct local `DATABASE_URL` uses your macOS username — see step 3 below.
 
 ### 3. Configure environment variables
 
@@ -36,8 +57,8 @@ cp .env.example .env
 ```
 
 ```env
-# Local PostgreSQL connection
-DATABASE_URL=postgresql://localhost:5432/kali-afl
+# Local PostgreSQL connection — replace YOUR_USERNAME with your macOS username (run: whoami)
+DATABASE_URL=postgresql://YOUR_USERNAME@localhost:5432/kali-afl
 
 # Generate with: openssl rand -hex 32
 AUTH_SECRET=
@@ -113,53 +134,42 @@ Schema changes must be applied to the production Cloud SQL database manually bef
 
 ### How it works
 
-There are two distinct Drizzle workflows:
+This project uses `db:push` for both local and production schema management. Drizzle push compares the TypeScript schema against the live database and generates only the necessary SQL — it will **prompt before dropping anything**, so it is safe to review before confirming.
 
-| Command                                        | When to use                                                         |
-| ---------------------------------------------- | ------------------------------------------------------------------- |
-| `npm run db:push`                              | Local dev only — directly syncs schema, no migration files          |
-| `drizzle-kit generate` + `drizzle-kit migrate` | Production — generates a SQL migration file, then applies it safely |
+> `drizzle-kit migrate` (file-based migrations) is not used because the production database was originally bootstrapped with `db:push`. Mixing the two approaches causes state mismatches in the `__drizzle_migrations` table.
 
-> **Never run `db:push` against the production database.** It can drop columns or tables without warning.
+### Step 1 — Start the Cloud SQL Auth Proxy
 
-### Step 1 — Generate a migration
-
-After making changes to a schema file under `src/lib/db/`:
-
-```bash
-npx drizzle-kit generate
-```
-
-This creates a new `.sql` file in the `drizzle/` directory. Review it before applying — it is the exact SQL that will run against the database.
-
-### Step 2 — Start the Cloud SQL Auth Proxy
-
-The proxy creates a local TCP tunnel to the production Cloud SQL instance. Run this in a separate terminal:
+The proxy creates a local TCP tunnel to the production Cloud SQL instance. If local PostgreSQL is already running on port 5432, use `--port 5433` to avoid conflicts. Run this in a separate terminal:
 
 ```bash
 # Install once
 brew install cloud-sql-proxy
 
-# Run the proxy
+# Run on default port (only if local Postgres is stopped)
 cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db
+
+# Run on alternate port (recommended — keeps local Postgres running)
+cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
 ```
 
-The proxy listens on `localhost:5432` by default.
-
-### Step 3 — Apply the migration
+### Step 2 — Push schema changes
 
 Set the production database URL temporarily in your shell (do not save this to `.env`):
 
 ```bash
-DATABASE_URL="postgresql://YOUR_DB_USER:YOUR_PASSWORD@localhost:5432/kali-afl" \
-  npx drizzle-kit migrate
+# Via default port 5432
+DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5432/kali-afl" npm run db:push
+
+# Via alternate port 5433
+DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5433/kali-afl" npm run db:push
 ```
 
-This applies any pending migration files from the `drizzle/` directory in order.
+Drizzle will print the SQL it plans to run and ask for confirmation. Review it, then confirm.
 
-### Step 4 — Verify and deploy
+### Step 3 — Verify and deploy
 
-Once the migration succeeds, deploy the app as normal (push to trigger Cloud Build). The new schema will be in place before the new code goes live.
+Once the push succeeds, deploy the app as normal (push to trigger Cloud Build). The new schema will be in place before the new code goes live.
 
 ---
 
