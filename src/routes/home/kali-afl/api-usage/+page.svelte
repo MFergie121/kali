@@ -103,24 +103,8 @@
 										{/if}
 									</div>
 								</td>
-								<td class="px-3 py-2">
-									<form method="POST" action="?/setLimit" use:enhance class="flex items-center gap-1.5">
-										<input type="hidden" name="keyId" value={key.id} />
-										<input
-											name="limit"
-											type="number"
-											min="0"
-											value={key.limit ?? ''}
-											placeholder="∞"
-											class="w-20 rounded border border-input bg-background px-2 py-0.5 font-mono text-xs text-foreground placeholder-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-										/>
-										<button
-											type="submit"
-											class="rounded border border-border bg-background px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-muted"
-										>
-											Set
-										</button>
-									</form>
+								<td class="px-3 py-2 font-mono text-muted-foreground">
+									{key.limit === null ? '∞' : key.limit.toLocaleString()}
 								</td>
 								<td class="px-3 py-2 text-muted-foreground">{formatDateShort(key.lastUsedAt)}</td>
 								<td class="px-3 py-2">

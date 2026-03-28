@@ -1,6 +1,16 @@
 import { env } from "$env/dynamic/private";
 import { error } from "@sveltejs/kit";
 
+/**
+ * Require any authenticated user.
+ */
+export async function requireAuth(locals: App.Locals): Promise<void> {
+  const session = await locals.auth();
+  if (!session) {
+    error(403, "Forbidden");
+  }
+}
+
 export async function requireAdmin(locals: App.Locals): Promise<void> {
   const session = await locals.auth();
   if (!session || session.user.email !== env.ADMIN_EMAIL) {
