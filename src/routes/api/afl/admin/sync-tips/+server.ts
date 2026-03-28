@@ -1,4 +1,4 @@
-import { fetchSeasonFixture, fetchTips, getUpcomingRound } from "$lib/afl/squiggle";
+import { fetchTips, getUpcomingRound } from "$lib/afl/squiggle";
 import { getFixturesForYear, upsertTips } from "$lib/db/afl/service";
 import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";

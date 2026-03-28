@@ -1,4 +1,4 @@
-import { getUpcomingRound, type SquiggleGame } from "$lib/afl/squiggle";
+import { getUpcomingRound } from "$lib/afl/squiggle";
 import {
   getAdvancedPlayerStatsForRound,
   getFixturesForYear,
@@ -64,7 +64,7 @@ export const load: PageServerLoad = async ({ url }) => {
   }
   const upcomingRound = getUpcomingRound(allFixtures);
 
-  let roundTips = [];
+  let roundTips: Awaited<ReturnType<typeof getTipsForRound>> = [];
   if (upcomingRound !== null && selectedRound === upcomingRound) {
     roundTips = await getTipsForRound(selectedYear, upcomingRound);
   }

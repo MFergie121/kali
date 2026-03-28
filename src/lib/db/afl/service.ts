@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat, SquiggleGame, SquiggleTip } from "$lib/afl/scraper";
+import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
+import type { SquiggleGame, SquiggleTip } from "$lib/afl/squiggle";
 import { db } from "$lib/db/afl";
 import { apiKeys, fixtures, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams, tips } from "$lib/db/afl/schema";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";

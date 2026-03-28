@@ -42,7 +42,14 @@ export async function fetchTips(year: number, round: number): Promise<SquiggleTi
 	return data.tips ?? [];
 }
 
-export function getUpcomingGames(games: SquiggleGame[]): SquiggleGame[] {
+/** Minimal shape needed by getUpcomingGames / getUpcomingRound — works with both SquiggleGame and DB fixture rows. */
+interface GameLike {
+	round: number;
+	date: string | null;
+	complete: number;
+}
+
+export function getUpcomingGames<T extends GameLike>(games: T[]): T[] {
 	return games
 		.filter((g) => g.complete < 100)
 		.sort((a, b) => {
@@ -53,7 +60,7 @@ export function getUpcomingGames(games: SquiggleGame[]): SquiggleGame[] {
 }
 
 /** Returns the lowest round number that has at least one game not yet started. */
-export function getUpcomingRound(games: SquiggleGame[]): number | null {
+export function getUpcomingRound(games: GameLike[]): number | null {
 	const now = new Date();
 	const upcoming = games.filter((g) => {
 		if (g.complete >= 100) return false;
