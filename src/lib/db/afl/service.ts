@@ -142,57 +142,62 @@ export async function batchUpsertPlayerStats(
   matchId: number,
   year: number,
 ): Promise<void> {
-  for (const stat of stats) {
-    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+  if (stats.length === 0) return;
 
-    const statValues = {
-      playerId,
-      matchId,
-      teamId: stat.teamId,
-      kicks: stat.kicks,
-      handballs: stat.handballs,
-      disposals: stat.disposals,
-      marks: stat.marks,
-      goals: stat.goals,
-      behinds: stat.behinds,
-      tackles: stat.tackles,
-      hitouts: stat.hitouts,
-      goalAssists: stat.goalAssists,
-      inside50s: stat.inside50s,
-      clearances: stat.clearances,
-      clangers: stat.clangers,
-      rebound50s: stat.rebound50s,
-      freesFor: stat.freesFor,
-      freesAgainst: stat.freesAgainst,
-      aflFantasyPts: stat.aflFantasyPts,
-      supercoachPts: stat.supercoachPts,
-    };
-    await db.insert(playerStats)
-      .values(statValues)
-      .onConflictDoUpdate({
-        target: [playerStats.playerId, playerStats.matchId],
-        set: {
-          teamId: statValues.teamId,
-          kicks: statValues.kicks,
-          handballs: statValues.handballs,
-          disposals: statValues.disposals,
-          marks: statValues.marks,
-          goals: statValues.goals,
-          behinds: statValues.behinds,
-          tackles: statValues.tackles,
-          hitouts: statValues.hitouts,
-          goalAssists: statValues.goalAssists,
-          inside50s: statValues.inside50s,
-          clearances: statValues.clearances,
-          clangers: statValues.clangers,
-          rebound50s: statValues.rebound50s,
-          freesFor: statValues.freesFor,
-          freesAgainst: statValues.freesAgainst,
-          aflFantasyPts: statValues.aflFantasyPts,
-          supercoachPts: statValues.supercoachPts,
-        },
-      });
-  }
+  // Resolve all player IDs in parallel, then bulk-insert in one query
+  const rows = await Promise.all(
+    stats.map(async (stat) => {
+      const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+      return {
+        playerId,
+        matchId,
+        teamId: stat.teamId,
+        kicks: stat.kicks,
+        handballs: stat.handballs,
+        disposals: stat.disposals,
+        marks: stat.marks,
+        goals: stat.goals,
+        behinds: stat.behinds,
+        tackles: stat.tackles,
+        hitouts: stat.hitouts,
+        goalAssists: stat.goalAssists,
+        inside50s: stat.inside50s,
+        clearances: stat.clearances,
+        clangers: stat.clangers,
+        rebound50s: stat.rebound50s,
+        freesFor: stat.freesFor,
+        freesAgainst: stat.freesAgainst,
+        aflFantasyPts: stat.aflFantasyPts,
+        supercoachPts: stat.supercoachPts,
+      };
+    }),
+  );
+
+  await db.insert(playerStats)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: [playerStats.playerId, playerStats.matchId],
+      set: {
+        teamId: sql`excluded.team_id`,
+        kicks: sql`excluded.kicks`,
+        handballs: sql`excluded.handballs`,
+        disposals: sql`excluded.disposals`,
+        marks: sql`excluded.marks`,
+        goals: sql`excluded.goals`,
+        behinds: sql`excluded.behinds`,
+        tackles: sql`excluded.tackles`,
+        hitouts: sql`excluded.hitouts`,
+        goalAssists: sql`excluded.goal_assists`,
+        inside50s: sql`excluded.inside_50s`,
+        clearances: sql`excluded.clearances`,
+        clangers: sql`excluded.clangers`,
+        rebound50s: sql`excluded.rebound_50s`,
+        freesFor: sql`excluded.frees_for`,
+        freesAgainst: sql`excluded.frees_against`,
+        aflFantasyPts: sql`excluded.afl_fantasy_pts`,
+        supercoachPts: sql`excluded.supercoach_pts`,
+      },
+    });
 }
 
 // ─── Player Advanced Stats ────────────────────────────────────────────────────
@@ -202,57 +207,61 @@ export async function batchUpsertPlayerAdvancedStats(
   matchId: number,
   year: number,
 ): Promise<void> {
-  for (const stat of stats) {
-    const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+  if (stats.length === 0) return;
 
-    const statValues = {
-      playerId,
-      matchId,
-      teamId: stat.teamId,
-      contestedPossessions: stat.contestedPossessions,
-      uncontestedPossessions: stat.uncontestedPossessions,
-      effectiveDisposals: stat.effectiveDisposals,
-      disposalEfficiencyPct: stat.disposalEfficiencyPct,
-      contestedMarks: stat.contestedMarks,
-      goalAssists: stat.goalAssists,
-      marksInside50: stat.marksInside50,
-      onePercenters: stat.onePercenters,
-      bounces: stat.bounces,
-      centreClearances: stat.centreClearances,
-      stoppageClearances: stat.stoppageClearances,
-      scoreInvolvements: stat.scoreInvolvements,
-      metresGained: stat.metresGained,
-      turnovers: stat.turnovers,
-      intercepts: stat.intercepts,
-      tacklesInside50: stat.tacklesInside50,
-      timeOnGroundPct: stat.timeOnGroundPct,
-    };
-    await db.insert(playerStatsAdvanced)
-      .values(statValues)
-      .onConflictDoUpdate({
-        target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
-        set: {
-          teamId: statValues.teamId,
-          contestedPossessions: statValues.contestedPossessions,
-          uncontestedPossessions: statValues.uncontestedPossessions,
-          effectiveDisposals: statValues.effectiveDisposals,
-          disposalEfficiencyPct: statValues.disposalEfficiencyPct,
-          contestedMarks: statValues.contestedMarks,
-          goalAssists: statValues.goalAssists,
-          marksInside50: statValues.marksInside50,
-          onePercenters: statValues.onePercenters,
-          bounces: statValues.bounces,
-          centreClearances: statValues.centreClearances,
-          stoppageClearances: statValues.stoppageClearances,
-          scoreInvolvements: statValues.scoreInvolvements,
-          metresGained: statValues.metresGained,
-          turnovers: statValues.turnovers,
-          intercepts: statValues.intercepts,
-          tacklesInside50: statValues.tacklesInside50,
-          timeOnGroundPct: statValues.timeOnGroundPct,
-        },
-      });
-  }
+  const rows = await Promise.all(
+    stats.map(async (stat) => {
+      const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+      return {
+        playerId,
+        matchId,
+        teamId: stat.teamId,
+        contestedPossessions: stat.contestedPossessions,
+        uncontestedPossessions: stat.uncontestedPossessions,
+        effectiveDisposals: stat.effectiveDisposals,
+        disposalEfficiencyPct: stat.disposalEfficiencyPct,
+        contestedMarks: stat.contestedMarks,
+        goalAssists: stat.goalAssists,
+        marksInside50: stat.marksInside50,
+        onePercenters: stat.onePercenters,
+        bounces: stat.bounces,
+        centreClearances: stat.centreClearances,
+        stoppageClearances: stat.stoppageClearances,
+        scoreInvolvements: stat.scoreInvolvements,
+        metresGained: stat.metresGained,
+        turnovers: stat.turnovers,
+        intercepts: stat.intercepts,
+        tacklesInside50: stat.tacklesInside50,
+        timeOnGroundPct: stat.timeOnGroundPct,
+      };
+    }),
+  );
+
+  await db.insert(playerStatsAdvanced)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
+      set: {
+        teamId: sql`excluded.team_id`,
+        contestedPossessions: sql`excluded.contested_possessions`,
+        uncontestedPossessions: sql`excluded.uncontested_possessions`,
+        effectiveDisposals: sql`excluded.effective_disposals`,
+        disposalEfficiencyPct: sql`excluded.disposal_efficiency_pct`,
+        contestedMarks: sql`excluded.contested_marks`,
+        goalAssists: sql`excluded.goal_assists`,
+        marksInside50: sql`excluded.marks_inside_50`,
+        onePercenters: sql`excluded.one_percenters`,
+        bounces: sql`excluded.bounces`,
+        centreClearances: sql`excluded.centre_clearances`,
+        stoppageClearances: sql`excluded.stoppage_clearances`,
+        scoreInvolvements: sql`excluded.score_involvements`,
+        metresGained: sql`excluded.metres_gained`,
+        turnovers: sql`excluded.turnovers`,
+        intercepts: sql`excluded.intercepts`,
+        tacklesInside50: sql`excluded.tackles_inside_50`,
+        timeOnGroundPct: sql`excluded.time_on_ground_pct`,
+      },
+    });
 }
 
 export interface PlayerAdvancedStatRow {

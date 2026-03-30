@@ -37,18 +37,16 @@ export const POST: RequestHandler = async (event) => {
     );
   }
 
-  let matchesScraped = 0;
-  for (const mid of mids) {
-    console.log(
-      `[afl-scraper] scraping mid=${mid} (${matchesScraped + 1}/${mids.length})`,
-    );
-    await scrapeAndPersistMatch(mid);
-    matchesScraped++;
-    console.log(`[afl-scraper] mid=${mid} done`);
-  }
+  console.log(`[afl-scraper] scraping ${mids.length} matches in parallel`);
+  await Promise.all(
+    mids.map((mid) => {
+      console.log(`[afl-scraper] scraping mid=${mid}`);
+      return scrapeAndPersistMatch(mid).then(() => console.log(`[afl-scraper] mid=${mid} done`));
+    }),
+  );
 
   console.log(
-    `[afl-scraper] complete — year=${year}, round=${round}, matchesScraped=${matchesScraped}`,
+    `[afl-scraper] complete — year=${year}, round=${round}, matchesScraped=${mids.length}`,
   );
-  return json({ success: true, year, round, matchesScraped });
+  return json({ success: true, year, round, matchesScraped: mids.length });
 };
