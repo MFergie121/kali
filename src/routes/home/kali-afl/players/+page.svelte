@@ -229,6 +229,13 @@
 	let selectedGameMatchId = $state<number | null>(null);
 	let gamesSortCol  = $state<string>('round');
 	let gamesSortAsc  = $state(true);
+	let gamesPlayerSearch = $state('');
+
+	const filteredGamePlayers = $derived(
+		gamesPlayerSearch.trim() === ''
+			? data.allPlayers
+			: data.allPlayers.filter(p => p.name.toLowerCase().includes(gamesPlayerSearch.toLowerCase()))
+	);
 
 	const selectedPlayerGames = $derived(
 		(data.playerGames as Record<number, PlayerGameRow[]>)[selectedPlayerId] ?? []
@@ -609,20 +616,39 @@
 		{:else}
 			<!-- Selectors -->
 			<div class="games-selectors">
-				<Select.Root
-					type="single"
-					value={String(selectedPlayerId)}
-					onValueChange={(v) => { if (v) { selectedPlayerId = Number(v); selectedGameMatchId = null; } }}
-				>
-					<Select.Trigger class="w-56">
-						{data.allPlayers.find(p => p.id === selectedPlayerId)?.name ?? 'select player'}
-					</Select.Trigger>
-					<Select.Content>
-						{#each data.allPlayers as p (p.id)}
-							<Select.Item value={String(p.id)} label={p.name}>{p.name}</Select.Item>
+				<DropdownMenu.Root onOpenChange={(open) => { if (!open) gamesPlayerSearch = ''; }}>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button variant="outline" size="sm" {...props} class="games-player-btn">
+								{data.allPlayers.find(p => p.id === selectedPlayerId)?.name ?? 'select player'}
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content class="max-h-80 w-64 overflow-y-auto">
+						<div class="filter-search-wrap">
+							<input
+								type="text"
+								placeholder="search players…"
+								bind:value={gamesPlayerSearch}
+								class="filter-search"
+								onkeydown={(e) => e.stopPropagation()}
+							/>
+						</div>
+						{#each filteredGamePlayers as p (p.id)}
+							<DropdownMenu.Item
+								onSelect={() => { selectedPlayerId = p.id; selectedGameMatchId = null; }}
+							>
+								<span class="games-player-item" class:games-player-item-active={p.id === selectedPlayerId}>
+									{p.name}
+									{#if p.teamName}<span class="games-player-team">{p.teamName}</span>{/if}
+								</span>
+							</DropdownMenu.Item>
 						{/each}
-					</Select.Content>
-				</Select.Root>
+						{#if filteredGamePlayers.length === 0}
+							<p class="filter-empty">no players match</p>
+						{/if}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 
 				<Select.Root
 					type="single"
@@ -1107,6 +1133,17 @@
 	/* ── Games tab ──────────────────────────────────────────────────────────── */
 	.games-selectors {
 		display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+	}
+	:global(.games-player-btn) {
+		min-width: 14rem;
+		justify-content: flex-start !important;
+	}
+	.games-player-item {
+		display: flex; align-items: center; gap: 0.5rem; width: 100%;
+	}
+	.games-player-item-active { font-weight: 600; color: var(--foreground); }
+	.games-player-team {
+		margin-left: auto; font-size: 0.6875rem; color: var(--muted-foreground); opacity: 0.7;
 	}
 	.games-avg-bar {
 		display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap;

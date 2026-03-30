@@ -504,8 +504,10 @@ export async function scrapeMatchStats(
 
   // Parse all player stat rows from a section.
   // Player rows have class "darkcolor" or "lightcolor".
-  // The 17 stat values are in td.statdata cells, in fixed column order:
-  // K HB D M G B T HO GA I50 CL CG R50 FF FA AF SC
+  // Column layouts vary by era:
+  //   17 cols (2010+):  K HB D M G B T HO GA I50 CL CG R50 FF FA AF SC
+  //   14 cols (2007-09): K HB D M G B T HO GA I50 FF FA AF SC
+  //   10 cols (≤2006):   K HB D M G B T HO FF FA
   function parseStatRows(
     section: ReturnType<typeof root.querySelector>,
     teamId: string,
@@ -528,30 +530,80 @@ export async function scrapeMatchStats(
         : playerName.toLowerCase().replace(/\s+/g, "-");
 
       const sd = row.querySelectorAll("td.statdata");
-      if (sd.length < 17) continue;
+      const n = sd.length;
+      if (n < 10) continue;
 
-      stats.push({
-        playerName,
-        onlineId,
-        teamId,
-        kicks: num(sd[0]?.text),
-        handballs: num(sd[1]?.text),
-        disposals: num(sd[2]?.text),
-        marks: num(sd[3]?.text),
-        goals: num(sd[4]?.text),
-        behinds: num(sd[5]?.text),
-        tackles: num(sd[6]?.text),
-        hitouts: num(sd[7]?.text),
-        goalAssists: num(sd[8]?.text),
-        inside50s: num(sd[9]?.text),
-        clearances: num(sd[10]?.text),
-        clangers: num(sd[11]?.text),
-        rebound50s: num(sd[12]?.text),
-        freesFor: num(sd[13]?.text),
-        freesAgainst: num(sd[14]?.text),
-        aflFantasyPts: num(sd[15]?.text),
-        supercoachPts: num(sd[16]?.text),
-      });
+      let stat: ScrapedPlayerStat;
+
+      if (n >= 17) {
+        // 2010+ layout: K HB D M G B T HO GA I50 CL CG R50 FF FA AF SC
+        stat = {
+          playerName, onlineId, teamId,
+          kicks: num(sd[0]?.text),
+          handballs: num(sd[1]?.text),
+          disposals: num(sd[2]?.text),
+          marks: num(sd[3]?.text),
+          goals: num(sd[4]?.text),
+          behinds: num(sd[5]?.text),
+          tackles: num(sd[6]?.text),
+          hitouts: num(sd[7]?.text),
+          goalAssists: num(sd[8]?.text),
+          inside50s: num(sd[9]?.text),
+          clearances: num(sd[10]?.text),
+          clangers: num(sd[11]?.text),
+          rebound50s: num(sd[12]?.text),
+          freesFor: num(sd[13]?.text),
+          freesAgainst: num(sd[14]?.text),
+          aflFantasyPts: num(sd[15]?.text),
+          supercoachPts: num(sd[16]?.text),
+        };
+      } else if (n >= 14) {
+        // 2007-2009 layout: K HB D M G B T HO GA I50 FF FA AF SC
+        stat = {
+          playerName, onlineId, teamId,
+          kicks: num(sd[0]?.text),
+          handballs: num(sd[1]?.text),
+          disposals: num(sd[2]?.text),
+          marks: num(sd[3]?.text),
+          goals: num(sd[4]?.text),
+          behinds: num(sd[5]?.text),
+          tackles: num(sd[6]?.text),
+          hitouts: num(sd[7]?.text),
+          goalAssists: num(sd[8]?.text),
+          inside50s: num(sd[9]?.text),
+          clearances: 0,
+          clangers: 0,
+          rebound50s: 0,
+          freesFor: num(sd[10]?.text),
+          freesAgainst: num(sd[11]?.text),
+          aflFantasyPts: num(sd[12]?.text),
+          supercoachPts: num(sd[13]?.text),
+        };
+      } else {
+        // ≤2006 layout: K HB D M G B T HO FF FA
+        stat = {
+          playerName, onlineId, teamId,
+          kicks: num(sd[0]?.text),
+          handballs: num(sd[1]?.text),
+          disposals: num(sd[2]?.text),
+          marks: num(sd[3]?.text),
+          goals: num(sd[4]?.text),
+          behinds: num(sd[5]?.text),
+          tackles: num(sd[6]?.text),
+          hitouts: num(sd[7]?.text),
+          goalAssists: 0,
+          inside50s: 0,
+          clearances: 0,
+          clangers: 0,
+          rebound50s: 0,
+          freesFor: num(sd[8]?.text),
+          freesAgainst: num(sd[9]?.text),
+          aflFantasyPts: 0,
+          supercoachPts: 0,
+        };
+      }
+
+      stats.push(stat);
     }
 
     return stats;
@@ -703,8 +755,9 @@ export async function scrapeMatchAdvancedStats(
       .trim();
   }
 
-  // Advanced stat column order (17 td.statdata cells):
+  // Advanced stat column order (17 td.statdata cells, 2015+):
   // 0:CP 1:UP 2:ED 3:DE% 4:CM 5:GA 6:MI5 7:1% 8:BO 9:CCL 10:SCL 11:SI 12:MG 13:TO 14:ITC 15:T5 16:TOG%
+  // Pre-2015: the advv=Y page shows the same basic stats, not advanced — return empty.
   function parseAdvancedStatRows(
     section: ReturnType<typeof root.querySelector>,
     teamId: string,
@@ -724,7 +777,7 @@ export async function scrapeMatchAdvancedStats(
         : playerName.toLowerCase().replace(/\s+/g, "-");
 
       const sd = row.querySelectorAll("td.statdata");
-      if (sd.length < 17) continue;
+      if (sd.length < 17) continue; // pre-2015 pages won't have 17 advanced columns
 
       stats.push({
         playerName,
