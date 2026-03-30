@@ -8,7 +8,7 @@ import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 
 const FIRST_YEAR = 2000;
-const MAX_ROUND = 27;
+const MAX_ROUND = 28;
 
 export const load: PageServerLoad = async (event) => {
   await requireAdmin(event.locals);

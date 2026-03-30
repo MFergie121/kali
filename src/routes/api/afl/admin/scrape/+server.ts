@@ -4,7 +4,7 @@ import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-const MAX_ROUND = 27;
+const MAX_ROUND = 28;
 const FIRST_YEAR = 2000;
 
 export const POST: RequestHandler = async (event) => {

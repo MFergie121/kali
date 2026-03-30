@@ -146,9 +146,8 @@ export async function getLatestCompletedRound(
 
     const firstCell = cells[0].text.trim();
 
-    // Match standard rounds (Round 1-27), preseason (P1, P2), finals variations
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
     );
     if (roundMatch) {
       // Save result for the round we just finished scanning
@@ -166,26 +165,21 @@ export async function getLatestCompletedRound(
           `[afl-scraper] getLatestCompletedRound: round ${currentRound} — incomplete (hasGames=${currentRoundHasGames}, allComplete=${currentRoundComplete})`,
         );
       }
-      // Determine round number from matched groups
       let r = null;
       if (roundMatch[1]) {
-        // Standard round (Round 1-27)
         const parsed = parseInt(roundMatch[1], 10);
         r = isNaN(parsed) ? null : parsed;
       } else if (roundMatch[2]) {
-        // Preseason (P1, P2, etc.)
         const parsed = parseInt(roundMatch[2], 10);
         r = isNaN(parsed) ? null : -parsed;
-      } else if (roundMatch[3]) {
-        // Finals Week
-        const finalsWeek = parseInt(roundMatch[3], 10);
-        r = isNaN(finalsWeek) ? null : 24 + finalsWeek;
-      } else {
-        // Grand Final patterns
-        if (firstCell.match(/Grand\s+Final/i)) r = 28;
-        else if (firstCell.match(/Preliminary\s+Final/i)) r = 27;
-        else if (firstCell.match(/Semi\s+Final/i)) r = 26;
-        else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) r = 25;
+      } else if (firstCell.match(/Grand\s+Final/i)) {
+        r = 28;
+      } else if (firstCell.match(/Preliminary\s+Final/i)) {
+        r = 27;
+      } else if (firstCell.match(/Semi\s+Final/i)) {
+        r = 26;
+      } else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) {
+        r = 25;
       }
       currentRound = r;
       currentRoundComplete = true;
@@ -248,15 +242,13 @@ export async function getLatestCompletedMatchId(
 
     const firstCell = cells[0].text.trim();
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i,
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i,
     );
     if (roundMatch) {
       if (roundMatch[1]) {
         currentRound = parseInt(roundMatch[1], 10);
       } else if (roundMatch[2]) {
         currentRound = -parseInt(roundMatch[2], 10);
-      } else if (roundMatch[3]) {
-        currentRound = 24 + parseInt(roundMatch[3], 10);
       } else if (firstCell.match(/Grand\s+Final/i)) {
         currentRound = 28;
       } else if (firstCell.match(/Preliminary\s+Final/i)) {
@@ -316,38 +308,30 @@ export async function getMatchIdsForRound(
     if (cells.length === 0) continue;
 
     const firstCell = cells[0].text.trim();
-    // Match standard rounds (Round 1-27), preseason (P1, P2), finals variations
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
     );
     if (roundMatch) {
-      // Determine round number from matched groups
       let r = -1;
       if (roundMatch[1]) {
-        // Standard round (Round 1-27)
         r = parseInt(roundMatch[1], 10);
       } else if (roundMatch[2]) {
-        // Preseason (P1, P2, etc.) — map to negative numbers for special handling
         r = -parseInt(roundMatch[2], 10);
-      } else if (roundMatch[3]) {
-        // Finals Week (Finals Week 1, Finals Week 2, etc.)
-        // Map Finals Week 1 -> 25, Finals Week 2 -> 26, etc.
-        const finalsWeek = parseInt(roundMatch[3], 10);
-        r = 24 + finalsWeek;
-      } else {
-        // Grand Final patterns — we'll handle these specially if needed
-        // For now, map to high round numbers
-        if (firstCell.match(/Grand\s+Final/i)) r = 28;
-        else if (firstCell.match(/Preliminary\s+Final/i)) r = 27;
-        else if (firstCell.match(/Semi\s+Final/i)) r = 26;
-        else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) r = 25;
+      } else if (firstCell.match(/Grand\s+Final/i)) {
+        r = 28;
+      } else if (firstCell.match(/Preliminary\s+Final/i)) {
+        r = 27;
+      } else if (firstCell.match(/Semi\s+Final/i)) {
+        r = 26;
+      } else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) {
+        r = 25;
       }
       const wasIn = inTargetRound;
       inTargetRound = r === round;
       console.log(
         `[afl-scraper] getMatchIdsForRound: section "${firstCell}" → r=${r}, inTargetRound=${inTargetRound}`,
       );
-      // If we've passed our target round, stop scanning
+      // Only break if we've moved to a DIFFERENT round number (not just a different section of the same round)
       if (wasIn && !inTargetRound) {
         console.log(
           `[afl-scraper] getMatchIdsForRound: passed target round, stopping`,
@@ -406,10 +390,24 @@ export async function scrapeMatchStats(
   // ── Round / venue / date / year from body text ────────────────────────────
   const bodyText = root.text;
 
-  const roundMatch = bodyText.match(/Round\s+(\d+)/i);
-  const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
+  let round = 0;
+  const roundNumMatch = bodyText.match(/Round\s+(\d+)/i);
+  if (roundNumMatch) {
+    round = parseInt(roundNumMatch[1], 10);
+  } else if (/Grand\s+Final/i.test(bodyText)) {
+    round = 28;
+  } else if (/Preliminary\s+Final/i.test(bodyText)) {
+    round = 27;
+  } else if (/Semi\s+Final/i.test(bodyText)) {
+    round = 26;
+  } else if (/(?:Qualifying|Elimination)\s+Final/i.test(bodyText)) {
+    round = 25;
+  }
 
-  const venueMatch = bodyText.match(/Round\s+\d+,\s+([^,\n]+)/i);
+  // Venue: appears after "Round N," or "Final Type," followed by venue name
+  const venueMatch = bodyText.match(
+    /(?:Round\s+\d+|Grand\s+Final|Preliminary\s+Final|Semi\s+Final|(?:Qualifying|Elimination)\s+Final),\s+([^,\n]+)/i,
+  );
   const venue = venueMatch ? venueMatch[1].trim() : "";
 
   const attendanceMatch = bodyText.match(/Attendance:\s*([\d,]+)/i);
@@ -710,9 +708,22 @@ export async function scrapeMatchAdvancedStats(
 
   // ── Body text for match metadata ─────────────────────────────────────────
   const bodyText = root.text;
-  const roundMatch = bodyText.match(/Round\s+(\d+)/i);
-  const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
-  const venueMatch = bodyText.match(/Round\s+\d+,\s+([^,\n]+)/i);
+  let round = 0;
+  const roundNumMatch = bodyText.match(/Round\s+(\d+)/i);
+  if (roundNumMatch) {
+    round = parseInt(roundNumMatch[1], 10);
+  } else if (/Grand\s+Final/i.test(bodyText)) {
+    round = 28;
+  } else if (/Preliminary\s+Final/i.test(bodyText)) {
+    round = 27;
+  } else if (/Semi\s+Final/i.test(bodyText)) {
+    round = 26;
+  } else if (/(?:Qualifying|Elimination)\s+Final/i.test(bodyText)) {
+    round = 25;
+  }
+  const venueMatch = bodyText.match(
+    /(?:Round\s+\d+|Grand\s+Final|Preliminary\s+Final|Semi\s+Final|(?:Qualifying|Elimination)\s+Final),\s+([^,\n]+)/i,
+  );
   const venue = venueMatch ? venueMatch[1].trim() : "";
   const attendanceMatch = bodyText.match(/Attendance:\s*([\d,]+)/i);
   const crowd = attendanceMatch

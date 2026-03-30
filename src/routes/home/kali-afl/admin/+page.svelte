@@ -57,7 +57,7 @@
 	}
 
 	// ── Bulk scrape state ──────────────────────────────────────────────────────
-	const MAX_ROUND = 27;
+	const MAX_ROUND = 28;
 
 	let bulkFromYear = $state(data.selectedYear);
 	let bulkToYear   = $state(data.selectedYear);
@@ -132,7 +132,12 @@
 	}
 
 	function roundLabel(r: number): string {
-		return r === 0 ? 'Pre-Season' : `Round ${r}`;
+		if (r === 0) return 'Pre-Season';
+		if (r === 25) return 'Finals Wk 1';
+		if (r === 26) return 'Semi Finals';
+		if (r === 27) return 'Prelim Finals';
+		if (r === 28) return 'Grand Final';
+		return `Round ${r}`;
 	}
 
 	function roundKey(year: number, round: number): string {

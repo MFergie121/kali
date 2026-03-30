@@ -10,7 +10,7 @@ import {
 import type { PageServerLoad } from "./$types";
 
 const FIRST_YEAR = 2000;
-const MAX_ROUND = 27;
+const MAX_ROUND = 28;
 
 export const load: PageServerLoad = async ({ url }) => {
   const currentYear = new Date().getFullYear();

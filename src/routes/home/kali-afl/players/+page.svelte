@@ -202,7 +202,14 @@
 		return { name, avg };
 	});
 
-	function roundLabel(r: number) { return r === 0 ? 'Pre' : `R${r}`; }
+	function roundLabel(r: number) {
+		if (r === 0) return 'Pre';
+		if (r === 25) return 'QF';
+		if (r === 26) return 'SF';
+		if (r === 27) return 'PF';
+		if (r === 28) return 'GF';
+		return `R${r}`;
+	}
 	function toggleRound(r: number) {
 		const s = new Set(selectedRounds);
 		if (s.has(r)) s.delete(r); else s.add(r);

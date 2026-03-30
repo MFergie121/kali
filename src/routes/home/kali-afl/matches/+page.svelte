@@ -52,7 +52,12 @@
 	const activeCols = $derived(showAdvanced ? ADV_STAT_COLS : STAT_COLS);
 
 	function roundLabel(r: number): string {
-		return r === 0 ? 'pre-season' : `round ${r}`;
+		if (r === 0) return 'pre-season';
+		if (r === 25) return 'finals wk 1';
+		if (r === 26) return 'semi finals';
+		if (r === 27) return 'prelim finals';
+		if (r === 28) return 'grand final';
+		return `round ${r}`;
 	}
 
 	function teamSlug(name: string): string {
@@ -153,10 +158,12 @@
 		</div>
 		<div class="round-chips-grid">
 			{#each data.allRounds as r (r)}
+				{#if r === 0 && data.selectedYear < 2024}{:else}
 				<button
 					class={roundChipClass(r)}
 					onclick={() => goto(`?year=${data.selectedYear}&round=${r}`)}
-				>{r === 0 ? 'pre' : `r${r}`}</button>
+				>{r === 0 ? 'pre' : r === 25 ? 'QF' : r === 26 ? 'SF' : r === 27 ? 'PF' : r === 28 ? 'GF' : `r${r}`}</button>
+				{/if}
 			{/each}
 		</div>
 	</div>
