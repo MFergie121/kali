@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
+import { scrapeMatchStats, scrapeMatchAdvancedStats } from "$lib/afl/scraper";
 import type { SquiggleGame, SquiggleTip } from "$lib/afl/squiggle";
 import { db } from "$lib/db/afl";
 import { apiKeys, fixtures, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams, tips } from "$lib/db/afl/schema";
@@ -52,6 +53,25 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
         sourcedAt: matchValues.sourcedAt,
       },
     });
+}
+
+// ─── Scrape + Persist (single match) ─────────────────────────────────────────
+
+export async function scrapeAndPersistMatch(mid: number) {
+  const [data, advData] = await Promise.all([
+    scrapeMatchStats(mid),
+    scrapeMatchAdvancedStats(mid),
+  ]);
+  await upsertMatch(data.match);
+  await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
+  await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
+  await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid, data.match.year);
+  await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid, data.match.year);
+  return {
+    match: data.match,
+    homeStatsCount: data.homeStats.length,
+    awayStatsCount: data.awayStats.length,
+  };
 }
 
 // ─── Players ──────────────────────────────────────────────────────────────────

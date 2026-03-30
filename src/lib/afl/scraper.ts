@@ -226,6 +226,67 @@ export async function getLatestCompletedRound(
   return latestCompletedRound; // null = no completed round found yet this season
 }
 
+// ─── Step 1b: Find the latest completed match ID ────────────────────────────
+
+export async function getLatestCompletedMatchId(
+  year = new Date().getFullYear(),
+): Promise<{ mid: number; round: number } | null> {
+  const url = `${BASE}/ft_match_list?year=${year}`;
+  console.log(`[afl-scraper] getLatestCompletedMatchId: fetching ${url}`);
+
+  const res = await fetch(url, { headers: HEADERS });
+  const html = await res.text();
+  const root = parse(html);
+  const rows = root.querySelectorAll("table tr");
+
+  let currentRound: number | null = null;
+  let latest: { mid: number; round: number } | null = null;
+
+  for (const row of rows) {
+    const cells = row.querySelectorAll("td");
+    if (cells.length === 0) continue;
+
+    const firstCell = cells[0].text.trim();
+    const roundMatch = firstCell.match(
+      /^(?:Round\s+(\d+)|P(\d+)|Finals\s+Week\s+(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i,
+    );
+    if (roundMatch) {
+      if (roundMatch[1]) {
+        currentRound = parseInt(roundMatch[1], 10);
+      } else if (roundMatch[2]) {
+        currentRound = -parseInt(roundMatch[2], 10);
+      } else if (roundMatch[3]) {
+        currentRound = 24 + parseInt(roundMatch[3], 10);
+      } else if (firstCell.match(/Grand\s+Final/i)) {
+        currentRound = 28;
+      } else if (firstCell.match(/Preliminary\s+Final/i)) {
+        currentRound = 27;
+      } else if (firstCell.match(/Semi\s+Final/i)) {
+        currentRound = 26;
+      } else if (firstCell.match(/(?:Qualifying|Elimination)\s+Final/i)) {
+        currentRound = 25;
+      }
+      continue;
+    }
+
+    if (currentRound === null) continue;
+
+    const statsLink = row.querySelector('a[href*="ft_match_statistics"]');
+    if (statsLink) {
+      const href = statsLink.getAttribute("href") ?? "";
+      const midMatch = href.match(/mid=(\d+)/);
+      if (midMatch) {
+        latest = { mid: parseInt(midMatch[1], 10), round: currentRound };
+      }
+    }
+  }
+
+  console.log(
+    `[afl-scraper] getLatestCompletedMatchId: result=${latest ? `mid=${latest.mid}, round=${latest.round}` : "null"}`,
+  );
+  return latest;
+}
+
 // ─── Step 2: Get match IDs for a round ───────────────────────────────────────
 
 export async function getMatchIdsForRound(

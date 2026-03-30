@@ -1,13 +1,7 @@
+import { getMatchIdsForRound } from "$lib/afl/scraper";
 import {
-  getMatchIdsForRound,
-  scrapeMatchAdvancedStats,
-  scrapeMatchStats,
-} from "$lib/afl/scraper";
-import {
-  batchUpsertPlayerAdvancedStats,
-  batchUpsertPlayerStats,
   getStoredRoundsForYear,
-  upsertMatch,
+  scrapeAndPersistMatch,
 } from "$lib/db/afl/service";
 import { requireAdmin } from "$lib/server/admin";
 import { fail } from "@sveltejs/kit";
@@ -59,31 +53,7 @@ export const actions: Actions = {
 
     let matchesScraped = 0;
     for (const mid of mids) {
-      const [matchData, advData] = await Promise.all([
-        scrapeMatchStats(mid),
-        scrapeMatchAdvancedStats(mid),
-      ]);
-      await upsertMatch(matchData.match);
-      await batchUpsertPlayerStats(
-        matchData.homeStats,
-        mid,
-        matchData.match.year,
-      );
-      await batchUpsertPlayerStats(
-        matchData.awayStats,
-        mid,
-        matchData.match.year,
-      );
-      await batchUpsertPlayerAdvancedStats(
-        advData.homeAdvStats,
-        mid,
-        matchData.match.year,
-      );
-      await batchUpsertPlayerAdvancedStats(
-        advData.awayAdvStats,
-        mid,
-        matchData.match.year,
-      );
+      await scrapeAndPersistMatch(mid);
       matchesScraped++;
     }
 

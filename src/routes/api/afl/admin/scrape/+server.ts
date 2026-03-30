@@ -1,13 +1,5 @@
-import {
-  getMatchIdsForRound,
-  scrapeMatchAdvancedStats,
-  scrapeMatchStats,
-} from "$lib/afl/scraper";
-import {
-  batchUpsertPlayerAdvancedStats,
-  batchUpsertPlayerStats,
-  upsertMatch,
-} from "$lib/db/afl/service";
+import { getMatchIdsForRound } from "$lib/afl/scraper";
+import { scrapeAndPersistMatch } from "$lib/db/afl/service";
 import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
@@ -50,26 +42,7 @@ export const POST: RequestHandler = async (event) => {
     console.log(
       `[afl-scraper] scraping mid=${mid} (${matchesScraped + 1}/${mids.length})`,
     );
-    const [data, advData] = await Promise.all([
-      scrapeMatchStats(mid),
-      scrapeMatchAdvancedStats(mid),
-    ]);
-    console.log(
-      `[afl-scraper] persisting mid=${mid} — ${data.homeStats.length} home + ${data.awayStats.length} away players`,
-    );
-    await upsertMatch(data.match);
-    await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
-    await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
-    await batchUpsertPlayerAdvancedStats(
-      advData.homeAdvStats,
-      mid,
-      data.match.year,
-    );
-    await batchUpsertPlayerAdvancedStats(
-      advData.awayAdvStats,
-      mid,
-      data.match.year,
-    );
+    await scrapeAndPersistMatch(mid);
     matchesScraped++;
     console.log(`[afl-scraper] mid=${mid} done`);
   }

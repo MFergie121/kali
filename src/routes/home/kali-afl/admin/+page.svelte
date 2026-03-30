@@ -9,6 +9,53 @@
 	);
 	let loading = $state(false);
 
+	// ── Scrape single match state ─────────────────────────────────────────────
+	let matchMid = $state('');
+	let matchLoading = $state(false);
+	let matchResult = $state<{ success?: boolean; error?: string; mid?: number; round?: number; year?: number; homeTeam?: string; awayTeam?: string; homeScore?: number; awayScore?: number } | null>(null);
+
+	async function scrapeMatch() {
+		const mid = parseInt(matchMid, 10);
+		if (isNaN(mid) || mid <= 0) {
+			matchResult = { error: 'Enter a valid match ID.' };
+			return;
+		}
+		matchLoading = true;
+		matchResult = null;
+		try {
+			const res = await fetch('/api/afl/admin/scrape/match', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mid }),
+			});
+			matchResult = await res.json();
+		} catch {
+			matchResult = { error: 'Network error.' };
+		}
+		matchLoading = false;
+	}
+
+	// ── Scrape latest game state ──────────────────────────────────────────────
+	let latestYear = $state(data.selectedYear);
+	let latestLoading = $state(false);
+	let latestResult = $state<{ success?: boolean; error?: string; mid?: number; round?: number; year?: number; homeTeam?: string; awayTeam?: string; homeScore?: number; awayScore?: number } | null>(null);
+
+	async function scrapeLatest() {
+		latestLoading = true;
+		latestResult = null;
+		try {
+			const res = await fetch('/api/afl/admin/scrape/latest', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ year: latestYear }),
+			});
+			latestResult = await res.json();
+		} catch {
+			latestResult = { error: 'Network error.' };
+		}
+		latestLoading = false;
+	}
+
 	// ── Bulk scrape state ──────────────────────────────────────────────────────
 	const MAX_ROUND = 27;
 
@@ -147,6 +194,67 @@
 			</div>
 		{:else if form?.error}
 			<div class="result result-err">{form.error}</div>
+		{/if}
+	</div>
+
+	<!-- ── Scrape single match ── -->
+	<div class="card">
+		<p class="card-label">scrape match</p>
+		<p class="card-hint">scrape a single match by its footywire match ID (mid).</p>
+
+		<div class="form-row">
+			<div class="field">
+				<label class="field-label" for="match-mid">match id</label>
+				<input
+					id="match-mid"
+					type="number"
+					class="input"
+					placeholder="e.g. 12345"
+					bind:value={matchMid}
+					disabled={matchLoading}
+				/>
+			</div>
+
+			<button class="btn-primary" disabled={matchLoading} onclick={scrapeMatch}>
+				{matchLoading ? 'scraping…' : 'scrape'}
+			</button>
+		</div>
+
+		{#if matchResult?.success}
+			<div class="result result-ok">
+				scraped mid {matchResult.mid} — {roundLabel(matchResult.round ?? 0)}, {matchResult.year}: {matchResult.homeTeam} {matchResult.homeScore} v {matchResult.awayTeam} {matchResult.awayScore}
+			</div>
+		{:else if matchResult?.error}
+			<div class="result result-err">{matchResult.error}</div>
+		{/if}
+	</div>
+
+	<!-- ── Scrape latest game ── -->
+	<div class="card">
+		<p class="card-label">scrape latest game</p>
+		<p class="card-hint">find and scrape the most recently completed game for a given year.</p>
+
+		<div class="form-row">
+			<div class="field">
+				<label class="field-label" for="latest-year">year</label>
+				<select id="latest-year" class="select" bind:value={latestYear} disabled={latestLoading}>
+					{#each data.allYears as year (year)}
+						<option value={year}>{year}</option>
+					{/each}
+				</select>
+			</div>
+
+			<button class="btn-primary" disabled={latestLoading} onclick={scrapeLatest}>
+				{latestLoading ? 'scraping…' : 'scrape latest'}
+			</button>
+		</div>
+
+		{#if latestResult?.success}
+			<div class="result result-ok">
+				scraped mid {latestResult.mid} — {roundLabel(latestResult.round ?? 0)}, {latestResult.year}: {latestResult.homeTeam} {latestResult.homeScore} v {latestResult.awayTeam} {latestResult.awayScore}
+			</div>
+		{:else if latestResult?.error}
+			<div class="result result-err">{latestResult.error}</div>
 		{/if}
 	</div>
 
@@ -343,6 +451,7 @@
 		letter-spacing: 0.04em;
 	}
 
+	.input,
 	.select {
 		font-family: inherit;
 		font-size: 0.875rem;
@@ -351,14 +460,19 @@
 		border-radius: 0.375rem;
 		background-color: var(--background);
 		color: var(--foreground);
+	}
+
+	.select {
 		cursor: pointer;
 	}
 
+	.input:focus,
 	.select:focus {
 		outline: 2px solid var(--ring);
 		outline-offset: 2px;
 	}
 
+	.input:disabled,
 	.select:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
