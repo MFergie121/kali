@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const selectedRound =
     !isNaN(rawRound) && rawRound >= 0 && rawRound <= MAX_ROUND
       ? rawRound
-      : (storedRounds[0] ?? 1);
+      : (storedRounds[storedRounds.length - 1] ?? 1);
 
   const hasData = storedRounds.includes(selectedRound);
   const matchRows = hasData

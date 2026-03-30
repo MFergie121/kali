@@ -76,10 +76,17 @@
 	let playerSearch = $state('');
 	let sortByAvgDesc = $state(false);
 
+	let selectedTeamFilter = $state<string>('all');
+
 	const isAdvStat   = $derived(ADV_KEYS.has(selectedStat));
 	const activeRows  = $derived(isAdvStat ? data.advRows : data.rows);
-	const allRounds   = $derived([...new Set(activeRows.map(r => r.round))].sort((a, b) => a - b));
-	const allPlayers  = $derived([...new Set(activeRows.map(r => r.playerName))].sort());
+	const teamFilteredRows = $derived(
+		selectedTeamFilter === 'all'
+			? activeRows
+			: activeRows.filter(r => r.teamId === selectedTeamFilter)
+	);
+	const allRounds   = $derived([...new Set(teamFilteredRows.map(r => r.round))].sort((a, b) => a - b));
+	const allPlayers  = $derived([...new Set(teamFilteredRows.map(r => r.playerName))].sort());
 
 	let selectedRounds = $state<Set<number>>((() => {
 		if (browser) {
@@ -135,7 +142,7 @@
 
 	const lookup = $derived.by(() => {
 		const map = new Map<string, Map<number, number>>();
-		for (const row of activeRows) {
+		for (const row of teamFilteredRows) {
 			if (!map.has(row.playerName)) map.set(row.playerName, new Map());
 			map.get(row.playerName)!.set(row.round, (row as unknown as Record<string, unknown>)[selectedStat] as number ?? 0);
 		}
@@ -456,6 +463,23 @@
 								<Select.Item value={col.key} label={col.label}>{col.label}</Select.Item>
 							{/each}
 						</Select.Group>
+					</Select.Content>
+				</Select.Root>
+
+				<!-- Team filter -->
+				<Select.Root
+					type="single"
+					value={selectedTeamFilter}
+					onValueChange={(v) => { if (v) { selectedTeamFilter = v; selectedPlayers = new Set(allPlayers); } }}
+				>
+					<Select.Trigger class="w-44">
+						{selectedTeamFilter === 'all' ? 'all teams' : data.yearTeams.find(t => t.id === selectedTeamFilter)?.name ?? selectedTeamFilter}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all" label="All teams">all teams</Select.Item>
+						{#each data.yearTeams as t (t.id)}
+							<Select.Item value={t.id} label={t.name}>{t.name}</Select.Item>
+						{/each}
 					</Select.Content>
 				</Select.Root>
 
@@ -1009,10 +1033,15 @@
 	}
 	.round-chip:hover { border-color: var(--foreground); color: var(--foreground); }
 	.round-chip-on {
-		background-color: var(--foreground);
-		color: var(--background);
-		border-color: var(--foreground);
+		background-color: var(--primary);
+		color: var(--primary-foreground);
+		border-color: var(--primary);
 		font-weight: 600;
+	}
+	.round-chip-on:hover {
+		background-color: color-mix(in oklch, var(--primary), black 10%);
+		border-color: color-mix(in oklch, var(--primary), black 10%);
+		color: var(--primary-foreground);
 	}
 
 	/* ── Matrix: filter dropdown internals ──────────────────────────────────── */
@@ -1042,12 +1071,14 @@
 	.filter-empty { padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--muted-foreground); }
 
 	/* ── Matrix: pivot table ────────────────────────────────────────────────── */
-	.table-wrap  { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.625rem; }
+	.table-wrap  { overflow-x: auto; overflow-y: auto; max-height: 80vh; border: 1px solid var(--border); border-radius: 0.625rem; }
 	.matrix      { border-collapse: collapse; font-size: 0.75rem; width: 100%; }
 	.col-player  { text-align: left; white-space: nowrap; padding: 0.375rem 1rem 0.375rem 1.25rem; position: sticky; left: 0; z-index: 2; }
+	thead .col-player { z-index: 4; }
 	.col-round   { text-align: center; white-space: nowrap; padding: 0.375rem 0.5rem; min-width: 2.75rem; }
 	.col-avg     { text-align: center; white-space: nowrap; padding: 0.375rem 0.875rem; min-width: 3.5rem; }
 	thead tr     { border-bottom: 1px solid var(--border); background-color: color-mix(in oklch, var(--muted), transparent 55%); }
+	thead th     { position: sticky; top: 0; z-index: 3; }
 	.col-head    { font-weight: 600; color: var(--muted-foreground); background-color: color-mix(in oklch, var(--muted), transparent 55%); }
 	.col-head-avg {
 		color: var(--foreground); background-color: color-mix(in oklch, var(--muted), transparent 35%);

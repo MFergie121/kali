@@ -1,0 +1,15 @@
+curl -X POST https://kali-afl-173366351243.australia-southeast1.run.app/api/afl/admin/scrape/match \
+    -H "Authorization: Bearer $SCRAPE_SECRET" \
+    -H "Content-Type: application/json" \
+    -d '{"mid": 10345}'
+
+
+curl -X POST http://localhost:5173/api/afl/admin/scrape/latest \
+    -H "Authorization: Bearer $SCRAPE_SECRET" \
+    -H "Content-Type: application/json" \
+    -d '{"year": 2026}'
+
+curl -X POST http://localhost:5173/api/afl/admin/scrape/latest \
+    -H "Authorization: Bearer $SCRAPE_SECRET" \
+    -H "Content-Type: application/json" \
+    -d '{"year": 2026}'

@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import * as Select from '$lib/components/ui/select';
-	import { Button } from '$lib/components/ui/button';
 	import type { PageData } from './$types';
 	import type { TeamGameRow, TeamSummary, GameDetail } from './+page.server';
 
 	let { data }: { data: PageData } = $props();
 
 	// ── Global state ──────────────────────────────────────────────────────────
-	let compareMode    = $state(!!data.compareTeamId);
-	let activeTab      = $state<'overview' | 'games' | 'h2h'>(compareMode ? 'h2h' : 'overview');
+	let activeTab      = $state<'overview' | 'games' | 'h2h'>(data.compareTeamId ? 'h2h' : 'overview');
 	let selectedMatchId = $state<number | null>(null);
 
 	// ── Games tab state ───────────────────────────────────────────────────────
@@ -28,16 +26,9 @@
 		goto(u.toString());
 	}
 
-	// ── Toggle compare mode ───────────────────────────────────────────────────
-	// Sync compareMode when compareTeamId is set via navigation.
+	// ── Sync tab when compare team is set via URL ────────────────────────────
 	$effect(() => {
-		if (data.compareTeamId) compareMode = true;
-	});
-
-	// Sync activeTab when compareMode changes; clear URL param when turning off.
-	$effect(() => {
-		if (compareMode) activeTab = 'h2h';
-		else if (data.compareTeamId) nav({ compare: null });
+		if (data.compareTeamId) activeTab = 'h2h';
 	});
 
 	// ── Derived: filtered + sorted games ─────────────────────────────────────
@@ -144,13 +135,6 @@
 			</Select.Root>
 		</div>
 
-		<button
-			class="compare-toggle"
-			class:compare-active={compareMode}
-			onclick={() => { compareMode = !compareMode; }}
-		>
-			compare mode
-		</button>
 	</div>
 
 	<!-- ── Tab nav ────────────────────────────────────────────────────────── -->
@@ -569,21 +553,6 @@
 		gap: 0.75rem;
 	}
 	.toolbar-left { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-
-	.compare-toggle {
-		font-size: 0.75rem;
-		font-family: inherit;
-		color: var(--muted-foreground);
-		background: none;
-		border: 1px solid var(--border);
-		border-radius: 0.5rem;
-		padding: 0.35rem 0.75rem;
-		cursor: pointer;
-		transition: all 0.12s ease;
-		letter-spacing: 0.02em;
-	}
-	.compare-toggle:hover { color: var(--foreground); border-color: var(--foreground); }
-	.compare-active { color: var(--primary); border-color: var(--primary); background-color: color-mix(in oklch, var(--primary), transparent 90%); }
 
 	/* ── Tabs ── */
 	.tab-nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); }

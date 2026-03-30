@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { navigating } from '$app/stores';
 	import { page } from '$app/state';
 	import Logo from '$lib/components/ui/custom/logo.svelte';
 	import UserMenu from '$lib/components/ui/custom/userMenu.svelte';
@@ -162,8 +163,30 @@
 				{/if}
 			</nav>
 		</header>
+		{#if $navigating}
+			<div class="nav-loading-bar"></div>
+		{/if}
 		<div class="flex-1">
 			{@render children()}
 		</div>
 	</SidebarInset>
 </SidebarProvider>
+
+<style>
+	.nav-loading-bar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+		z-index: 100;
+		background: var(--primary);
+		animation: nav-loading 1.5s ease-in-out infinite;
+	}
+
+	@keyframes nav-loading {
+		0% { transform: translateX(-100%); }
+		50% { transform: translateX(0%); }
+		100% { transform: translateX(100%); }
+	}
+</style>

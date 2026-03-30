@@ -68,6 +68,7 @@ export const load: PageServerLoad = async ({ url }) => {
       streaks: [],
       allPlayers: [],
       playerGames: {},
+      yearTeams: [],
     };
   }
 
@@ -107,8 +108,12 @@ export const load: PageServerLoad = async ({ url }) => {
     .innerJoin(matches, eq(playerStats.matchId, matches.id))
     .where(eq(matches.year, selectedYear));
 
-  const allTeamsData = await db.select().from(teams);
+  const allTeamsData = await db.select().from(teams).orderBy(teams.name);
   const teamMap = new Map(allTeamsData.map((t) => [t.id, t]));
+
+  // Teams that have players with stats this year
+  const teamsWithStats = new Set(rows.map(r => r.teamId).filter(Boolean));
+  const yearTeams = allTeamsData.filter(t => teamsWithStats.has(t.id));
 
   // Build playerGames
   const playerGamesMap = new Map<number, PlayerGameRow[]>();
@@ -328,5 +333,6 @@ export const load: PageServerLoad = async ({ url }) => {
     streaks,
     allPlayers,
     playerGames,
+    yearTeams,
   };
 };

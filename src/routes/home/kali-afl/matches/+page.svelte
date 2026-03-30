@@ -7,6 +7,7 @@
 
 	let expandedMatch = $state<number | null>(null);
 	let showAdvanced = $state(false);
+	let statsSearch = $state('');
 
 	const STAT_COLS = [
 		{ key: 'kicks',        label: 'K'   },
@@ -236,7 +237,7 @@
 				<div class="match-card">
 					<button
 						class="match-header"
-						onclick={() => (expandedMatch = isExpanded ? null : match.id)}
+						onclick={() => { expandedMatch = isExpanded ? null : match.id; statsSearch = ''; }}
 					>
 						<div class="team team-home">
 							<span class="team-name" class:team-winner={homeWon} class:team-loser={awayWon}>
@@ -267,8 +268,18 @@
 					</button>
 
 					{#if isExpanded}
+						{@const searchLower = statsSearch.toLowerCase()}
+						<div class="stats-search-bar">
+							<input
+								type="text"
+								class="stats-search-input"
+								placeholder="search players…"
+								bind:value={statsSearch}
+							/>
+						</div>
 						{#each [{ name: match.homeTeam, stats: homeStats }, { name: match.awayTeam, stats: awayStats }] as team (team.name)}
-							{#if team.stats.length > 0}
+							{@const filteredStats = searchLower ? team.stats.filter((s: { playerName: string }) => s.playerName.toLowerCase().includes(searchLower)) : team.stats}
+							{#if filteredStats.length > 0}
 								<div class="stats-panel">
 									<p class="stats-team-label">{team.name}</p>
 									<div class="stats-scroll">
@@ -282,7 +293,7 @@
 												</tr>
 											</thead>
 											<tbody>
-												{#each team.stats as stat (stat.playerName)}
+												{#each filteredStats as stat (stat.playerName)}
 													<tr>
 														<td class="col-player cell-player">{stat.playerName}</td>
 														{#each activeCols as col (col.key)}
@@ -653,6 +664,35 @@
 
 	.chevron-open {
 		transform: rotate(180deg);
+	}
+
+	/* ── Stats search ── */
+	.stats-search-bar {
+		border-top: 1px solid var(--border);
+		padding: 0.5rem 1.25rem;
+		background-color: color-mix(in oklch, var(--muted), transparent 75%);
+	}
+
+	.stats-search-input {
+		width: 100%;
+		max-width: 16rem;
+		font-family: inherit;
+		font-size: 0.75rem;
+		padding: 0.35rem 0.625rem;
+		border: 1px solid var(--border);
+		border-radius: 0.375rem;
+		background-color: var(--background);
+		color: var(--foreground);
+		outline: none;
+	}
+
+	.stats-search-input:focus {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+
+	.stats-search-input::placeholder {
+		color: var(--muted-foreground);
 	}
 
 	/* ── Stats panel ── */
