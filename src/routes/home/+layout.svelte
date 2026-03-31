@@ -19,6 +19,15 @@
 
 		if (theme) themeStore.apply(theme);
 		if (font) fontStore.apply(font);
+
+		// If DB prefs existed but localStorage didn't, seed localStorage for
+		// the blocking script on next refresh.
+		if (!localTheme && data.prefs?.prefTheme) {
+			localStorage.setItem('app-theme', data.prefs.prefTheme);
+		}
+		if (!localFont && data.prefs?.prefFont) {
+			localStorage.setItem('app-font', data.prefs.prefFont);
+		}
 	});
 </script>
 

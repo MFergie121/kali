@@ -1,3 +1,5 @@
+import { setTheme } from "mode-watcher";
+
 export type Theme = "serika" | "retro" | "iceberg-light" | "lil-dragon" | "nord" | "forest" | "cyberpunk";
 
 export const themes: { id: Theme; label: string }[] = [
@@ -15,12 +17,7 @@ function createThemeStore() {
 
   function apply(theme: Theme) {
     current = theme;
-    if (theme === "serika") {
-      delete document.documentElement.dataset.theme;
-    } else {
-      document.documentElement.dataset.theme = theme;
-    }
-    try { localStorage.setItem('app-theme', theme); } catch (e) {}
+    setTheme(theme);
   }
 
   return {

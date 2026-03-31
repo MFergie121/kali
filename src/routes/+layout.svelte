@@ -7,6 +7,6 @@
   let { children }: { children: Snippet } = $props();
 </script>
 
-<ModeWatcher />
+<ModeWatcher themeStorageKey="app-theme" />
 <Toaster richColors={false} closeButton position="top-right" />
 {@render children()}
