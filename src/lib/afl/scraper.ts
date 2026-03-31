@@ -20,6 +20,7 @@ export interface ScrapedMatch {
   awayScore: number;
   venue: string;
   date: string;
+  startDatetime: string | null; // "YYYY-MM-DDTHH:MM" AEST, sortable; null if not available
   crowd: number | null;
 }
 
@@ -284,7 +285,7 @@ export async function getLatestCompletedMatchId(
 export async function getMatchIdsForRound(
   round: number,
   year = new Date().getFullYear(),
-): Promise<number[]> {
+): Promise<{ mid: number; startDatetime: string | null }[]> {
   const url = `${BASE}/ft_match_list?year=${year}`;
   console.log(
     `[afl-scraper] getMatchIdsForRound: fetching ${url} for round=${round}`,
@@ -295,8 +296,28 @@ export async function getMatchIdsForRound(
   const html = await res.text();
 
   const root = parse(html);
-  const mids: number[] = [];
+  const results: { mid: number; startDatetime: string | null }[] = [];
   let inTargetRound = false;
+
+  const MONTHS: Record<string, string> = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+
+  function parseDatetimeFromCell(cellText: string): string | null {
+    // e.g. "Thu 24 Mar 7:20pm" or "Sat 26 Mar 1:40pm"
+    const m = cellText.match(/\w{3}\s+(\d+)\s+(\w{3})\s+(\d+):(\d+)(am|pm)/i);
+    if (!m) return null;
+    const day = m[1].padStart(2, "0");
+    const month = MONTHS[m[2].toLowerCase()];
+    if (!month) return null;
+    let hour = parseInt(m[3], 10);
+    const minute = m[4];
+    const ampm = m[5].toLowerCase();
+    if (ampm === "pm" && hour !== 12) hour += 12;
+    if (ampm === "am" && hour === 12) hour = 0;
+    return `${year}-${month}-${day}T${String(hour).padStart(2, "0")}:${minute}`;
+  }
 
   const rows = root.querySelectorAll("table tr");
   console.log(
@@ -331,7 +352,7 @@ export async function getMatchIdsForRound(
       console.log(
         `[afl-scraper] getMatchIdsForRound: section "${firstCell}" → r=${r}, inTargetRound=${inTargetRound}`,
       );
-      // Only break if we've moved to a DIFFERENT round number (not just a different section of the same round)
+      // Only break if we've moved to a DIFFERENT round number
       if (wasIn && !inTargetRound) {
         console.log(
           `[afl-scraper] getMatchIdsForRound: passed target round, stopping`,
@@ -349,17 +370,13 @@ export async function getMatchIdsForRound(
       const midMatch = href.match(/mid=(\d+)/);
       if (midMatch) {
         const mid = parseInt(midMatch[1], 10);
+        const startDatetime = parseDatetimeFromCell(firstCell);
         console.log(
-          `[afl-scraper] getMatchIdsForRound: found mid=${mid} from href="${href}"`,
+          `[afl-scraper] getMatchIdsForRound: found mid=${mid} startDatetime=${startDatetime}`,
         );
-        mids.push(mid);
-      } else {
-        console.log(
-          `[afl-scraper] getMatchIdsForRound: stats link found but no mid in href="${href}"`,
-        );
+        results.push({ mid, startDatetime });
       }
     } else if (cells.length >= 3) {
-      // Log game rows that had no stats link (may mean match not yet played)
       console.log(
         `[afl-scraper] getMatchIdsForRound: game row without stats link: "${row.text.trim().slice(0, 100)}"`,
       );
@@ -367,9 +384,9 @@ export async function getMatchIdsForRound(
   }
 
   console.log(
-    `[afl-scraper] getMatchIdsForRound: found ${mids.length} mids for round ${round}: [${mids.join(", ")}]`,
+    `[afl-scraper] getMatchIdsForRound: found ${results.length} matches for round ${round}`,
   );
-  return mids;
+  return results;
 }
 
 // ─── Step 3: Scrape player stats for a match ─────────────────────────────────
@@ -639,6 +656,7 @@ export async function scrapeMatchStats(
     awayScore,
     venue,
     date,
+    startDatetime: null, // not available on individual match page; set by caller if known
     crowd,
   };
 
@@ -840,6 +858,7 @@ export async function scrapeMatchAdvancedStats(
     awayScore,
     venue,
     date,
+    startDatetime: null,
     crowd,
   };
 

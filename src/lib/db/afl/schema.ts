@@ -30,6 +30,7 @@ export const matches = pgTable("matches", {
     .references(() => teams.id),
   venue: text("venue").notNull(),
   date: text("date").notNull(),
+  startDatetime: text("start_datetime"), // nullable; ISO-ish sortable "2016-03-24T19:20" AEST
   homeScore: integer("home_score"),
   awayScore: integer("away_score"),
   crowd: integer("crowd"),

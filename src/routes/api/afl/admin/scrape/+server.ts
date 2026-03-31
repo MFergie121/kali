@@ -25,10 +25,10 @@ export const POST: RequestHandler = async (event) => {
 
   console.log(`[afl-scraper] starting scrape for year=${year}, round=${round}`);
 
-  const mids = await getMatchIdsForRound(round, year);
-  console.log(`[afl-scraper] mids for round ${round}=${JSON.stringify(mids)}`);
+  const matchInfos = await getMatchIdsForRound(round, year);
+  console.log(`[afl-scraper] matches for round ${round}=${JSON.stringify(matchInfos)}`);
 
-  if (mids.length === 0) {
+  if (matchInfos.length === 0) {
     return json(
       {
         error: `No match IDs found for Round ${round}, ${year}. The round may not have been played yet.`,
@@ -37,16 +37,16 @@ export const POST: RequestHandler = async (event) => {
     );
   }
 
-  console.log(`[afl-scraper] scraping ${mids.length} matches in parallel`);
+  console.log(`[afl-scraper] scraping ${matchInfos.length} matches in parallel`);
   await Promise.all(
-    mids.map((mid) => {
-      console.log(`[afl-scraper] scraping mid=${mid}`);
-      return scrapeAndPersistMatch(mid).then(() => console.log(`[afl-scraper] mid=${mid} done`));
+    matchInfos.map(({ mid, startDatetime }) => {
+      console.log(`[afl-scraper] scraping mid=${mid} startDatetime=${startDatetime}`);
+      return scrapeAndPersistMatch(mid, startDatetime).then(() => console.log(`[afl-scraper] mid=${mid} done`));
     }),
   );
 
   console.log(
-    `[afl-scraper] complete — year=${year}, round=${round}, matchesScraped=${mids.length}`,
+    `[afl-scraper] complete — year=${year}, round=${round}, matchesScraped=${matchInfos.length}`,
   );
-  return json({ success: true, year, round, matchesScraped: mids.length });
+  return json({ success: true, year, round, matchesScraped: matchInfos.length });
 };

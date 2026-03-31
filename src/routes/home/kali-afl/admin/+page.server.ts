@@ -44,16 +44,16 @@ export const actions: Actions = {
       return fail(422, { error: "Invalid round." });
     }
 
-    const mids = await getMatchIdsForRound(round, year);
-    if (mids.length === 0) {
+    const matchInfos = await getMatchIdsForRound(round, year);
+    if (matchInfos.length === 0) {
       return fail(422, {
         error: `No matches found for Round ${round}, ${year}. The round may not have been played yet.`,
       });
     }
 
     let matchesScraped = 0;
-    for (const mid of mids) {
-      await scrapeAndPersistMatch(mid);
+    for (const { mid, startDatetime } of matchInfos) {
+      await scrapeAndPersistMatch(mid, startDatetime);
       matchesScraped++;
     }
 

@@ -31,6 +31,7 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
     awayTeamId: scraped.awayTeam.id,
     venue: scraped.venue,
     date: scraped.date,
+    startDatetime: scraped.startDatetime,
     homeScore: scraped.homeScore,
     awayScore: scraped.awayScore,
     crowd: scraped.crowd,
@@ -47,6 +48,8 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
         awayTeamId: matchValues.awayTeamId,
         venue: matchValues.venue,
         date: matchValues.date,
+        // Only overwrite startDatetime if the new value is non-null (preserve existing if re-scraping via single match endpoint)
+        startDatetime: sql`CASE WHEN ${matchValues.startDatetime} IS NOT NULL THEN ${matchValues.startDatetime} ELSE ${matches.startDatetime} END`,
         homeScore: matchValues.homeScore,
         awayScore: matchValues.awayScore,
         crowd: matchValues.crowd,
@@ -57,11 +60,14 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
 
 // ─── Scrape + Persist (single match) ─────────────────────────────────────────
 
-export async function scrapeAndPersistMatch(mid: number) {
+export async function scrapeAndPersistMatch(mid: number, startDatetime?: string | null) {
   const [data, advData] = await Promise.all([
     scrapeMatchStats(mid),
     scrapeMatchAdvancedStats(mid),
   ]);
+  if (startDatetime != null) {
+    data.match.startDatetime = startDatetime;
+  }
   await upsertMatch(data.match);
   await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
   await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
@@ -396,6 +402,7 @@ export interface MatchRow {
   awayScore: number | null;
   venue: string;
   date: string;
+  startDatetime: string | null;
   crowd: number | null;
   sourcedAt: string;
 }
@@ -461,6 +468,7 @@ export async function getMatchesForRound(round: number): Promise<MatchRow[]> {
       awayScore: matches.awayScore,
       venue: matches.venue,
       date: matches.date,
+      startDatetime: matches.startDatetime,
       crowd: matches.crowd,
       sourcedAt: matches.sourcedAt,
     })
@@ -482,6 +490,7 @@ export async function getMatchesForRound(round: number): Promise<MatchRow[]> {
     awayScore: r.awayScore,
     venue: r.venue,
     date: r.date,
+    startDatetime: r.startDatetime,
     crowd: r.crowd,
     sourcedAt: r.sourcedAt,
   }));
@@ -502,11 +511,13 @@ export async function getMatchesForRoundAndYear(
       awayScore: matches.awayScore,
       venue: matches.venue,
       date: matches.date,
+      startDatetime: matches.startDatetime,
       crowd: matches.crowd,
       sourcedAt: matches.sourcedAt,
     })
     .from(matches)
-    .where(and(eq(matches.round, round), eq(matches.year, year)));
+    .where(and(eq(matches.round, round), eq(matches.year, year)))
+    .orderBy(asc(matches.startDatetime));
 
   const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
@@ -523,6 +534,7 @@ export async function getMatchesForRoundAndYear(
     awayScore: r.awayScore,
     venue: r.venue,
     date: r.date,
+    startDatetime: r.startDatetime,
     crowd: r.crowd,
     sourcedAt: r.sourcedAt,
   }));
@@ -882,6 +894,7 @@ export async function getMatchesPaginated(opts: {
       awayScore: matches.awayScore,
       venue: matches.venue,
       date: matches.date,
+      startDatetime: matches.startDatetime,
       crowd: matches.crowd,
       sourcedAt: matches.sourcedAt,
     })
@@ -906,6 +919,7 @@ export async function getMatchesPaginated(opts: {
     awayScore: r.awayScore,
     venue: r.venue,
     date: r.date,
+    startDatetime: r.startDatetime,
     crowd: r.crowd,
     sourcedAt: r.sourcedAt,
   }));
@@ -1209,6 +1223,7 @@ export async function getMatchById(id: number): Promise<MatchRow | null> {
       awayScore: matches.awayScore,
       venue: matches.venue,
       date: matches.date,
+      startDatetime: matches.startDatetime,
       crowd: matches.crowd,
       sourcedAt: matches.sourcedAt,
     })
@@ -1233,6 +1248,7 @@ export async function getMatchById(id: number): Promise<MatchRow | null> {
     awayScore: r.awayScore,
     venue: r.venue,
     date: r.date,
+    startDatetime: r.startDatetime,
     crowd: r.crowd,
     sourcedAt: r.sourcedAt,
   };
@@ -1655,6 +1671,7 @@ export async function getHeadToHead(opts: {
       awayScore: matches.awayScore,
       venue: matches.venue,
       date: matches.date,
+      startDatetime: matches.startDatetime,
       crowd: matches.crowd,
       sourcedAt: matches.sourcedAt,
     })
@@ -1679,6 +1696,7 @@ export async function getHeadToHead(opts: {
     awayScore: r.awayScore,
     venue: r.venue,
     date: r.date,
+    startDatetime: r.startDatetime,
     crowd: r.crowd,
     sourcedAt: r.sourcedAt,
   }));
