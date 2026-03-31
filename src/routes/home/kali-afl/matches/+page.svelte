@@ -92,8 +92,8 @@
 		if (!data.roundTips.length) return map;
 		const groups = new Map<number, number[]>();
 		for (const tip of data.roundTips) {
-			if (!groups.has(tip.gameid)) groups.set(tip.gameid, []);
-			groups.get(tip.gameid)!.push(tip.hconfidence);
+			if (!groups.has(tip.gameId)) groups.set(tip.gameId, []);
+			groups.get(tip.gameId)!.push(tip.hconfidence);
 		}
 		for (const [gameid, confs] of groups) {
 			map.set(gameid, confs.reduce((a, b) => a + b, 0) / confs.length);
@@ -238,8 +238,8 @@
 				{@const homeSlug = teamSlug(match.homeTeam)}
 				{@const awaySlug = teamSlug(match.awayTeam)}
 				{@const activeStats = showAdvanced ? match.advStats : match.stats}
-				{@const homeStats = activeStats.filter((s) => s.teamId === homeSlug)}
-				{@const awayStats = activeStats.filter((s) => s.teamId === awaySlug)}
+				{@const homeStats = activeStats.filter((s: { teamId: string; }) => s.teamId === homeSlug)}
+				{@const awayStats = activeStats.filter((s: { teamId: string; }) => s.teamId === awaySlug)}
 
 				<div class="match-card">
 					<button
@@ -248,7 +248,7 @@
 					>
 						<div class="team team-home">
 							<span class="team-name" class:team-winner={homeWon} class:team-loser={awayWon}>
-								{match.homeShortName}
+								{match.homeTeam}
 							</span>
 						</div>
 
@@ -261,7 +261,7 @@
 
 						<div class="team team-away">
 							<span class="team-name" class:team-winner={awayWon} class:team-loser={homeWon}>
-								{match.awayShortName}
+								{match.awayTeam}
 							</span>
 						</div>
 
