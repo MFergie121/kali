@@ -158,7 +158,7 @@
 		</div>
 		<div class="round-chips-grid">
 			{#each data.allRounds as r (r)}
-				{#if r === 0 && data.selectedYear < 2024}{:else}
+				{#if data.storedRounds.includes(r) || data.upcomingByRound[r]?.length || r === data.selectedRound}
 				<button
 					class={roundChipClass(r)}
 					onclick={() => goto(`?year=${data.selectedYear}&round=${r}`)}

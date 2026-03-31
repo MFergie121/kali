@@ -147,7 +147,7 @@ export async function getLatestCompletedRound(
     const firstCell = cells[0].text.trim();
 
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)$/i
     );
     if (roundMatch) {
       // Save result for the round we just finished scanning
@@ -242,7 +242,7 @@ export async function getLatestCompletedMatchId(
 
     const firstCell = cells[0].text.trim();
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i,
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)$/i,
     );
     if (roundMatch) {
       if (roundMatch[1]) {
@@ -309,7 +309,7 @@ export async function getMatchIdsForRound(
 
     const firstCell = cells[0].text.trim();
     const roundMatch = firstCell.match(
-      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)/i
+      /^(?:Round\s+(\d+)|P(\d+)|Qualifying\s+Final|Elimination\s+Final|Semi\s+Final|Preliminary\s+Final|Grand\s+Final)$/i
     );
     if (roundMatch) {
       let r = -1;

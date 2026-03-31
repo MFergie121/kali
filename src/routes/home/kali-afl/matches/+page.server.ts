@@ -30,11 +30,38 @@ export const load: PageServerLoad = async ({ url }) => {
 
   const storedRounds = await getStoredRoundsForYear(selectedYear);
 
+  // Load fixtures early so we can derive the active round for the default
+  let allFixtures: Awaited<ReturnType<typeof getFixturesForYear>> = [];
+  let upcomingByRound: Record<number, Awaited<ReturnType<typeof getFixturesForYear>>> = {};
+  let upcomingRound: number | null = null;
+
+  try {
+    allFixtures = await getFixturesForYear(selectedYear);
+    for (const game of allFixtures.filter((f) => f.complete < 100)) {
+      if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
+      upcomingByRound[game.round].push(game);
+    }
+    upcomingRound = getUpcomingRound(allFixtures);
+  } catch {
+    // fixtures/tips tables may not exist yet
+  }
+
+  // Default round: latest round with a completed fixture game (current year),
+  // or highest scraped round (past years), or 1
   const rawRound = parseInt(url.searchParams.get("round") ?? "");
+  let defaultRound: number;
+  if (selectedYear === currentYear && allFixtures.length > 0) {
+    const activeRound = allFixtures
+      .filter((f) => f.complete >= 100)
+      .reduce((max, f) => Math.max(max, f.round), 0);
+    defaultRound = activeRound || storedRounds[0] || 1;
+  } else {
+    defaultRound = storedRounds[0] ?? 1;
+  }
   const selectedRound =
     !isNaN(rawRound) && rawRound >= 0 && rawRound <= MAX_ROUND
       ? rawRound
-      : (storedRounds[storedRounds.length - 1] ?? 1);
+      : defaultRound;
 
   const hasData = storedRounds.includes(selectedRound);
   const matchRows = hasData
@@ -55,25 +82,14 @@ export const load: PageServerLoad = async ({ url }) => {
     advStats: advStatsMap.get(m.id) ?? [],
   }));
 
-  // Read fixtures and tips from DB (synced via cron job)
-  // Wrapped in try-catch so the page still loads if the tables haven't been created yet
-  let upcomingByRound: Record<number, Awaited<ReturnType<typeof getFixturesForYear>>> = {};
-  let upcomingRound: number | null = null;
+  // Load tips for the upcoming round if it matches the selected round
   let roundTips: Awaited<ReturnType<typeof getTipsForRound>> = [];
-
   try {
-    const allFixtures = await getFixturesForYear(selectedYear);
-    for (const game of allFixtures.filter((f) => f.complete < 100)) {
-      if (!upcomingByRound[game.round]) upcomingByRound[game.round] = [];
-      upcomingByRound[game.round].push(game);
-    }
-    upcomingRound = getUpcomingRound(allFixtures);
-
     if (upcomingRound !== null && selectedRound === upcomingRound) {
       roundTips = await getTipsForRound(selectedYear, upcomingRound);
     }
   } catch {
-    // fixtures/tips tables may not exist yet — page renders without fixture data
+    // tips table may not exist yet
   }
 
   return {
