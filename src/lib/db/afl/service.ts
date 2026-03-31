@@ -49,7 +49,7 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
         venue: matchValues.venue,
         date: matchValues.date,
         // Only overwrite startDatetime if the new value is non-null (preserve existing if re-scraping via single match endpoint)
-        startDatetime: sql`CASE WHEN ${matchValues.startDatetime} IS NOT NULL THEN ${matchValues.startDatetime} ELSE ${matches.startDatetime} END`,
+        startDatetime: sql`COALESCE(${matchValues.startDatetime}, ${matches.startDatetime})`,
         homeScore: matchValues.homeScore,
         awayScore: matchValues.awayScore,
         crowd: matchValues.crowd,
