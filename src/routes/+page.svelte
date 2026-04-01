@@ -11,10 +11,10 @@
 
 <svelte:head>
 	<title>Kali AFL — Free AFL Stats API</title>
-	<meta name="description" content="Free AFL Stats API with historical data from 2000 to present. 5,000 requests per day, no credit card required. Access teams, players, matches, standings, leaderboards, and advanced player stats." />
+	<meta name="description" content="Free AFL Stats API with historical data from 2000 to present. 1,000 requests per day, no credit card required. Access teams, players, matches, standings, leaderboards, and advanced player stats." />
 	<meta name="keywords" content="AFL API, free AFL API, AFL stats API, AFL data API, Australian Football League API, AFL historical data, AFL player stats, free sports API Australia, supercoach API, fantasy AFL API" />
 	<meta property="og:title" content="Kali AFL — Free AFL Stats API" />
-	<meta property="og:description" content="The AFL API that should've existed. Free, open source, 5,000 requests/day. Historical data from 2000 to present." />
+	<meta property="og:description" content="The AFL API that should've existed. Free, open source, 1,000 requests/day. Historical data from 2000 to present." />
 	<meta name="robots" content="index, follow" />
 </svelte:head>
 
@@ -29,11 +29,11 @@
 			</div>
 
 			<h1 class="headline" style="animation-delay: 80ms">
-				the afl api<br />that should've<br />existed.
+				The AFL API<br />that should've<br />existed.
 			</h1>
 
 			<p class="tagline" style="animation-delay: 160ms">
-				free · open source · historical data from 2000 · 5,000 req / day
+				free · open source · historical data from 2000 · 1,000 req / day
 			</p>
 
 			<div class="hero-cta" style="animation-delay: 240ms">
@@ -56,7 +56,7 @@
 			</div>
 			<div class="hero-divider"></div>
 			<div class="hero-stat">
-				<span class="hero-stat-val">5,000</span>
+				<span class="hero-stat-val">1,000</span>
 				<span class="hero-stat-label">req / day</span>
 			</div>
 			<div class="hero-divider"></div>
@@ -76,10 +76,10 @@
 	<section class="origin" style="animation-delay: 400ms">
 		<span class="origin-comment">// why does this exist?</span>
 		<p class="origin-text">
-			there wasn't a decent free afl data source. so i built one over the summer.
+			there wasn't a decent free afl data source. so i decided to build one.
 			it covers every season from 2000 to now — matches, scores, player stats, the works.
 			completely free, completely open source, and you don't need a credit card to touch it.
-			you're welcome.
+			i hope this helps fellow afl fans, data nerds, and aspiring fantasy coaches build cool stuff without worrying about api limits or paywalls.
 		</p>
 	</section>
 
@@ -91,8 +91,8 @@
 			<div class="feature-card feature-card--primary">
 				<span class="feature-badge">biggest selling point</span>
 				<h3 class="feature-title">free api</h3>
-				<p class="feature-desc">5,000 requests per day. key-based auth. no credit card, no waitlist. sign in and start building.</p>
-				<span class="feature-highlight">5,000 req / day</span>
+				<p class="feature-desc">1,000 requests per day. key-based auth. no credit card, no waitlist. sign in and start building.</p>
+				<span class="feature-highlight">1,000 req / day</span>
 			</div>
 
 			<div class="feature-card">
