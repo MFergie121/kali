@@ -1083,7 +1083,7 @@ export async function setApiLimit(keyId: number, limit: number | null): Promise<
 export async function createApiKey(userId: number, name: string): Promise<string> {
   const key = randomBytes(32).toString("hex");
   const now = new Date().toISOString();
-  await db.insert(apiKeys).values({ userId, key, name, createdAt: now });
+  await db.insert(apiKeys).values({ userId, key, name, createdAt: now, limit: 1000 });
   return key;
 }
 
@@ -1106,6 +1106,7 @@ export async function listAllApiKeys(): Promise<(ApiKey & { userName: string; us
       lastUsedAt: apiKeys.lastUsedAt,
       revoked: apiKeys.revoked,
       usage: apiKeys.usage,
+      totalUsage: apiKeys.totalUsage,
       limit: apiKeys.limit,
       userName: kaliUsers.name,
       userEmail: kaliUsers.email,
@@ -1119,6 +1120,15 @@ export async function revokeApiKey(id: number): Promise<void> {
   await db.update(apiKeys).set({ revoked: true }).where(eq(apiKeys.id, id));
 }
 
+export async function resetDailyApiUsage(): Promise<{ resetCount: number }> {
+  const result = await db
+    .update(apiKeys)
+    .set({ usage: 0 })
+    .where(eq(apiKeys.revoked, false))
+    .returning({ id: apiKeys.id });
+  return { resetCount: result.length };
+}
+
 export async function validateApiKey(key: string): Promise<{ valid: boolean; rateLimited?: boolean }> {
   const [row] = await db
     .select({
@@ -1126,6 +1136,7 @@ export async function validateApiKey(key: string): Promise<{ valid: boolean; rat
       revoked: apiKeys.revoked,
       userId: apiKeys.userId,
       usage: apiKeys.usage,
+      totalUsage: apiKeys.totalUsage,
       limit: apiKeys.limit,
     })
     .from(apiKeys)
@@ -1139,10 +1150,10 @@ export async function validateApiKey(key: string): Promise<{ valid: boolean; rat
 
   const now = new Date().toISOString();
   await db.update(apiKeys)
-    .set({ lastUsedAt: now, usage: row.usage + 1 })
+    .set({ lastUsedAt: now, usage: row.usage + 1, totalUsage: row.totalUsage + 1 })
     .where(eq(apiKeys.id, row.keyId));
   await db.update(kaliUsers)
-    .set({ lastActiveAt: now })
+    .set({ lastActiveAt: now, totalApiUsage: sql`${kaliUsers.totalApiUsage} + 1` })
     .where(eq(kaliUsers.id, row.userId));
 
   return { valid: true };

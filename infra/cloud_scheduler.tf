@@ -109,6 +109,34 @@ resource "google_cloud_scheduler_job" "scrape_weekend" {
   depends_on = [google_project_service.apis]
 }
 
+# Reset API key daily usage counters at midnight AEST
+resource "google_cloud_scheduler_job" "reset_api_limits" {
+  name        = "kali-afl-reset-api-limits"
+  description = "Reset daily API key usage counters at midnight"
+  region      = var.region
+  schedule    = "0 0 * * *" # Daily at midnight AEST
+  time_zone   = "Australia/Melbourne"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.kali_afl.uri}/api/afl/admin/reset-api-limits"
+    body        = base64encode("{}")
+
+    headers = {
+      "Content-Type"  = "application/json"
+      "Authorization" = "Bearer ${data.google_secret_manager_secret_version.scrape_secret.secret_data}"
+    }
+  }
+
+  retry_config {
+    retry_count          = 3
+    min_backoff_duration = "10s"
+    max_backoff_duration = "60s"
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
 # Daily tips sync from Squiggle — every day at 10am AEST
 resource "google_cloud_scheduler_job" "sync_tips" {
   name        = "kali-afl-sync-tips"

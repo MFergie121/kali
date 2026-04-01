@@ -206,6 +206,7 @@ export const kaliUsers = pgTable("kali_users", {
   prefTheme: text("pref_theme").notNull().default("serika"),
   prefFont: text("pref_font").notNull().default("ibm-plex-mono"),
   prefDarkMode: text("pref_dark_mode").notNull().default("system"),
+  totalApiUsage: integer("total_api_usage").notNull().default(0),
 });
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
@@ -221,7 +222,8 @@ export const apiKeys = pgTable("api_keys", {
   lastUsedAt: text("last_used_at"),
   revoked: boolean("revoked").notNull().default(false),
   usage: integer("usage").notNull().default(0),
-  limit: integer("limit"),
+  totalUsage: integer("total_usage").notNull().default(0),
+  limit: integer("limit").default(1000),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────

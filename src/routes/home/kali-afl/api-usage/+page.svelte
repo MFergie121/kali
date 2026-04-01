@@ -77,7 +77,7 @@
 					<thead>
 						<tr class="border-b border-border bg-muted">
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
-							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Usage</th>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Today / Total</th>
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Limit</th>
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Last used</th>
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
@@ -93,6 +93,7 @@
 								<td class="px-3 py-2 text-muted-foreground">
 									<div>
 										<span class="font-mono">{key.usage.toLocaleString()}</span>
+										<span class="text-muted-foreground/60 text-xs"> today</span>
 										{#if key.limit !== null}
 											<div class="mt-1 h-1 w-16 overflow-hidden rounded-full bg-muted">
 												<div
@@ -101,6 +102,9 @@
 												></div>
 											</div>
 										{/if}
+										<div class="mt-1 font-mono text-xs text-muted-foreground/60">
+											{key.totalUsage.toLocaleString()} total
+										</div>
 									</div>
 								</td>
 								<td class="px-3 py-2 font-mono text-muted-foreground">

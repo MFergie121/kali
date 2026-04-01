@@ -88,7 +88,7 @@
 						<tr>
 							<th>User</th>
 							<th>Key name</th>
-							<th>Usage / Limit</th>
+							<th>Today / Limit</th>
 							<th>Created</th>
 							<th>Last used</th>
 							<th>Status</th>
@@ -119,6 +119,7 @@
 											></div>
 										</div>
 									{/if}
+									<div class="td-lifetime">{key.totalUsage.toLocaleString()} lifetime</div>
 								</td>
 								<td class="td-date">{formatDateShort(key.createdAt)}</td>
 								<td class="td-date">{formatDateShort(key.lastUsedAt)}</td>
@@ -388,6 +389,14 @@
 	}
 
 	.usage-bar-critical { background-color: var(--destructive); }
+
+	.td-lifetime {
+		margin-top: 0.2rem;
+		font-size: 0.6875rem;
+		font-family: monospace;
+		color: var(--muted-foreground);
+		opacity: 0.6;
+	}
 
 	/* Badges */
 	.badge {
