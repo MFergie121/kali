@@ -61,3 +61,8 @@ variable "github_repo_connection" {
   type    = string
   default = "projects/kali-490813/locations/australia-southeast1/connections/Mfergie121-Github/repositories/MFergie121-kali-afl-stats"
 }
+
+variable "custom_domain" {
+  description = "Custom domain name for the application (e.g. kali-afl.com)"
+  type        = string
+}
