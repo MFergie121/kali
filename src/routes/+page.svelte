@@ -129,7 +129,7 @@
 			</div>
 			<pre
 				class="terminal-body"
-><span class="t-muted">$</span> curl <span class="t-str">"https://kali-afl.com/api/afl/v1/players/stats?year=2024&amp;round=1&amp;limit=2"</span> \
+><span class="t-muted">$</span> curl <span class="t-str">"https://kaliaflstats.com/api/afl/v1/players/stats?year=2024&amp;round=1&amp;limit=2"</span> \
   -H <span class="t-str">"Authorization: Bearer YOUR_API_KEY"</span></pre>
 		</div>
 

@@ -63,6 +63,6 @@ variable "github_repo_connection" {
 }
 
 variable "custom_domain" {
-  description = "Custom domain name for the application (e.g. kali-afl.com)"
+  description = "Custom domain name for the application (e.g. kaliaflstats.com)"
   type        = string
 }

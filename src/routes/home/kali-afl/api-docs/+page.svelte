@@ -64,7 +64,7 @@
 		</div>
 		<div class="space-y-1">
 			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Example</p>
-			<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">curl https://your-domain.com/api/afl/v1/teams \
+			<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">curl https://kaliaflstats.com/api/afl/v1/teams \
   -H "Authorization: Bearer a3f9c2d1e8..."</pre>
 		</div>
 	</section>
@@ -72,7 +72,7 @@
 	<!-- Base URL -->
 	<section id="base-url" class="scroll-mt-20 space-y-4 border-t pt-8">
 		<h2 class="text-xl font-semibold">Base URL</h2>
-		<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">https://your-domain.com/api/afl/v1</pre>
+		<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">https://kaliaflstats.com/api/afl/v1</pre>
 		<p class="text-muted-foreground text-sm">
 			All endpoint paths below are relative to this base. When running locally, use
 			<code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">http://localhost:5173</code>.
