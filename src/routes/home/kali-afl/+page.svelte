@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import type { PageData } from './$types';
 
@@ -24,6 +24,9 @@
 	let activeTab = $state<PerformerTab>('disposals');
 
 	const ROUNDS_PER_SEASON = 24;
+	const FINALS_ROUNDS = [25, 26, 27, 28] as const;
+
+	let coverageOpen = $state(false);
 
 	const navItems = $derived([
 		{
@@ -130,13 +133,13 @@
 						{@const awayWon = (match.awayScore ?? 0) > (match.homeScore ?? 0)}
 						<div class="match-row">
 							<span class="match-team" class:team-winner={homeWon} class:team-loser={awayWon && !homeWon}>
-								{match.homeShortName}
+								{match.homeTeam}
 							</span>
 							<span class="match-score">
 								{match.homeScore ?? '–'}<span class="score-sep">–</span>{match.awayScore ?? '–'}
 							</span>
 							<span class="match-team team-right" class:team-winner={awayWon} class:team-loser={homeWon && !awayWon}>
-								{match.awayShortName}
+								{match.awayTeam}
 							</span>
 							<span class="match-venue">{match.venue}</span>
 						</div>
@@ -191,41 +194,60 @@
 	<!-- ── Season Coverage Grid ── -->
 	{#if data.seasonGrid.length > 0}
 		<div class="card coverage-card" style="animation-delay: 300ms">
-			<div class="card-header">
-				<span class="section-label">season coverage</span>
-			</div>
-			<div class="coverage-list">
-				{#each data.seasonGrid as season (season.year)}
-					{@const hasPreSeason = season.rounds.includes(0)}
-					{@const regularRounds = Array.from({ length: ROUNDS_PER_SEASON }, (_, i) => i + 1)}
-					{@const scraped = new Set(season.rounds)}
-					{@const scrapedRegular = regularRounds.filter((r) => scraped.has(r)).length}
+			<button class="card-header coverage-toggle" onclick={() => (coverageOpen = !coverageOpen)}>
+				<div class="card-header-left">
+					<span class="section-label">season coverage</span>
+					<span class="chip">{data.seasonGrid.length} season{data.seasonGrid.length === 1 ? '' : 's'}</span>
+				</div>
+				<span class="toggle-chevron" class:toggle-open={coverageOpen}>&#x25B8;</span>
+			</button>
+			{#if coverageOpen}
+				<div class="coverage-list">
+					{#each data.seasonGrid as season (season.year)}
+						{@const hasPreSeason = season.rounds.includes(0)}
+						{@const regularRounds = Array.from({ length: ROUNDS_PER_SEASON }, (_, i) => i + 1)}
+						{@const scraped = new Set(season.rounds)}
+						{@const scrapedRegular = regularRounds.filter((r) => scraped.has(r)).length}
+						{@const scrapedFinals = FINALS_ROUNDS.filter((r) => scraped.has(r)).length}
+						{@const totalScraped = scrapedRegular + scrapedFinals + (hasPreSeason ? 1 : 0)}
+						{@const totalPossible = ROUNDS_PER_SEASON + FINALS_ROUNDS.length}
 
-					<div class="coverage-row">
-						<div class="coverage-meta">
-							<span class="coverage-year">{season.year}</span>
-							<span class="chip">{scrapedRegular} / {ROUNDS_PER_SEASON}</span>
+						<div class="coverage-row">
+							<div class="coverage-meta">
+								<span class="coverage-year">{season.year}</span>
+								<span class="chip">{totalScraped} / {totalPossible + (hasPreSeason ? 1 : 0)}</span>
+							</div>
+							<div class="round-grid">
+								{#if hasPreSeason}
+									<div class="round-dot round-scraped" title="Pre-Season">
+										<span class="round-dot-label">P</span>
+									</div>
+								{/if}
+								{#each regularRounds as r (r)}
+									<div
+										class="round-dot"
+										class:round-scraped={scraped.has(r)}
+										class:round-empty={!scraped.has(r)}
+										title="Round {r}"
+									>
+										<span class="round-dot-label">{r}</span>
+									</div>
+								{/each}
+								{#each FINALS_ROUNDS as r (r)}
+									<div
+										class="round-dot"
+										class:round-scraped={scraped.has(r)}
+										class:round-empty={!scraped.has(r)}
+										title={roundLabelFull(r)}
+									>
+										<span class="round-dot-label">{r === 25 ? 'F1' : r === 26 ? 'SF' : r === 27 ? 'PF' : 'GF'}</span>
+									</div>
+								{/each}
+							</div>
 						</div>
-						<div class="round-grid">
-							{#if hasPreSeason}
-								<div class="round-dot round-scraped" title="Pre-Season">
-									<span class="round-dot-label">P</span>
-								</div>
-							{/if}
-							{#each regularRounds as r (r)}
-								<div
-									class="round-dot"
-									class:round-scraped={scraped.has(r)}
-									class:round-empty={!scraped.has(r)}
-									title="Round {r}"
-								>
-									<span class="round-dot-label">{r}</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -626,6 +648,42 @@
 	.coverage-card {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.coverage-toggle {
+		cursor: pointer;
+		width: 100%;
+		background: none;
+		font-family: inherit;
+		border: none;
+		padding: 0.875rem 1.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.coverage-toggle.card-header {
+		border-bottom: none;
+	}
+
+	.coverage-list {
+		border-top: 1px solid var(--border);
+	}
+
+	.coverage-toggle:hover {
+		background-color: var(--secondary);
+	}
+
+	.toggle-chevron {
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
+		transition: transform 0.2s ease;
+		flex-shrink: 0;
+	}
+
+	.toggle-open {
+		transform: rotate(90deg);
 	}
 
 	.coverage-list {

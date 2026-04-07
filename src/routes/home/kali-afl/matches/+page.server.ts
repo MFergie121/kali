@@ -46,15 +46,51 @@ export const load: PageServerLoad = async ({ url }) => {
     // fixtures/tips tables may not exist yet
   }
 
-  // Default round: latest round with a completed fixture game (current year),
-  // or highest scraped round (past years), or 1
+  // Default round logic (current year with fixtures):
+  //   1. If a round is in progress (≥1 game started, ≥1 not complete) → that round
+  //   2. Otherwise → upcoming round (next round with unstarted games)
+  //   3. Fallback → latest completed round, then highest scraped, then 1
+  // Past years: highest scraped round, then 1
   const rawRound = parseInt(url.searchParams.get("round") ?? "");
   let defaultRound: number;
   if (selectedYear === currentYear && allFixtures.length > 0) {
-    const activeRound = allFixtures
-      .filter((f) => f.complete >= 100)
-      .reduce((max, f) => Math.max(max, f.round), 0);
-    defaultRound = activeRound || storedRounds[0] || 1;
+    const now = new Date();
+    // Group fixtures by round
+    const byRound = new Map<number, typeof allFixtures>();
+    for (const f of allFixtures) {
+      if (!byRound.has(f.round)) byRound.set(f.round, []);
+      byRound.get(f.round)!.push(f);
+    }
+
+    // Find a round currently in progress
+    let inProgressRound: number | null = null;
+    for (const [round, games] of byRound) {
+      const hasStarted = games.some((g) => {
+        if (g.complete > 0) return true;
+        if (g.date) {
+          const gameDate = new Date(g.date.replace(" ", "T") + "+10:00");
+          return gameDate <= now;
+        }
+        return false;
+      });
+      const hasIncomplete = games.some((g) => g.complete < 100);
+      if (hasStarted && hasIncomplete) {
+        inProgressRound = round;
+        break;
+      }
+    }
+
+    if (inProgressRound !== null) {
+      defaultRound = inProgressRound;
+    } else if (upcomingRound !== null) {
+      defaultRound = upcomingRound;
+    } else {
+      // All games complete or no fixtures — fall back to latest completed round
+      const latestCompleted = allFixtures
+        .filter((f) => f.complete >= 100)
+        .reduce((max, f) => Math.max(max, f.round), 0);
+      defaultRound = latestCompleted || storedRounds[0] || 1;
+    }
   } else {
     defaultRound = storedRounds[0] ?? 1;
   }

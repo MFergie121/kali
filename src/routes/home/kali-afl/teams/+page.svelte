@@ -121,18 +121,20 @@
 				</Select.Content>
 			</Select.Root>
 
-			<Select.Root
-				type="single"
-				value={String(data.selectedYear)}
-				onValueChange={(v) => { if (v) nav({ year: v, compare: null }); }}
-			>
-				<Select.Trigger class="w-24">{data.selectedYear}</Select.Trigger>
-				<Select.Content>
-					{#each data.allYears as y (y)}
-						<Select.Item value={String(y)} label={String(y)}>{y}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
+			{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
+			<div class="year-nav">
+				<button
+					class="year-nav-btn"
+					disabled={yearIdx <= 0}
+					onclick={() => nav({ year: String(data.allYears[yearIdx - 1]), compare: null })}
+				>←</button>
+				<span class="year-nav-label">{data.selectedYear}</span>
+				<button
+					class="year-nav-btn"
+					disabled={yearIdx >= data.allYears.length - 1}
+					onclick={() => nav({ year: String(data.allYears[yearIdx + 1]), compare: null })}
+				>→</button>
+			</div>
 		</div>
 
 	</div>
@@ -553,6 +555,42 @@
 		gap: 0.75rem;
 	}
 	.toolbar-left { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+	/* ── Year nav ── */
+	.year-nav {
+		display: flex;
+		align-items: center;
+		border: 1px solid var(--border);
+		border-radius: 0.375rem;
+		overflow: hidden;
+	}
+	.year-nav-btn {
+		font-family: inherit;
+		font-size: 0.8125rem;
+		padding: 0.25rem 0.5rem;
+		background: none;
+		border: none;
+		color: var(--muted-foreground);
+		cursor: pointer;
+		transition: background-color 0.12s ease, color 0.12s ease;
+		line-height: 1;
+	}
+	.year-nav-btn:hover:not(:disabled) {
+		background-color: var(--secondary);
+		color: var(--foreground);
+	}
+	.year-nav-btn:disabled { opacity: 0.3; cursor: default; }
+	.year-nav-label {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--foreground);
+		padding: 0.25rem 0.5rem;
+		border-left: 1px solid var(--border);
+		border-right: 1px solid var(--border);
+		min-width: 3rem;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
 
 	/* ── Tabs ── */
 	.tab-nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); }

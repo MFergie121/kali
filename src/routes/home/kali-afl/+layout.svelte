@@ -138,6 +138,13 @@
 										{/snippet}
 									</SidebarMenuButton>
 								</SidebarMenuItem>
+								<SidebarMenuItem>
+									<SidebarMenuButton isActive={page.url.pathname === '/home/kali-afl/admin/api-keys'}>
+										{#snippet child({ props })}
+											<a href="/home/kali-afl/admin/api-keys" {...props}>API Keys</a>
+										{/snippet}
+									</SidebarMenuButton>
+								</SidebarMenuItem>
 							</SidebarMenu>
 						</SidebarGroupContent>
 					</SidebarGroup>

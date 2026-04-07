@@ -517,7 +517,7 @@ export async function getMatchesForRoundAndYear(
     })
     .from(matches)
     .where(and(eq(matches.round, round), eq(matches.year, year)))
-    .orderBy(asc(matches.startDatetime));
+    .orderBy(sql`COALESCE(${matches.startDatetime}, ${matches.date}) ASC`);
 
   const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
