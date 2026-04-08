@@ -12,7 +12,7 @@ import {
   getFixturesForYear,
   getTipsForRound,
 } from "$lib/db/afl/service";
-import { and, asc, desc, eq, gte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import type { PageServerLoad } from "./$types";
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -77,21 +77,38 @@ function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-function buildTeamNameMap(allTeams: Team[]): Map<string, Team> {
-  const map = new Map<string, Team>();
+function buildTeamLookups(allTeams: Team[]): {
+  nameMap: Map<string, Team>;
+  teams: Team[];
+} {
+  const nameMap = new Map<string, Team>();
   for (const t of allTeams) {
-    map.set(t.name.toLowerCase(), t);
-    map.set(t.shortName.toLowerCase(), t);
+    nameMap.set(t.name.toLowerCase(), t);
+    nameMap.set(t.shortName.toLowerCase(), t);
+    nameMap.set(t.id, t); // slug e.g. "greater-western-sydney"
   }
-  return map;
+  return { nameMap, teams: allTeams };
 }
 
 function resolveTeam(
   name: string | null,
-  nameMap: Map<string, Team>,
+  lookups: { nameMap: Map<string, Team>; teams: Team[] },
 ): Team | null {
   if (!name) return null;
-  return nameMap.get(name.toLowerCase()) ?? null;
+  const lower = name.toLowerCase();
+  // 1. Exact match on name, shortName, or slug ID
+  const direct = lookups.nameMap.get(lower);
+  if (direct) return direct;
+  // 2. Slugify the Squiggle name and try matching against team IDs
+  const slug = lower.replace(/\s+/g, "-");
+  const bySlug = lookups.nameMap.get(slug);
+  if (bySlug) return bySlug;
+  // 3. Partial match — check if any team's full name starts with the input or vice versa
+  for (const t of lookups.teams) {
+    const tName = t.name.toLowerCase();
+    if (tName.startsWith(lower) || lower.startsWith(tName)) return t;
+  }
+  return null;
 }
 
 // ─── Factor Calculations ────────────────────────────────────────────────────────
@@ -293,8 +310,7 @@ export const load: PageServerLoad = async ({ url }) => {
     getFixturesForYear(currentYear).catch(() => []),
   ]);
 
-  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
-  const nameMap = buildTeamNameMap(allTeams);
+  const lookups = buildTeamLookups(allTeams);
 
   // 2. Determine round
   const upcomingRound = getUpcomingRound(allFixtures);
@@ -330,10 +346,14 @@ export const load: PageServerLoad = async ({ url }) => {
   }[] = [];
 
   for (const fixture of roundGames) {
-    const home = resolveTeam(fixture.hteam, nameMap);
-    const away = resolveTeam(fixture.ateam, nameMap);
+    const home = resolveTeam(fixture.hteam, lookups);
+    const away = resolveTeam(fixture.ateam, lookups);
     if (home && away) {
       gamePairs.push({ fixture, homeTeam: home, awayTeam: away });
+    } else {
+      console.warn(
+        `[predictions] Could not resolve teams: "${fixture.hteam}" => ${home?.id ?? "MISSING"}, "${fixture.ateam}" => ${away?.id ?? "MISSING"}`,
+      );
     }
   }
 
@@ -521,7 +541,6 @@ export const load: PageServerLoad = async ({ url }) => {
     let awayVenueWinPct: number | null = null;
 
     if (venueStr) {
-      const venueH2h = h2hMatches.filter(() => false); // we need all matches at this venue
       // Query venue records from yearMatches + h2hMatches
       const allMatchesAtVenue = [
         ...yearMatches.filter((m) => m.venue === venueStr),
