@@ -127,8 +127,9 @@
 				{showAdvanced ? 'adv' : 'std'}
 			</button>
 
-			{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
-			<div class="year-nav">
+			{#if true}
+				{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
+				<div class="year-nav">
 				<button
 					class="year-nav-btn"
 					disabled={yearIdx <= 0}
@@ -140,7 +141,8 @@
 					disabled={yearIdx >= data.allYears.length - 1}
 					onclick={() => goto(`?year=${data.allYears[yearIdx + 1]}&round=${data.selectedRound}`)}
 				>→</button>
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 

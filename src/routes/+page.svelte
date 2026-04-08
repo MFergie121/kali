@@ -15,7 +15,23 @@
 	<meta name="keywords" content="AFL API, free AFL API, AFL stats API, AFL data API, Australian Football League API, AFL historical data, AFL player stats, free sports API Australia, supercoach API, fantasy AFL API" />
 	<meta property="og:title" content="Kali AFL — Free AFL Stats API" />
 	<meta property="og:description" content="The AFL API that should've existed. Free, open source, 1,000 requests/day. Historical data from 2000 to present." />
+	<meta property="og:url" content="https://kaliaflstats.com/" />
+	<meta property="og:type" content="website" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Kali AFL — Free AFL Stats API" />
+	<meta name="twitter:description" content="The AFL API that should've existed. Free, open source, 1,000 req/day. Historical data from 2000 to present." />
 	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href="https://kaliaflstats.com/" />
+	{@html `<script type="application/ld+json">${JSON.stringify({
+		"@context": "https://schema.org",
+		"@type": "SoftwareApplication",
+		"name": "Kali AFL Stats API",
+		"url": "https://kaliaflstats.com",
+		"description": "Free AFL Stats API with historical data from 2000 to present. 1,000 requests per day, no credit card required.",
+		"applicationCategory": "DeveloperApplication",
+		"operatingSystem": "Web",
+		"offers": { "@type": "Offer", "price": "0", "priceCurrency": "AUD" }
+	})}</script>`}
 </svelte:head>
 
 <div class="root">
@@ -170,21 +186,22 @@
 		<span class="section-label">endpoints</span>
 		<div class="endpoint-grid">
 			{#each [
-				'teams',
-				'players',
-				'matches',
-				'player stats',
-				'player stats (advanced)',
-				'leaderboards',
-				'head-to-head',
-				'standings',
-				'venues',
-				'fixture ✦ public'
+				'/v1/teams',
+				'/v1/players',
+				'/v1/matches',
+				'/v1/player-stats',
+				'/v1/player-stats-advanced',
+				'/v1/leaderboards',
+				'/v1/head-to-head',
+				'/v1/standings',
+				'/v1/venues',
+				'/v1/tips',
+				'/v1/fixture ✦ public'
 			] as ep}
 				<span class="endpoint-chip">{ep}</span>
 			{/each}
 		</div>
-		<p class="endpoints-note">full docs available inside the app →</p>
+		<a href="/docs" class="endpoints-note">full api reference →</a>
 	</section>
 
 	<!-- ── OSS Callout ── -->

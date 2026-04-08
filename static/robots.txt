@@ -1,3 +1,4 @@
-# allow crawling everything by default
 User-agent: *
-Disallow:
+Disallow: /home/
+Disallow: /api/
+Sitemap: https://kaliaflstats.com/sitemap.xml

@@ -48,6 +48,12 @@
 			badge: 'season breakdowns'
 		},
 		{
+			href: '/home/kali-afl/predictions',
+			label: 'predictions',
+			description: 'Match predictions powered by historical data analysis',
+			badge: 'kali model'
+		},
+		{
 			href: '/home/kali-afl/api-docs',
 			label: 'api docs',
 			description: 'REST API reference and endpoint guide',

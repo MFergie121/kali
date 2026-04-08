@@ -29,11 +29,12 @@
 	const statsNavItems = [
 		{ href: '/home/kali-afl/matches', label: 'Matches & Stats' },
 		{ href: '/home/kali-afl/players', label: 'Players & Stats' },
-		{ href: '/home/kali-afl/teams', label: 'Teams & Stats' }
+		{ href: '/home/kali-afl/teams', label: 'Teams & Stats' },
+		{ href: '/home/kali-afl/predictions', label: 'Predictions' }
 	] as const;
 
 	const apiDocsNavItems = [
-		{ href: '/home/kali-afl/api-docs', label: 'Docs' },
+		{ href: '/docs', label: 'Docs' },
 		{ href: '/home/kali-afl/api-usage', label: 'Usage' }
 	] as const;
 
