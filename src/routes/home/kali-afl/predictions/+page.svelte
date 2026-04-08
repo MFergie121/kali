@@ -231,12 +231,12 @@
 						<div class="factor-table-row">
 							<span class="factor-table-name">Scoring Power</span>
 							<span class="factor-table-weight">20%</span>
-							<span class="factor-table-desc">Blends average winning margin (60%) with points percentage (40%). A team averaging +50 point margins scores ~75, while -50 scores ~25.</span>
+							<span class="factor-table-desc">Blends average winning margin (60%) with points percentage (40%) over the last 8 matches. A team averaging +50 point margins scores ~75, while -50 scores ~25.</span>
 						</div>
 						<div class="factor-table-row">
 							<span class="factor-table-name">Team Stats</span>
 							<span class="factor-table-weight">20%</span>
-							<span class="factor-table-desc">Ranks all teams by six key per-game averages: disposals, inside 50s, clearances, tackles, contested possessions, and turnovers (inverted). The score is the average of each rank converted to a 0-100 scale.</span>
+							<span class="factor-table-desc">Ranks all teams by six key per-game averages over the last 8 matches: disposals, inside 50s, clearances, tackles, contested possessions, and turnovers (inverted). The score is the average of each rank converted to a 0-100 scale.</span>
 						</div>
 						<div class="factor-table-row">
 							<span class="factor-table-name">Venue</span>

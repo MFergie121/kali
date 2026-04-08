@@ -720,7 +720,7 @@ export async function upsertTips(
     round,
     hteam: t.hteam,
     ateam: t.ateam,
-    hconfidence: t.hconfidence,
+    hconfidence: Math.round(parseFloat(String(t.hconfidence)) || 50),
     source: t.source,
     syncedAt: now,
   }));

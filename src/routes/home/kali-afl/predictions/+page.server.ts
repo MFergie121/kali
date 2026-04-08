@@ -18,6 +18,7 @@ import type { PageServerLoad } from "./$types";
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
 const MAX_ROUND = 28;
+const RECENT_MATCHES = 8; // Rolling window for scoring power & team stats
 
 const WEIGHTS: Record<string, number> = {
   form: 0.2,
@@ -123,10 +124,16 @@ interface TeamSeasonData {
   avgMargin: number;
   pct: number;
   form: ("W" | "L" | "D")[];
+  // Recent window (last RECENT_MATCHES games) for scoring power
+  recentAvgMargin: number;
+  recentPct: number;
+  // Match IDs for the recent window (used for team stats query)
+  recentMatchIds: number[];
 }
 
 function computeSeasonData(
   yearMatches: {
+    id: number;
     homeTeamId: string;
     awayTeamId: string;
     homeScore: number | null;
@@ -169,6 +176,22 @@ function computeSeasonData(
   }
 
   const played = wins + losses + draws;
+
+  // Recent window for scoring power & team stats
+  const recent = games.slice(0, RECENT_MATCHES);
+  let recentFor = 0,
+    recentAgainst = 0,
+    recentMarginSum = 0;
+  for (const m of recent) {
+    const isHome = m.homeTeamId === teamId;
+    const scored = isHome ? m.homeScore! : m.awayScore!;
+    const conceded = isHome ? m.awayScore! : m.homeScore!;
+    recentFor += scored;
+    recentAgainst += conceded;
+    recentMarginSum += scored - conceded;
+  }
+  const recentCount = recent.length;
+
   return {
     wins,
     losses,
@@ -179,6 +202,9 @@ function computeSeasonData(
     avgMargin: played > 0 ? totalMargin / played : 0,
     pct: totalAgainst > 0 ? (totalFor / totalAgainst) * 100 : 100,
     form: results.slice(0, 5),
+    recentAvgMargin: recentCount > 0 ? recentMarginSum / recentCount : 0,
+    recentPct: recentAgainst > 0 ? (recentFor / recentAgainst) * 100 : 100,
+    recentMatchIds: recent.map((m) => m.id),
   };
 }
 
@@ -194,8 +220,9 @@ function formScore(data: TeamSeasonData): number {
 
 function scoringScore(data: TeamSeasonData): number {
   if (data.played === 0) return 50;
-  const marginScore = clamp(50 + data.avgMargin / 2, 0, 100);
-  const pctScore = clamp(data.pct - 50, 0, 100);
+  // Use recent window (last 8 matches) for more current signal
+  const marginScore = clamp(50 + data.recentAvgMargin / 2, 0, 100);
+  const pctScore = clamp(data.recentPct - 50, 0, 100);
   return marginScore * 0.6 + pctScore * 0.4;
 }
 
@@ -383,7 +410,26 @@ export const load: PageServerLoad = async ({ url }) => {
     seasonDataMap.set(tid, computeSeasonData(yearMatches, tid));
   }
 
-  // 7. Team stat rankings — aggregate stats across all teams for the season
+  // 7. Team stat rankings — aggregate over last RECENT_MATCHES games per team
+  //    Collect recent match IDs for ALL teams so rankings are fair
+  const allTeamIds = [...new Set(yearMatches.flatMap((m) => [m.homeTeamId, m.awayTeamId]))];
+  const recentMatchIdSet = new Set<number>();
+  for (const tid of allTeamIds) {
+    const teamData = computeSeasonData(yearMatches, tid);
+    for (const mid of teamData.recentMatchIds) recentMatchIdSet.add(mid);
+  }
+  const recentMatchIds = [...recentMatchIdSet];
+
+  // Use recent match IDs if available, fall back to full season
+  const statsMatchFilter =
+    recentMatchIds.length > 0
+      ? sql`${playerStats.matchId} IN (${sql.join(recentMatchIds.map((id) => sql`${id}`), sql`, `)})`
+      : eq(matches.year, currentYear);
+  const advStatsMatchFilter =
+    recentMatchIds.length > 0
+      ? sql`${playerStatsAdvanced.matchId} IN (${sql.join(recentMatchIds.map((id) => sql`${id}`), sql`, `)})`
+      : eq(matches.year, currentYear);
+
   const basicStatRows = await db
     .select({
       teamId: players.currentTeamId,
@@ -396,7 +442,7 @@ export const load: PageServerLoad = async ({ url }) => {
     .from(playerStats)
     .innerJoin(players, eq(playerStats.playerId, players.id))
     .innerJoin(matches, eq(playerStats.matchId, matches.id))
-    .where(eq(matches.year, currentYear))
+    .where(statsMatchFilter)
     .groupBy(players.currentTeamId);
 
   const advStatRows = await db
@@ -412,7 +458,7 @@ export const load: PageServerLoad = async ({ url }) => {
     .from(playerStatsAdvanced)
     .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
     .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
-    .where(eq(matches.year, currentYear))
+    .where(advStatsMatchFilter)
     .groupBy(players.currentTeamId);
 
   // Build per-team averages and rank them
