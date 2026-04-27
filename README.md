@@ -5,7 +5,7 @@ SvelteKit application backed by PostgreSQL (Drizzle ORM), deployed to Cloud Run 
 ## Prerequisites
 
 - [Node.js 22+](https://nodejs.org/)
-- [PostgreSQL](https://www.postgresql.org/) running locally
+- [Docker](https://www.docker.com/) (for the local PostgreSQL container)
 - A GitHub OAuth App and/or Google OAuth Client for authentication
 
 ---
@@ -18,35 +18,30 @@ SvelteKit application backed by PostgreSQL (Drizzle ORM), deployed to Cloud Run 
 npm install
 ```
 
-### 2. Set up PostgreSQL
+### 2. Start the database
 
-**Install and start** (Homebrew):
-
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-```
-
-**Create the database:**
+PostgreSQL runs in a Docker container. Start it with:
 
 ```bash
-createdb kali-afl
+npm run db:up
 ```
 
-**Useful PostgreSQL commands:**
+This starts `postgres:17-alpine` on port 5432 with a named volume (`kali-afl-db`) so data persists between restarts. To stop it:
+
+```bash
+npm run db:down
+```
+
+**Useful commands for the container DB:**
 
 | Command | Description |
 |---------|-------------|
-| `brew services start postgresql@16` | Start PostgreSQL |
-| `brew services stop postgresql@16` | Stop PostgreSQL |
-| `brew services restart postgresql@16` | Restart PostgreSQL |
-| `brew services list` | Show status of all services (check if PostgreSQL is running) |
-| `psql kali-afl` | Open a psql shell connected to the local DB |
-| `psql kali-afl -c "SELECT * FROM fixtures LIMIT 5;"` | Run a one-off query |
-| `createdb kali-afl` | Create the database (first time only) |
-| `dropdb kali-afl` | Delete the database entirely (destructive) |
-
-> **Connection string note:** Homebrew PostgreSQL on macOS uses your OS username as the default role (not `postgres`). The correct local `DATABASE_URL` uses your macOS username — see step 3 below.
+| `npm run db:up` | Start the PostgreSQL container |
+| `npm run db:down` | Stop the container |
+| `docker compose ps` | Check container status |
+| `docker exec -it kali-db psql -U postgres kali-afl` | Open a psql shell |
+| `docker exec -it kali-db psql -U postgres kali-afl -c "SELECT * FROM fixtures LIMIT 5;"` | Run a one-off query |
+| `docker compose down -v` | Stop and **delete** the data volume (destructive) |
 
 ### 3. Configure environment variables
 
@@ -57,8 +52,8 @@ cp .env.example .env
 ```
 
 ```env
-# Local PostgreSQL connection — replace YOUR_USERNAME with your macOS username (run: whoami)
-DATABASE_URL=postgresql://YOUR_USERNAME@localhost:5432/kali-afl
+# Local PostgreSQL connection (Docker container)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kali-afl
 
 # Generate with: openssl rand -hex 32
 AUTH_SECRET=
@@ -122,6 +117,8 @@ If your database password contains special characters, they must be URL-encoded 
 | `npm run dev`       | Start local dev server                  |
 | `npm run build`     | Build for production                    |
 | `npm run check`     | Run Svelte type checks                  |
+| `npm run db:up`     | Start the local PostgreSQL container    |
+| `npm run db:down`   | Stop the local PostgreSQL container     |
 | `npm run db:push`   | Sync Drizzle schema to the database     |
 | `npm run db:studio` | Open Drizzle Studio (visual DB browser) |
 | `npm run db:clear`  | Clear AFL data from the database        |
@@ -140,16 +137,13 @@ This project uses `db:push` for both local and production schema management. Dri
 
 ### Step 1 — Start the Cloud SQL Auth Proxy
 
-The proxy creates a local TCP tunnel to the production Cloud SQL instance. If local PostgreSQL is already running on port 5432, use `--port 5433` to avoid conflicts. Run this in a separate terminal:
+The proxy creates a local TCP tunnel to the production Cloud SQL instance. Because the local dev container uses port 5432, run the proxy on `--port 5433` to avoid conflicts. Run this in a separate terminal:
 
 ```bash
 # Install once
 brew install cloud-sql-proxy
 
-# Run on default port (only if local Postgres is stopped)
-cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db
-
-# Run on alternate port (recommended — keeps local Postgres running)
+# Run on alternate port (avoids conflict with local dev container on 5432)
 cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
 ```
 
