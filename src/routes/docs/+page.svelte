@@ -6,9 +6,11 @@
 	<meta property="og:description" content="Free AFL REST API with 11+ endpoints. Teams, players, matches, standings, leaderboards, and advanced stats from 2000 to present." />
 	<meta property="og:url" content="https://kaliaflstats.com/docs" />
 	<meta property="og:type" content="website" />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:image" content="https://kaliaflstats.com/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="AFL Stats API Documentation — Kali AFL" />
 	<meta name="twitter:description" content="Free AFL REST API. Teams, players, matches, standings, leaderboards and advanced stats from 2000 to present." />
+	<meta name="twitter:image" content="https://kaliaflstats.com/og-image.png" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href="https://kaliaflstats.com/docs" />
 </svelte:head>

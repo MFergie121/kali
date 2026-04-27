@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#09090b" />
+  <g transform="translate(450, 165) scale(3)">
+    <circle cx="50" cy="50" r="50" fill="#000000" />
+    <g transform="scale(0.7) translate(21.4, 21.4)">
+      <path
+        d="M 38,5 L 62,5 L 62,20 L 70,20 L 70,30 L 80,30 L 80,38 L 95,38 L 95,62 L 80,62 L 80,70 L 70,70 L 70,80 L 62,80 L 62,95 L 38,95 L 38,80 L 30,80 L 30,70 L 20,70 L 20,62 L 5,62 L 5,38 L 20,38 L 20,30 L 30,30 L 30,20 L 38,20 Z"
+        stroke="#ffffff"
+        stroke-width="6.4"
+        stroke-linejoin="miter"
+        fill="none"
+      />
+      <circle cx="50" cy="50" r="13" stroke="#ffffff" stroke-width="6.4" fill="none" />
+    </g>
+  </g>
+</svg>

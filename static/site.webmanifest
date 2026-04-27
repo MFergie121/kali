@@ -1,0 +1,13 @@
+{
+  "name": "Kali AFL — Free AFL Stats API",
+  "short_name": "Kali AFL",
+  "description": "Free AFL Stats API with historical data from 2000 to present. 1,000 requests per day, no credit card required.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2c2e31",
+  "theme_color": "#2c2e31",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

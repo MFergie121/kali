@@ -17,9 +17,11 @@
 	<meta property="og:description" content="The AFL API that should've existed. Free, open source, 1,000 requests/day. Historical data from 2000 to present." />
 	<meta property="og:url" content="https://kaliaflstats.com/" />
 	<meta property="og:type" content="website" />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:image" content="https://kaliaflstats.com/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Kali AFL — Free AFL Stats API" />
 	<meta name="twitter:description" content="The AFL API that should've existed. Free, open source, 1,000 req/day. Historical data from 2000 to present." />
+	<meta name="twitter:image" content="https://kaliaflstats.com/og-image.png" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href="https://kaliaflstats.com/" />
 	{@html `<script type="application/ld+json">${JSON.stringify({
