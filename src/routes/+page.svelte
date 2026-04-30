@@ -95,10 +95,11 @@
 	<section class="origin" style="animation-delay: 400ms">
 		<span class="origin-comment">// why does this exist?</span>
 		<p class="origin-text">
-			there wasn't a decent free afl data source. so i decided to build one.
-			it covers every season from 2000 to now — matches, scores, player stats, the works.
-			completely free, completely open source, and you don't need a credit card to touch it.
-			i hope this helps fellow afl fans, data nerds, and aspiring fantasy coaches build cool stuff without worrying about api limits or paywalls.
+			There wasn't a decent free AFL API that was publicly accessible for free. So i decided to build one.
+			It covers every season from 2000 to now — matches, scores, player stats, the works.
+			Completely free, completely open source, and you don't need a credit card to touch it.
+			i hope this helps fellow afl fans, data nerds, and aspiring fantasy coaches build cool stuff without 
+			worrying about api limits or paywalls.
 		</p>
 	</section>
 
