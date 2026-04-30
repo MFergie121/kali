@@ -34,7 +34,7 @@
 	] as const;
 
 	const apiDocsNavItems = [
-		{ href: '/docs', label: 'Docs' },
+		{ href: '/home/kali-afl/api-docs', label: 'Docs' },
 		{ href: '/home/kali-afl/api-usage', label: 'Usage' }
 	] as const;
 

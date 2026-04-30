@@ -4,8 +4,7 @@ resource "google_cloud_run_v2_service" "kali_afl" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    # Use default compute SA for now — switch to cloud_run_sa after import is stable
-    service_account = "${var.project_number}-compute@developer.gserviceaccount.com"
+    service_account = google_service_account.cloud_run_sa.email
 
     max_instance_request_concurrency = 80
     timeout                          = "300s"
@@ -124,6 +123,16 @@ resource "google_cloud_run_v2_service" "kali_afl" {
         value_source {
           secret_key_ref {
             secret  = "SCRAPE_SECRET"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "API_KEY_DEFAULT_LIMIT"
+        value_source {
+          secret_key_ref {
+            secret  = "API_KEY_DEFAULT_LIMIT"
             version = "latest"
           }
         }

@@ -1,11 +1,39 @@
-import { randomBytes } from "node:crypto";
-import type { ScrapedMatch, ScrapedPlayerStat, ScrapedPlayerAdvancedStat } from "$lib/afl/scraper";
-import { scrapeMatchStats, scrapeMatchAdvancedStats } from "$lib/afl/scraper";
+import { env } from "$env/dynamic/private";
+import type {
+  ScrapedMatch,
+  ScrapedPlayerAdvancedStat,
+  ScrapedPlayerStat,
+} from "$lib/afl/scraper";
+import { scrapeMatchAdvancedStats, scrapeMatchStats } from "$lib/afl/scraper";
 import type { SquiggleGame, SquiggleTip } from "$lib/afl/squiggle";
 import { db } from "$lib/db/afl";
-import { apiKeys, fixtures, kaliUsers, matches, players, playerStats, playerStatsAdvanced, playerTeamAssignments, teams, tips } from "$lib/db/afl/schema";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
-import { and, asc, count, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  apiKeys,
+  fixtures,
+  kaliUsers,
+  matches,
+  players,
+  playerStats,
+  playerStatsAdvanced,
+  playerTeamAssignments,
+  teams,
+  tips,
+} from "$lib/db/afl/schema";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +65,8 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
     crowd: scraped.crowd,
     sourcedAt: new Date().toISOString(),
   };
-  await db.insert(matches)
+  await db
+    .insert(matches)
     .values(matchValues)
     .onConflictDoUpdate({
       target: matches.id,
@@ -60,7 +89,10 @@ export async function upsertMatch(scraped: ScrapedMatch): Promise<void> {
 
 // ─── Scrape + Persist (single match) ─────────────────────────────────────────
 
-export async function scrapeAndPersistMatch(mid: number, startDatetime?: string | null) {
+export async function scrapeAndPersistMatch(
+  mid: number,
+  startDatetime?: string | null,
+) {
   const [data, advData] = await Promise.all([
     scrapeMatchStats(mid),
     scrapeMatchAdvancedStats(mid),
@@ -71,8 +103,16 @@ export async function scrapeAndPersistMatch(mid: number, startDatetime?: string 
   await upsertMatch(data.match);
   await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
   await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
-  await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid, data.match.year);
-  await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid, data.match.year);
+  await batchUpsertPlayerAdvancedStats(
+    advData.homeAdvStats,
+    mid,
+    data.match.year,
+  );
+  await batchUpsertPlayerAdvancedStats(
+    advData.awayAdvStats,
+    mid,
+    data.match.year,
+  );
   return {
     match: data.match,
     homeStatsCount: data.homeStats.length,
@@ -97,18 +137,23 @@ export async function getOrCreatePlayer(
   if (existing) {
     if (existing.currentTeamId !== teamId) {
       // Player has moved teams — close the current open assignment and open a new one.
-      await db.update(playerTeamAssignments)
+      await db
+        .update(playerTeamAssignments)
         .set({ endYear: year - 1 })
-        .where(and(
-          eq(playerTeamAssignments.playerId, existing.id),
-          isNull(playerTeamAssignments.endYear),
-        ));
-      await db.insert(playerTeamAssignments)
+        .where(
+          and(
+            eq(playerTeamAssignments.playerId, existing.id),
+            isNull(playerTeamAssignments.endYear),
+          ),
+        );
+      await db
+        .insert(playerTeamAssignments)
         .values({ playerId: existing.id, teamId, startYear: year })
         .onConflictDoNothing();
     }
     // Keep name and currentTeamId fresh without changing the row's identity.
-    await db.update(players)
+    await db
+      .update(players)
       .set({ name, currentTeamId: teamId })
       .where(eq(players.onlineId, onlineId));
     return existing.id;
@@ -122,7 +167,8 @@ export async function getOrCreatePlayer(
 
   if (result) {
     // Record the initial team assignment for this new player.
-    await db.insert(playerTeamAssignments)
+    await db
+      .insert(playerTeamAssignments)
       .values({ playerId: result.id, teamId, startYear: year })
       .onConflictDoNothing();
     return result.id;
@@ -153,7 +199,12 @@ export async function batchUpsertPlayerStats(
   // Resolve all player IDs in parallel, then bulk-insert in one query
   const rows = await Promise.all(
     stats.map(async (stat) => {
-      const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+      const playerId = await getOrCreatePlayer(
+        stat.playerName,
+        stat.teamId,
+        stat.onlineId,
+        year,
+      );
       return {
         playerId,
         matchId,
@@ -179,7 +230,8 @@ export async function batchUpsertPlayerStats(
     }),
   );
 
-  await db.insert(playerStats)
+  await db
+    .insert(playerStats)
     .values(rows)
     .onConflictDoUpdate({
       target: [playerStats.playerId, playerStats.matchId],
@@ -217,7 +269,12 @@ export async function batchUpsertPlayerAdvancedStats(
 
   const rows = await Promise.all(
     stats.map(async (stat) => {
-      const playerId = await getOrCreatePlayer(stat.playerName, stat.teamId, stat.onlineId, year);
+      const playerId = await getOrCreatePlayer(
+        stat.playerName,
+        stat.teamId,
+        stat.onlineId,
+        year,
+      );
       return {
         playerId,
         matchId,
@@ -243,7 +300,8 @@ export async function batchUpsertPlayerAdvancedStats(
     }),
   );
 
-  await db.insert(playerStatsAdvanced)
+  await db
+    .insert(playerStatsAdvanced)
     .values(rows)
     .onConflictDoUpdate({
       target: [playerStatsAdvanced.playerId, playerStatsAdvanced.matchId],
@@ -300,16 +358,22 @@ export async function getPlayerAdvancedStatsPaginated(opts: {
   round?: number;
   teamId?: string;
   sortBy?: string;
-  order?: 'asc' | 'desc';
+  order?: "asc" | "desc";
   limit: number;
   offset: number;
 }): Promise<{ data: PlayerAdvancedStatRow[]; total: number }> {
   const conditions = [
-    opts.matchId !== undefined ? eq(playerStatsAdvanced.matchId, opts.matchId) : undefined,
-    opts.playerId !== undefined ? eq(playerStatsAdvanced.playerId, opts.playerId) : undefined,
+    opts.matchId !== undefined
+      ? eq(playerStatsAdvanced.matchId, opts.matchId)
+      : undefined,
+    opts.playerId !== undefined
+      ? eq(playerStatsAdvanced.playerId, opts.playerId)
+      : undefined,
     opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
     opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
-    opts.teamId !== undefined ? eq(playerStatsAdvanced.teamId, opts.teamId) : undefined,
+    opts.teamId !== undefined
+      ? eq(playerStatsAdvanced.teamId, opts.teamId)
+      : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -321,8 +385,10 @@ export async function getPlayerAdvancedStatsPaginated(opts: {
     .where(where);
   const total = totalRow?.total ?? 0;
 
-  const sortColumn = PLAYER_ADVANCED_STAT_SORT_COLUMNS[opts.sortBy ?? 'contested_possessions'] ?? playerStatsAdvanced.contestedPossessions;
-  const sortDir = opts.order === 'asc' ? asc : desc;
+  const sortColumn =
+    PLAYER_ADVANCED_STAT_SORT_COLUMNS[opts.sortBy ?? "contested_possessions"] ??
+    playerStatsAdvanced.contestedPossessions;
+  const sortDir = opts.order === "asc" ? asc : desc;
 
   const data = await db
     .select({
@@ -358,7 +424,9 @@ export async function getPlayerAdvancedStatsPaginated(opts: {
   return { data, total };
 }
 
-export async function getAdvancedPlayerStatsForMatch(matchId: number): Promise<PlayerAdvancedStatRow[]> {
+export async function getAdvancedPlayerStatsForMatch(
+  matchId: number,
+): Promise<PlayerAdvancedStatRow[]> {
   return db
     .select({
       matchId: playerStatsAdvanced.matchId,
@@ -517,7 +585,7 @@ export async function getMatchesForRoundAndYear(
     })
     .from(matches)
     .where(and(eq(matches.round, round), eq(matches.year, year)))
-    .orderBy(sql`COALESCE(${matches.startDatetime}, ${matches.date}) ASC`);
+    .orderBy(asc(matches.startDatetime), asc(matches.id));
 
   const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
@@ -540,7 +608,9 @@ export async function getMatchesForRoundAndYear(
   }));
 }
 
-export async function getPlayerStatsForMatch(matchId: number): Promise<PlayerStatRow[]> {
+export async function getPlayerStatsForMatch(
+  matchId: number,
+): Promise<PlayerStatRow[]> {
   return db
     .select({
       matchId: playerStats.matchId,
@@ -647,7 +717,10 @@ export async function getAdvancedPlayerStatsForRound(
     .innerJoin(players, eq(playerStatsAdvanced.playerId, players.id))
     .innerJoin(matches, eq(playerStatsAdvanced.matchId, matches.id))
     .where(and(eq(matches.round, round), eq(matches.year, year)))
-    .orderBy(playerStatsAdvanced.matchId, desc(playerStatsAdvanced.contestedPossessions));
+    .orderBy(
+      playerStatsAdvanced.matchId,
+      desc(playerStatsAdvanced.contestedPossessions),
+    );
 
   // Group by match ID for easy lookup
   const grouped = new Map<number, PlayerAdvancedStatRow[]>();
@@ -787,7 +860,9 @@ export interface PlayerAdvancedStatYearRow {
   timeOnGroundPct: number;
 }
 
-export async function getAllAdvancedPlayerStatsForYear(year: number): Promise<PlayerAdvancedStatYearRow[]> {
+export async function getAllAdvancedPlayerStatsForYear(
+  year: number,
+): Promise<PlayerAdvancedStatYearRow[]> {
   return db
     .select({
       playerName: players.name,
@@ -818,7 +893,9 @@ export async function getAllAdvancedPlayerStatsForYear(year: number): Promise<Pl
     .orderBy(matches.round, players.name);
 }
 
-export async function getAllPlayerStatsForYear(year: number): Promise<PlayerStatYearRow[]> {
+export async function getAllPlayerStatsForYear(
+  year: number,
+): Promise<PlayerStatYearRow[]> {
   return db
     .select({
       playerName: players.name,
@@ -870,7 +947,12 @@ export async function getMatchesPaginated(opts: {
   const conditions = [
     opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
     opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
-    opts.teamId !== undefined ? or(eq(matches.homeTeamId, opts.teamId), eq(matches.awayTeamId, opts.teamId)) : undefined,
+    opts.teamId !== undefined
+      ? or(
+          eq(matches.homeTeamId, opts.teamId),
+          eq(matches.awayTeamId, opts.teamId),
+        )
+      : undefined,
     opts.venue !== undefined ? eq(matches.venue, opts.venue) : undefined,
     opts.dateFrom !== undefined ? gte(matches.date, opts.dateFrom) : undefined,
     opts.dateTo !== undefined ? lte(matches.date, opts.dateTo) : undefined,
@@ -937,9 +1019,13 @@ export async function getPlayersPaginated(opts: {
   offset: number;
 }): Promise<{ data: Player[]; total: number }> {
   const conditions = [
-    opts.teamId !== undefined ? eq(players.currentTeamId, opts.teamId) : undefined,
+    opts.teamId !== undefined
+      ? eq(players.currentTeamId, opts.teamId)
+      : undefined,
     opts.name !== undefined ? ilike(players.name, `%${opts.name}%`) : undefined,
-    opts.year !== undefined ? sql`${players.id} IN (SELECT DISTINCT ps.player_id FROM player_stats ps INNER JOIN matches m ON ps.match_id = m.id WHERE m.year = ${opts.year})` : undefined,
+    opts.year !== undefined
+      ? sql`${players.id} IN (SELECT DISTINCT ps.player_id FROM player_stats ps INNER JOIN matches m ON ps.match_id = m.id WHERE m.year = ${opts.year})`
+      : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -969,13 +1055,17 @@ export async function getPlayerStatsPaginated(opts: {
   round?: number;
   teamId?: string;
   sortBy?: string;
-  order?: 'asc' | 'desc';
+  order?: "asc" | "desc";
   limit: number;
   offset: number;
 }): Promise<{ data: PlayerStatRow[]; total: number }> {
   const conditions = [
-    opts.matchId !== undefined ? eq(playerStats.matchId, opts.matchId) : undefined,
-    opts.playerId !== undefined ? eq(playerStats.playerId, opts.playerId) : undefined,
+    opts.matchId !== undefined
+      ? eq(playerStats.matchId, opts.matchId)
+      : undefined,
+    opts.playerId !== undefined
+      ? eq(playerStats.playerId, opts.playerId)
+      : undefined,
     opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
     opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
     opts.teamId !== undefined ? eq(playerStats.teamId, opts.teamId) : undefined,
@@ -990,8 +1080,10 @@ export async function getPlayerStatsPaginated(opts: {
     .where(where);
   const total = totalRow?.total ?? 0;
 
-  const sortColumn = PLAYER_STAT_SORT_COLUMNS[opts.sortBy ?? 'disposals'] ?? playerStats.disposals;
-  const sortDir = opts.order === 'asc' ? asc : desc;
+  const sortColumn =
+    PLAYER_STAT_SORT_COLUMNS[opts.sortBy ?? "disposals"] ??
+    playerStats.disposals;
+  const sortDir = opts.order === "asc" ? asc : desc;
 
   const data = await db
     .select({
@@ -1035,15 +1127,24 @@ export interface UserPreferences {
   prefDarkMode: string;
 }
 
-export async function getUserPreferences(email: string): Promise<UserPreferences | null> {
+export async function getUserPreferences(
+  email: string,
+): Promise<UserPreferences | null> {
   const [row] = await db
-    .select({ prefTheme: kaliUsers.prefTheme, prefFont: kaliUsers.prefFont, prefDarkMode: kaliUsers.prefDarkMode })
+    .select({
+      prefTheme: kaliUsers.prefTheme,
+      prefFont: kaliUsers.prefFont,
+      prefDarkMode: kaliUsers.prefDarkMode,
+    })
     .from(kaliUsers)
     .where(eq(kaliUsers.email, email));
   return row ?? null;
 }
 
-export async function upsertUserPreferences(email: string, prefs: Partial<UserPreferences>): Promise<void> {
+export async function upsertUserPreferences(
+  email: string,
+  prefs: Partial<UserPreferences>,
+): Promise<void> {
   await db.update(kaliUsers).set(prefs).where(eq(kaliUsers.email, email));
 }
 
@@ -1055,13 +1156,23 @@ export async function getOrCreateUser(opts: {
   provider: string;
 }): Promise<KaliUser> {
   const now = new Date().toISOString();
-  await db.insert(kaliUsers)
-    .values({ email: opts.email, name: opts.name, provider: opts.provider, createdAt: now, lastActiveAt: now })
+  await db
+    .insert(kaliUsers)
+    .values({
+      email: opts.email,
+      name: opts.name,
+      provider: opts.provider,
+      createdAt: now,
+      lastActiveAt: now,
+    })
     .onConflictDoUpdate({
       target: kaliUsers.email,
       set: { name: opts.name, provider: opts.provider, lastActiveAt: now },
     });
-  const [user] = await db.select().from(kaliUsers).where(eq(kaliUsers.email, opts.email));
+  const [user] = await db
+    .select()
+    .from(kaliUsers)
+    .where(eq(kaliUsers.email, opts.email));
   return user!;
 }
 
@@ -1070,20 +1181,38 @@ export async function listUsers(): Promise<KaliUser[]> {
 }
 
 export async function getUserByEmail(email: string): Promise<KaliUser | null> {
-  const [user] = await db.select().from(kaliUsers).where(eq(kaliUsers.email, email));
+  const [user] = await db
+    .select()
+    .from(kaliUsers)
+    .where(eq(kaliUsers.email, email));
   return user ?? null;
 }
 
-export async function setApiLimit(keyId: number, limit: number | null): Promise<void> {
+export async function setApiLimit(
+  keyId: number,
+  limit: number | null,
+): Promise<void> {
   await db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId));
 }
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
-export async function createApiKey(userId: number, name: string): Promise<string> {
+export async function createApiKey(
+  userId: number,
+  name: string,
+): Promise<string> {
   const key = randomBytes(32).toString("hex");
   const now = new Date().toISOString();
-  await db.insert(apiKeys).values({ userId, key, name, createdAt: now, limit: 1000 });
+  
+  const defaultLimit = env.API_KEY_DEFAULT_LIMIT ? parseInt(env.API_KEY_DEFAULT_LIMIT) : 5000;
+
+  await db.insert(apiKeys).values({
+    userId,
+    key,
+    name,
+    createdAt: now,
+    limit: defaultLimit,
+  }); 
   return key;
 }
 
@@ -1095,7 +1224,9 @@ export async function listApiKeysForUser(userId: number): Promise<ApiKey[]> {
     .orderBy(desc(apiKeys.createdAt));
 }
 
-export async function listAllApiKeys(): Promise<(ApiKey & { userName: string; userEmail: string })[]> {
+export async function listAllApiKeys(): Promise<
+  (ApiKey & { userName: string; userEmail: string })[]
+> {
   return db
     .select({
       id: apiKeys.id,
@@ -1129,7 +1260,9 @@ export async function resetDailyApiUsage(): Promise<{ resetCount: number }> {
   return { resetCount: result.length };
 }
 
-export async function validateApiKey(key: string): Promise<{ valid: boolean; rateLimited?: boolean }> {
+export async function validateApiKey(
+  key: string,
+): Promise<{ valid: boolean; rateLimited?: boolean }> {
   const [row] = await db
     .select({
       keyId: apiKeys.id,
@@ -1149,11 +1282,20 @@ export async function validateApiKey(key: string): Promise<{ valid: boolean; rat
   }
 
   const now = new Date().toISOString();
-  await db.update(apiKeys)
-    .set({ lastUsedAt: now, usage: row.usage + 1, totalUsage: row.totalUsage + 1 })
+  await db
+    .update(apiKeys)
+    .set({
+      lastUsedAt: now,
+      usage: row.usage + 1,
+      totalUsage: row.totalUsage + 1,
+    })
     .where(eq(apiKeys.id, row.keyId));
-  await db.update(kaliUsers)
-    .set({ lastActiveAt: now, totalApiUsage: sql`${kaliUsers.totalApiUsage} + 1` })
+  await db
+    .update(kaliUsers)
+    .set({
+      lastActiveAt: now,
+      totalApiUsage: sql`${kaliUsers.totalApiUsage} + 1`,
+    })
     .where(eq(kaliUsers.id, row.userId));
 
   return { valid: true };
@@ -1182,7 +1324,9 @@ const PLAYER_STAT_SORT_COLUMNS: Record<string, any> = {
   supercoach_pts: playerStats.supercoachPts,
 };
 
-export const VALID_PLAYER_STAT_SORT_KEYS = Object.keys(PLAYER_STAT_SORT_COLUMNS);
+export const VALID_PLAYER_STAT_SORT_KEYS = Object.keys(
+  PLAYER_STAT_SORT_COLUMNS,
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PLAYER_ADVANCED_STAT_SORT_COLUMNS: Record<string, any> = {
@@ -1205,7 +1349,9 @@ const PLAYER_ADVANCED_STAT_SORT_COLUMNS: Record<string, any> = {
   time_on_ground_pct: playerStatsAdvanced.timeOnGroundPct,
 };
 
-export const VALID_PLAYER_ADVANCED_STAT_SORT_KEYS = Object.keys(PLAYER_ADVANCED_STAT_SORT_COLUMNS);
+export const VALID_PLAYER_ADVANCED_STAT_SORT_KEYS = Object.keys(
+  PLAYER_ADVANCED_STAT_SORT_COLUMNS,
+);
 
 // Combined sort keys for leaderboards (basic stats)
 export const VALID_LEADERBOARD_STATS = VALID_PLAYER_STAT_SORT_KEYS;
@@ -1287,13 +1433,24 @@ export async function getPlayerTeamAssignmentsPaginated(opts: {
   offset: number;
 }): Promise<{ data: PlayerTeamAssignmentRow[]; total: number }> {
   const conditions = [
-    opts.playerId !== undefined ? eq(playerTeamAssignments.playerId, opts.playerId) : undefined,
-    opts.teamId !== undefined ? eq(playerTeamAssignments.teamId, opts.teamId) : undefined,
-    opts.reason !== undefined ? eq(playerTeamAssignments.reason, opts.reason) : undefined,
-    opts.year !== undefined ? and(
-      lte(playerTeamAssignments.startYear, opts.year),
-      or(isNull(playerTeamAssignments.endYear), gte(playerTeamAssignments.endYear, opts.year)),
-    ) : undefined,
+    opts.playerId !== undefined
+      ? eq(playerTeamAssignments.playerId, opts.playerId)
+      : undefined,
+    opts.teamId !== undefined
+      ? eq(playerTeamAssignments.teamId, opts.teamId)
+      : undefined,
+    opts.reason !== undefined
+      ? eq(playerTeamAssignments.reason, opts.reason)
+      : undefined,
+    opts.year !== undefined
+      ? and(
+          lte(playerTeamAssignments.startYear, opts.year),
+          or(
+            isNull(playerTeamAssignments.endYear),
+            gte(playerTeamAssignments.endYear, opts.year),
+          ),
+        )
+      : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -1374,7 +1531,10 @@ export interface AggregatedPlayerStats {
   };
 }
 
-async function aggregatePlayerStats(playerId: number, year?: number): Promise<AggregatedPlayerStats | null> {
+async function aggregatePlayerStats(
+  playerId: number,
+  year?: number,
+): Promise<AggregatedPlayerStats | null> {
   const player = await getPlayerById(playerId);
   if (!player) return null;
 
@@ -1409,7 +1569,8 @@ async function aggregatePlayerStats(playerId: number, year?: number): Promise<Ag
     .where(and(...conditions));
 
   const gp = row?.gamesPlayed ?? 0;
-  const avg = (val: number) => gp > 0 ? Math.round((val / gp) * 100) / 100 : 0;
+  const avg = (val: number) =>
+    gp > 0 ? Math.round((val / gp) * 100) / 100 : 0;
 
   const totals = {
     kicks: row?.kicks ?? 0,
@@ -1461,11 +1622,16 @@ async function aggregatePlayerStats(playerId: number, year?: number): Promise<Ag
   };
 }
 
-export async function getPlayerCareerStats(playerId: number): Promise<AggregatedPlayerStats | null> {
+export async function getPlayerCareerStats(
+  playerId: number,
+): Promise<AggregatedPlayerStats | null> {
   return aggregatePlayerStats(playerId);
 }
 
-export async function getPlayerSeasonStats(playerId: number, year: number): Promise<AggregatedPlayerStats | null> {
+export async function getPlayerSeasonStats(
+  playerId: number,
+  year: number,
+): Promise<AggregatedPlayerStats | null> {
   return aggregatePlayerStats(playerId, year);
 }
 
@@ -1560,7 +1726,10 @@ export async function getTeamStatsPaginated(opts: {
   offset: number;
 }): Promise<{ data: TeamMatchStatsRow[]; total: number }> {
   const matchConditions = [
-    or(eq(matches.homeTeamId, opts.teamId), eq(matches.awayTeamId, opts.teamId)),
+    or(
+      eq(matches.homeTeamId, opts.teamId),
+      eq(matches.awayTeamId, opts.teamId),
+    ),
     opts.year !== undefined ? eq(matches.year, opts.year) : undefined,
     opts.round !== undefined ? eq(matches.round, opts.round) : undefined,
   ].filter((c): c is NonNullable<typeof c> => c !== undefined);
@@ -1609,7 +1778,9 @@ export async function getTeamStatsPaginated(opts: {
         supercoachPts: sql<number>`COALESCE(SUM(${playerStats.supercoachPts}), 0)`,
       })
       .from(playerStats)
-      .where(and(eq(playerStats.matchId, m.id), eq(playerStats.teamId, opts.teamId)));
+      .where(
+        and(eq(playerStats.matchId, m.id), eq(playerStats.teamId, opts.teamId)),
+      );
 
     data.push({
       matchId: m.id,
@@ -1758,20 +1929,34 @@ export async function getStandings(year: number): Promise<StandingRow[]> {
   const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));
 
-  const standings = new Map<string, {
-    played: number; wins: number; losses: number; draws: number;
-    pointsFor: number; pointsAgainst: number;
-  }>();
+  const standings = new Map<
+    string,
+    {
+      played: number;
+      wins: number;
+      losses: number;
+      draws: number;
+      pointsFor: number;
+      pointsAgainst: number;
+    }
+  >();
 
   for (const m of yearMatches) {
     if (m.homeScore === null || m.awayScore === null) continue;
 
-    for (const side of ['home', 'away'] as const) {
-      const teamId = side === 'home' ? m.homeTeamId : m.awayTeamId;
-      const pf = side === 'home' ? m.homeScore : m.awayScore;
-      const pa = side === 'home' ? m.awayScore : m.homeScore;
+    for (const side of ["home", "away"] as const) {
+      const teamId = side === "home" ? m.homeTeamId : m.awayTeamId;
+      const pf = side === "home" ? m.homeScore : m.awayScore;
+      const pa = side === "home" ? m.awayScore : m.homeScore;
 
-      const s = standings.get(teamId) ?? { played: 0, wins: 0, losses: 0, draws: 0, pointsFor: 0, pointsAgainst: 0 };
+      const s = standings.get(teamId) ?? {
+        played: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+      };
       s.played++;
       s.pointsFor += pf;
       s.pointsAgainst += pa;
@@ -1795,11 +1980,18 @@ export async function getStandings(year: number): Promise<StandingRow[]> {
       draws: s.draws,
       pointsFor: s.pointsFor,
       pointsAgainst: s.pointsAgainst,
-      percentage: s.pointsAgainst > 0 ? Math.round((s.pointsFor / s.pointsAgainst) * 10000) / 100 : 0,
+      percentage:
+        s.pointsAgainst > 0
+          ? Math.round((s.pointsFor / s.pointsAgainst) * 10000) / 100
+          : 0,
       premiershipsPoints: s.wins * 4 + s.draws * 2,
     });
   }
 
-  rows.sort((a, b) => b.premiershipsPoints - a.premiershipsPoints || b.percentage - a.percentage);
+  rows.sort(
+    (a, b) =>
+      b.premiershipsPoints - a.premiershipsPoints ||
+      b.percentage - a.percentage,
+  );
   return rows;
 }

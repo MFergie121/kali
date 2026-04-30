@@ -49,6 +49,7 @@ variable "secret_names" {
     "GOOGLE_CLIENT_SECRET",
     "ADMIN_EMAIL",
     "SCRAPE_SECRET",
+    "API_KEY_DEFAULT_LIMIT"
   ]
 }
 

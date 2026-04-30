@@ -125,6 +125,23 @@ import {
   id = "kali-490813 roles/secretmanager.secretAccessor serviceAccount:svc-github-actions-kali-afl@kali-490813.iam.gserviceaccount.com"
 }
 
+# --- Cloud Run Service Account ---
+import {
+  to = google_service_account.cloud_run_sa
+  id = "projects/kali-490813/serviceAccounts/kali-afl-run@kali-490813.iam.gserviceaccount.com"
+}
+
+# --- IAM Bindings (Cloud Run SA) ---
+import {
+  to = google_project_iam_member.cloud_run_secret_accessor
+  id = "kali-490813 roles/secretmanager.secretAccessor serviceAccount:kali-afl-run@kali-490813.iam.gserviceaccount.com"
+}
+
+import {
+  to = google_project_iam_member.cloud_run_sql_client
+  id = "kali-490813 roles/cloudsql.client serviceAccount:kali-afl-run@kali-490813.iam.gserviceaccount.com"
+}
+
 # --- Cloud Build Trigger ---
 import {
   to = google_cloudbuild_trigger.deploy

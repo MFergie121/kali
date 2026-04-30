@@ -1,6 +1,13 @@
+<script lang="ts">
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const limitFormatted = Number(data.apiLimit).toLocaleString();
+</script>
+
 <svelte:head>
 	<title>AFL Stats API Documentation — Kali AFL</title>
-	<meta name="description" content="Full reference for the free Kali AFL REST API. Access AFL match results, player stats, standings, leaderboards, head-to-head, and more. 1,000 requests/day, no credit card required." />
+	<meta name="description" content="Full reference for the free Kali AFL REST API. Access AFL match results, player stats, standings, leaderboards, head-to-head, and more. {limitFormatted} requests/day, no credit card required." />
 	<meta name="keywords" content="AFL API documentation, AFL REST API, AFL player stats API, AFL API endpoints, Australian football API reference, free AFL data API" />
 	<meta property="og:title" content="AFL Stats API Documentation — Kali AFL" />
 	<meta property="og:description" content="Free AFL REST API with 11+ endpoints. Teams, players, matches, standings, leaderboards, and advanced stats from 2000 to present." />

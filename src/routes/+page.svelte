@@ -7,20 +7,21 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	const limitFormatted = Number(data.apiLimit).toLocaleString();
 </script>
 
 <svelte:head>
 	<title>Kali AFL — Free AFL Stats API</title>
-	<meta name="description" content="Free AFL Stats API with historical data from 2000 to present. 1,000 requests per day, no credit card required. Access teams, players, matches, standings, leaderboards, and advanced player stats." />
+	<meta name="description" content="Free AFL Stats API with historical data from 2000 to present. {limitFormatted} requests per day, no credit card required. Access teams, players, matches, standings, leaderboards, and advanced player stats." />
 	<meta name="keywords" content="AFL API, free AFL API, AFL stats API, AFL data API, Australian Football League API, AFL historical data, AFL player stats, free sports API Australia, supercoach API, fantasy AFL API" />
 	<meta property="og:title" content="Kali AFL — Free AFL Stats API" />
-	<meta property="og:description" content="The AFL API that should've existed. Free, open source, 1,000 requests/day. Historical data from 2000 to present." />
+	<meta property="og:description" content="The AFL API that should've existed. Free, open source, {limitFormatted} requests/day. Historical data from 2000 to present." />
 	<meta property="og:url" content="https://kaliaflstats.com/" />
 	<meta property="og:type" content="website" />
 	<meta property="og:image" content="https://kaliaflstats.com/og-image.png" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Kali AFL — Free AFL Stats API" />
-	<meta name="twitter:description" content="The AFL API that should've existed. Free, open source, 1,000 req/day. Historical data from 2000 to present." />
+	<meta name="twitter:description" content="The AFL API that should've existed. Free, open source, {limitFormatted} req/day. Historical data from 2000 to present." />
 	<meta name="twitter:image" content="https://kaliaflstats.com/og-image.png" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href="https://kaliaflstats.com/" />
@@ -29,7 +30,7 @@
 		"@type": "SoftwareApplication",
 		"name": "Kali AFL Stats API",
 		"url": "https://kaliaflstats.com",
-		"description": "Free AFL Stats API with historical data from 2000 to present. 1,000 requests per day, no credit card required.",
+		"description": `Free AFL Stats API with historical data from 2000 to present. ${limitFormatted} requests per day, no credit card required.`,
 		"applicationCategory": "DeveloperApplication",
 		"operatingSystem": "Web",
 		"offers": { "@type": "Offer", "price": "0", "priceCurrency": "AUD" }
@@ -51,7 +52,7 @@
 			</h1>
 
 			<p class="tagline" style="animation-delay: 160ms">
-				free · open source · historical data from 2000 · 1,000 req / day
+				free · open source · historical data from 2000 · {limitFormatted} req / day
 			</p>
 
 			<div class="hero-cta" style="animation-delay: 240ms">
@@ -74,7 +75,7 @@
 			</div>
 			<div class="hero-divider"></div>
 			<div class="hero-stat">
-				<span class="hero-stat-val">1,000</span>
+				<span class="hero-stat-val">{limitFormatted}</span>
 				<span class="hero-stat-label">req / day</span>
 			</div>
 			<div class="hero-divider"></div>
@@ -109,8 +110,8 @@
 			<div class="feature-card feature-card--primary">
 				<span class="feature-badge">biggest selling point</span>
 				<h3 class="feature-title">free api</h3>
-				<p class="feature-desc">1,000 requests per day. key-based auth. no credit card, no waitlist. sign in and start building.</p>
-				<span class="feature-highlight">1,000 req / day</span>
+				<p class="feature-desc">{limitFormatted} requests per day. key-based auth. no credit card, no waitlist. sign in and start building.</p>
+				<span class="feature-highlight">{limitFormatted} req / day</span>
 			</div>
 
 			<div class="feature-card">

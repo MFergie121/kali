@@ -7,7 +7,6 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-
 // ─── Teams ───────────────────────────────────────────────────────────────────
 
 export const teams = pgTable("teams", {
@@ -109,10 +108,14 @@ export const playerTeamAssignments = pgTable(
       .references(() => teams.id),
     startYear: integer("start_year").notNull(),
     endYear: integer("end_year"), // null = currently at this club
-    reason: text("reason"),       // "trade" | "rookie" | "rookie-elevated" | "delisted" | "retirement"
+    reason: text("reason"), // "trade" | "rookie" | "rookie-elevated" | "delisted" | "retirement"
   },
   (t) => [
-    uniqueIndex("pta_player_team_start_idx").on(t.playerId, t.teamId, t.startYear),
+    uniqueIndex("pta_player_team_start_idx").on(
+      t.playerId,
+      t.teamId,
+      t.startYear,
+    ),
   ],
 );
 
@@ -223,7 +226,11 @@ export const apiKeys = pgTable("api_keys", {
   revoked: boolean("revoked").notNull().default(false),
   usage: integer("usage").notNull().default(0),
   totalUsage: integer("total_usage").notNull().default(0),
-  limit: integer("limit").default(1000),
+  limit: integer("limit").default(
+    process.env.API_KEY_DEFAULT_LIMIT
+      ? parseInt(process.env.API_KEY_DEFAULT_LIMIT)
+      : 5000,
+  ),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
