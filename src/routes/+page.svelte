@@ -52,7 +52,7 @@
 			</h1>
 
 			<p class="tagline" style="animation-delay: 160ms">
-				free · open source · historical data from 2000 · {limitFormatted} req / day
+				Free · Open Source · Historical data from 2000 · {limitFormatted} req / day
 			</p>
 
 			<div class="hero-cta" style="animation-delay: 240ms">
