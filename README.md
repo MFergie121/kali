@@ -26,7 +26,7 @@ PostgreSQL runs in a Docker container. Start it with:
 npm run db:up
 ```
 
-This starts `postgres:17-alpine` on port 5432 with a named volume (`kali-afl-db`) so data persists between restarts. To stop it:
+This starts `postgres:17-alpine` on port 5435 with a named volume (`kali-afl-db`) so data persists between restarts. To stop it:
 
 ```bash
 npm run db:down
@@ -53,7 +53,7 @@ cp .env.example .env
 
 ```env
 # Local PostgreSQL connection (Docker container)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/kali-afl
+DATABASE_URL=postgresql://postgres:postgres@localhost:5435/kali-afl
 
 # Generate with: openssl rand -hex 32
 AUTH_SECRET=
@@ -137,13 +137,13 @@ This project uses `db:push` for both local and production schema management. Dri
 
 ### Step 1 — Start the Cloud SQL Auth Proxy
 
-The proxy creates a local TCP tunnel to the production Cloud SQL instance. Because the local dev container uses port 5432, run the proxy on `--port 5433` to avoid conflicts. Run this in a separate terminal:
+The proxy creates a local TCP tunnel to the production Cloud SQL instance. Because the local dev container uses port 5435, run the proxy on `--port 5433` to keep production and local connections separate. Run this in a separate terminal:
 
 ```bash
 # Install once
 brew install cloud-sql-proxy
 
-# Run on alternate port (avoids conflict with local dev container on 5432)
+# Run on a separate port from the local dev container on 5435
 cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
 ```
 
@@ -152,10 +152,6 @@ cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
 Set the production database URL temporarily in your shell (do not save this to `.env`):
 
 ```bash
-# Via default port 5432
-DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5432/kali-afl" npm run db:push
-
-# Via alternate port 5433
 DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5433/kali-afl" npm run db:push
 ```
 
@@ -164,6 +160,59 @@ Drizzle will print the SQL it plans to run and ask for confirmation. Review it, 
 ### Step 3 — Verify and deploy
 
 Once the push succeeds, deploy the app as normal (push to trigger Cloud Build). The new schema will be in place before the new code goes live.
+
+---
+
+## Pulling Production Data Into Local Dev
+
+Use this when production has the latest AFL data and you want to copy it into your local database without copying production users or API keys.
+
+This keeps the local `kali_users` and `api_keys` tables untouched, so local auth users and local API keys are preserved.
+
+### Step 1 — Start the local database
+
+```bash
+npm run db:up
+```
+
+The local Docker database listens on `localhost:5435`.
+
+### Step 2 — Start the Cloud SQL Auth Proxy
+
+Run this in a separate terminal:
+
+```bash
+cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
+```
+
+The proxy exposes production Cloud SQL on `localhost:5433`. Do not use `5435` for the production dump; that is the local Docker database.
+
+### Step 3 — Dump production, excluding users and API keys
+
+```bash
+pg_dump \
+  "postgresql://kali-afl-user:PASSWORD@localhost:5433/kali-afl" \
+  --format=custom \
+  --exclude-table=kali_users \
+  --exclude-table=api_keys \
+  --file=tmp/prod-without-users-api-keys.dump
+```
+
+Replace `PASSWORD` with the Cloud SQL password for `kali-afl-user`. If the password contains special characters, URL-encode them first.
+
+### Step 4 — Restore into local dev
+
+```bash
+pg_restore \
+  --clean \
+  --if-exists \
+  --no-owner \
+  --no-acl \
+  --dbname="postgresql://postgres:postgres@localhost:5435/kali-afl" \
+  tmp/prod-without-users-api-keys.dump
+```
+
+The restore target uses local Docker credentials: `postgres:postgres` on `localhost:5435`.
 
 ---
 
