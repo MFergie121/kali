@@ -7,6 +7,11 @@ import type {
 import { scrapeMatchAdvancedStats, scrapeMatchStats } from "$lib/afl/scraper";
 import type { SquiggleGame, SquiggleTip } from "$lib/afl/squiggle";
 import { db } from "$lib/db/afl";
+import type {
+  FactorBreakdown,
+  PredictionFactor,
+  PredictionGame,
+} from "$lib/afl/predictor";
 import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
 import {
   apiKeys,
@@ -17,6 +22,7 @@ import {
   playerStats,
   playerStatsAdvanced,
   playerTeamAssignments,
+  predictions,
   teams,
   tips,
 } from "$lib/db/afl/schema";
@@ -28,6 +34,7 @@ import {
   eq,
   gte,
   ilike,
+  isNotNull,
   isNull,
   lte,
   or,
@@ -1994,4 +2001,288 @@ export async function getStandings(year: number): Promise<StandingRow[]> {
       b.percentage - a.percentage,
   );
   return rows;
+}
+
+// ─── Predictions ──────────────────────────────────────────────────────────────
+
+export interface PredictionRow {
+  id: number;
+  fixtureId: number;
+  year: number;
+  round: number;
+  homeTeamId: string;
+  homeTeam: string;
+  homeShortName: string;
+  awayTeamId: string;
+  awayTeam: string;
+  awayShortName: string;
+  venue: string | null;
+  date: string | null;
+  homeProbability: number;
+  awayProbability: number;
+  squiggleConsensus: number | null;
+  homeBreakdown: FactorBreakdown;
+  awayBreakdown: FactorBreakdown;
+  factors: PredictionFactor[];
+  modelVersion: string;
+  actualWinner: string | null;
+  computedAt: string;
+  settledAt: string | null;
+}
+
+function shapePredictionRow(
+  r: {
+    id: number;
+    fixtureId: number;
+    year: number;
+    round: number;
+    homeTeamId: string;
+    awayTeamId: string;
+    homeProbability: number;
+    awayProbability: number;
+    squiggleConsensus: number | null;
+    homeBreakdown: unknown;
+    awayBreakdown: unknown;
+    factors: unknown;
+    modelVersion: string;
+    actualWinner: string | null;
+    computedAt: string;
+    settledAt: string | null;
+    venue: string | null;
+    date: string | null;
+  },
+  teamMap: Map<string, Team>,
+): PredictionRow {
+  return {
+    id: r.id,
+    fixtureId: r.fixtureId,
+    year: r.year,
+    round: r.round,
+    homeTeamId: r.homeTeamId,
+    homeTeam: teamMap.get(r.homeTeamId)?.name ?? r.homeTeamId,
+    homeShortName: teamMap.get(r.homeTeamId)?.shortName ?? r.homeTeamId,
+    awayTeamId: r.awayTeamId,
+    awayTeam: teamMap.get(r.awayTeamId)?.name ?? r.awayTeamId,
+    awayShortName: teamMap.get(r.awayTeamId)?.shortName ?? r.awayTeamId,
+    venue: r.venue,
+    date: r.date,
+    homeProbability: r.homeProbability / 10,
+    awayProbability: r.awayProbability / 10,
+    squiggleConsensus: r.squiggleConsensus,
+    homeBreakdown: r.homeBreakdown as FactorBreakdown,
+    awayBreakdown: r.awayBreakdown as FactorBreakdown,
+    factors: r.factors as PredictionFactor[],
+    modelVersion: r.modelVersion,
+    actualWinner: r.actualWinner,
+    computedAt: r.computedAt,
+    settledAt: r.settledAt,
+  };
+}
+
+export async function upsertPredictions(
+  predicted: PredictionGame[],
+  year: number,
+  round: number,
+  modelVersion: string,
+): Promise<void> {
+  if (predicted.length === 0) return;
+  const now = new Date().toISOString();
+
+  const values = predicted.map((p) => ({
+    fixtureId: p.fixtureId,
+    year,
+    round,
+    homeTeamId: p.homeTeamId,
+    awayTeamId: p.awayTeamId,
+    homeProbability: Math.round(p.homeProbability * 10),
+    awayProbability: Math.round(p.awayProbability * 10),
+    squiggleConsensus: p.squiggleConsensus,
+    homeBreakdown: p.homeBreakdown,
+    awayBreakdown: p.awayBreakdown,
+    factors: p.factors,
+    modelVersion,
+    computedAt: now,
+  }));
+
+  await db
+    .insert(predictions)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [predictions.fixtureId, predictions.modelVersion],
+      set: {
+        homeProbability: sql`excluded.home_probability`,
+        awayProbability: sql`excluded.away_probability`,
+        squiggleConsensus: sql`excluded.squiggle_consensus`,
+        homeBreakdown: sql`excluded.home_breakdown`,
+        awayBreakdown: sql`excluded.away_breakdown`,
+        factors: sql`excluded.factors`,
+        homeTeamId: sql`excluded.home_team_id`,
+        awayTeamId: sql`excluded.away_team_id`,
+        year: sql`excluded.year`,
+        round: sql`excluded.round`,
+        computedAt: sql`excluded.computed_at`,
+      },
+    });
+}
+
+const PREDICTION_SELECT = {
+  id: predictions.id,
+  fixtureId: predictions.fixtureId,
+  year: predictions.year,
+  round: predictions.round,
+  homeTeamId: predictions.homeTeamId,
+  awayTeamId: predictions.awayTeamId,
+  homeProbability: predictions.homeProbability,
+  awayProbability: predictions.awayProbability,
+  squiggleConsensus: predictions.squiggleConsensus,
+  homeBreakdown: predictions.homeBreakdown,
+  awayBreakdown: predictions.awayBreakdown,
+  factors: predictions.factors,
+  modelVersion: predictions.modelVersion,
+  actualWinner: predictions.actualWinner,
+  computedAt: predictions.computedAt,
+  settledAt: predictions.settledAt,
+  venue: fixtures.venue,
+  date: fixtures.date,
+} as const;
+
+export async function getPredictionsPaginated(opts: {
+  year?: number;
+  round?: number;
+  fixtureId?: number;
+  teamId?: string;
+  modelVersion?: string;
+  settled?: boolean;
+  limit: number;
+  offset: number;
+}): Promise<{ data: PredictionRow[]; total: number }> {
+  const conditions = [
+    opts.year !== undefined ? eq(predictions.year, opts.year) : undefined,
+    opts.round !== undefined ? eq(predictions.round, opts.round) : undefined,
+    opts.fixtureId !== undefined
+      ? eq(predictions.fixtureId, opts.fixtureId)
+      : undefined,
+    opts.teamId !== undefined
+      ? or(
+          eq(predictions.homeTeamId, opts.teamId),
+          eq(predictions.awayTeamId, opts.teamId),
+        )
+      : undefined,
+    opts.modelVersion !== undefined
+      ? eq(predictions.modelVersion, opts.modelVersion)
+      : undefined,
+    opts.settled === true
+      ? isNotNull(predictions.actualWinner)
+      : opts.settled === false
+        ? isNull(predictions.actualWinner)
+        : undefined,
+  ].filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [totalRow] = await db
+    .select({ total: count() })
+    .from(predictions)
+    .where(where);
+  const total = totalRow?.total ?? 0;
+
+  const rows = await db
+    .select(PREDICTION_SELECT)
+    .from(predictions)
+    .leftJoin(fixtures, eq(predictions.fixtureId, fixtures.id))
+    .where(where)
+    .orderBy(desc(predictions.year), desc(predictions.round), asc(predictions.fixtureId))
+    .limit(opts.limit)
+    .offset(opts.offset);
+
+  const allTeams = await db.select().from(teams);
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+
+  return { data: rows.map((r) => shapePredictionRow(r, teamMap)), total };
+}
+
+export async function getPredictionById(
+  id: number,
+): Promise<PredictionRow | null> {
+  const rows = await db
+    .select(PREDICTION_SELECT)
+    .from(predictions)
+    .leftJoin(fixtures, eq(predictions.fixtureId, fixtures.id))
+    .where(eq(predictions.id, id));
+  if (rows.length === 0) return null;
+
+  const allTeams = await db.select().from(teams);
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+  return shapePredictionRow(rows[0], teamMap);
+}
+
+export async function getPredictionsForRound(
+  year: number,
+  round: number,
+  modelVersion: string,
+): Promise<PredictionRow[]> {
+  const rows = await db
+    .select(PREDICTION_SELECT)
+    .from(predictions)
+    .leftJoin(fixtures, eq(predictions.fixtureId, fixtures.id))
+    .where(
+      and(
+        eq(predictions.year, year),
+        eq(predictions.round, round),
+        eq(predictions.modelVersion, modelVersion),
+      ),
+    )
+    .orderBy(asc(predictions.fixtureId));
+
+  const allTeams = await db.select().from(teams);
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+  return rows.map((r) => shapePredictionRow(r, teamMap));
+}
+
+/**
+ * Populate `actualWinner` / `settledAt` for any prediction whose fixture has
+ * completed. Idempotent — only updates rows where actualWinner is still null.
+ */
+export async function updatePredictionOutcomes(year: number): Promise<number> {
+  const completed = await db
+    .select({
+      id: fixtures.id,
+      hscore: fixtures.hscore,
+      ascore: fixtures.ascore,
+      complete: fixtures.complete,
+      winner: fixtures.winner,
+      hteam: fixtures.hteam,
+    })
+    .from(fixtures)
+    .where(and(eq(fixtures.year, year), eq(fixtures.complete, 100)));
+
+  if (completed.length === 0) return 0;
+
+  const now = new Date().toISOString();
+  let updated = 0;
+
+  for (const f of completed) {
+    let outcome: "home" | "away" | "draw" | null = null;
+    if (f.hscore != null && f.ascore != null) {
+      if (f.hscore > f.ascore) outcome = "home";
+      else if (f.ascore > f.hscore) outcome = "away";
+      else outcome = "draw";
+    } else if (f.winner && f.hteam) {
+      outcome = f.winner === f.hteam ? "home" : "away";
+    }
+    if (!outcome) continue;
+
+    const result = await db
+      .update(predictions)
+      .set({ actualWinner: outcome, settledAt: now })
+      .where(
+        and(
+          eq(predictions.fixtureId, f.id),
+          isNull(predictions.actualWinner),
+        ),
+      );
+    // Drizzle update doesn't always return rowCount; count fixtures touched
+    updated += Array.isArray(result) ? result.length : 1;
+  }
+
+  return updated;
 }

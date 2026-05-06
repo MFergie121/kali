@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -76,6 +77,43 @@ export const tips = pgTable(
   },
   (t) => [
     uniqueIndex("tips_game_source_idx").on(t.gameId, t.source, t.syncedAt),
+  ],
+);
+
+// ─── Predictions (in-house model) ──────────────────────────────────────────
+
+export const predictions = pgTable(
+  "predictions",
+  {
+    id: serial("id").primaryKey(),
+    fixtureId: integer("fixture_id")
+      .notNull()
+      .references(() => fixtures.id),
+    year: integer("year").notNull(),
+    round: integer("round").notNull(),
+    homeTeamId: text("home_team_id")
+      .notNull()
+      .references(() => teams.id),
+    awayTeamId: text("away_team_id")
+      .notNull()
+      .references(() => teams.id),
+    // Probabilities stored as integer tenths-of-a-percent (723 = 72.3%)
+    homeProbability: integer("home_probability").notNull(),
+    awayProbability: integer("away_probability").notNull(),
+    squiggleConsensus: integer("squiggle_consensus"), // null if no Squiggle tips
+    homeBreakdown: jsonb("home_breakdown").notNull(), // FactorBreakdown
+    awayBreakdown: jsonb("away_breakdown").notNull(),
+    factors: jsonb("factors").notNull(), // top-3 PredictionFactor[]
+    modelVersion: text("model_version").notNull(),
+    actualWinner: text("actual_winner"), // "home" | "away" | "draw" | null
+    computedAt: text("computed_at").notNull(),
+    settledAt: text("settled_at"),
+  },
+  (t) => [
+    uniqueIndex("predictions_fixture_version_idx").on(
+      t.fixtureId,
+      t.modelVersion,
+    ),
   ],
 );
 
@@ -239,6 +277,7 @@ export type Team = typeof teams.$inferSelect;
 export type Match = typeof matches.$inferSelect;
 export type Fixture = typeof fixtures.$inferSelect;
 export type Tip = typeof tips.$inferSelect;
+export type Prediction = typeof predictions.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type PlayerTeamAssignment = typeof playerTeamAssignments.$inferSelect;
 export type PlayerStat = typeof playerStats.$inferSelect;
@@ -246,6 +285,7 @@ export type PlayerStatAdvanced = typeof playerStatsAdvanced.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;
 export type NewFixture = typeof fixtures.$inferInsert;
 export type NewTip = typeof tips.$inferInsert;
+export type NewPrediction = typeof predictions.$inferInsert;
 export type NewPlayer = typeof players.$inferInsert;
 export type NewPlayerTeamAssignment = typeof playerTeamAssignments.$inferInsert;
 export type NewPlayerStat = typeof playerStats.$inferInsert;
