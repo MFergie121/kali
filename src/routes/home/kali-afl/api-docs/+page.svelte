@@ -42,6 +42,7 @@
 				<a href="#venues" class="text-primary block text-sm hover:underline">Venues</a>
 				<a href="#standings" class="text-primary block text-sm hover:underline">Standings</a>
 				<a href="#fixture" class="text-primary block text-sm hover:underline">Fixture (Public)</a>
+				<a href="#predictions" class="text-primary block text-sm hover:underline">Predictions</a>
 			</div>
 		</div>
 	</nav>
@@ -1016,6 +1017,8 @@ curl /api/afl/v1/fixture?year=2024</pre>
 						['GET', '/venues', 'All venues with match counts'],
 						['GET', '/standings', 'Season ladder'],
 						['GET', '/fixture', 'Season schedule (Public -- no auth)'],
+						['GET', '/predictions', 'Win-probability predictions (filterable, versioned)'],
+						['GET', '/predictions/:id', 'Get a single prediction'],
 					] as [method, path, desc]}
 						<tr class="border-b last:border-0">
 							<td class="py-2 pr-4"><span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">{method}</span></td>
