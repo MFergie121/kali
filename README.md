@@ -34,14 +34,14 @@ npm run db:down
 
 **Useful commands for the container DB:**
 
-| Command | Description |
-|---------|-------------|
-| `npm run db:up` | Start the PostgreSQL container |
-| `npm run db:down` | Stop the container |
-| `docker compose ps` | Check container status |
-| `docker exec -it kali-db psql -U postgres kali-afl` | Open a psql shell |
-| `docker exec -it kali-db psql -U postgres kali-afl -c "SELECT * FROM fixtures LIMIT 5;"` | Run a one-off query |
-| `docker compose down -v` | Stop and **delete** the data volume (destructive) |
+| Command                                                                                  | Description                                       |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `npm run db:up`                                                                          | Start the PostgreSQL container                    |
+| `npm run db:down`                                                                        | Stop the container                                |
+| `docker compose ps`                                                                      | Check container status                            |
+| `docker exec -it kali-db psql -U postgres kali-afl`                                      | Open a psql shell                                 |
+| `docker exec -it kali-db psql -U postgres kali-afl -c "SELECT * FROM fixtures LIMIT 5;"` | Run a one-off query                               |
+| `docker compose down -v`                                                                 | Stop and **delete** the data volume (destructive) |
 
 ### 3. Configure environment variables
 
@@ -144,7 +144,7 @@ The proxy creates a local TCP tunnel to the production Cloud SQL instance. Becau
 brew install cloud-sql-proxy
 
 # Run on a separate port from the local dev container on 5435
-cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
+cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5436
 ```
 
 ### Step 2 — Push schema changes
@@ -152,7 +152,7 @@ cloud-sql-proxy kali-490813:australia-southeast1:kali-afl-db --port 5433
 Set the production database URL temporarily in your shell (do not save this to `.env`):
 
 ```bash
-DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5433/kali-afl" npm run db:push
+DATABASE_URL="postgresql://kali-afl-user:PASSWORD@localhost:5436/kali-afl" npm run db:push
 ```
 
 Drizzle will print the SQL it plans to run and ask for confirmation. Review it, then confirm.
