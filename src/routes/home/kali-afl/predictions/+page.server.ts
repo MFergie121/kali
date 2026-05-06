@@ -4,14 +4,8 @@ import {
   MODEL_VERSION,
   type PredictionFactor,
   type FactorBreakdown,
-  assemblePredictorInputs,
-  computePredictions,
 } from "$lib/afl/predictor";
-import {
-  getFixturesForYear,
-  getPredictionsForRound,
-  upsertPredictions,
-} from "$lib/db/afl/service";
+import { getFixturesForYear, getPredictionsForRound } from "$lib/db/afl/service";
 import type { PageServerLoad } from "./$types";
 
 export type { PredictionFactor, FactorBreakdown };
@@ -54,38 +48,22 @@ export const load: PageServerLoad = async ({ url }) => {
     return { selectedRound, predictions: [], availableRounds };
   }
 
-  // 1. Try DB cache
-  const stored = await getPredictionsForRound(
-    currentYear,
-    selectedRound,
-    MODEL_VERSION,
-  );
-  if (stored.length === roundGames.length) {
-    const predictions: PredictionGame[] = stored.map((r) => ({
-      fixtureId: r.fixtureId,
-      round: r.round,
-      date: r.date,
-      venue: r.venue,
-      homeTeam: r.homeTeam,
-      awayTeam: r.awayTeam,
-      homeTeamId: r.homeTeamId,
-      awayTeamId: r.awayTeamId,
-      homeProbability: r.homeProbability,
-      awayProbability: r.awayProbability,
-      factors: r.factors,
-      squiggleConsensus: r.squiggleConsensus,
-      homeBreakdown: r.homeBreakdown,
-      awayBreakdown: r.awayBreakdown,
-    }));
-    return { selectedRound, predictions, availableRounds };
-  }
-
-  // 2. Cache miss → compute and write through
-  const inputs = await assemblePredictorInputs(currentYear, selectedRound);
-  const predictions = computePredictions(inputs);
-  upsertPredictions(predictions, currentYear, selectedRound, MODEL_VERSION).catch(
-    (err) => console.warn("[predictions] write-through failed:", err),
-  );
-
+  const stored = await getPredictionsForRound(currentYear, selectedRound, MODEL_VERSION);
+  const predictions: PredictionGame[] = stored.map((r) => ({
+    fixtureId: r.fixtureId,
+    round: r.round,
+    date: r.date,
+    venue: r.venue,
+    homeTeam: r.homeTeam,
+    awayTeam: r.awayTeam,
+    homeTeamId: r.homeTeamId,
+    awayTeamId: r.awayTeamId,
+    homeProbability: r.homeProbability,
+    awayProbability: r.awayProbability,
+    factors: r.factors,
+    squiggleConsensus: r.squiggleConsensus,
+    homeBreakdown: r.homeBreakdown,
+    awayBreakdown: r.awayBreakdown,
+  }));
   return { selectedRound, predictions, availableRounds };
 };

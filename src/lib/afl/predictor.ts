@@ -153,6 +153,14 @@ function resolveTeam(
     const tName = t.name.toLowerCase();
     if (tName.startsWith(lower) || lower.startsWith(tName)) return t;
   }
+  // Word-token overlap: "Greater Western Sydney" ↔ "GWS Giants"
+  const lowerWords = lower.split(/\s+/).filter((w) => w.length > 3);
+  if (lowerWords.length > 0) {
+    for (const t of lookups.teams) {
+      const tWords = t.name.toLowerCase().split(/\s+/);
+      if (lowerWords.some((w) => tWords.includes(w))) return t;
+    }
+  }
   return null;
 }
 
@@ -604,7 +612,9 @@ export async function assemblePredictorInputs(
     getFixturesForYear(year).catch(() => []),
   ]);
 
-  const roundFixtures = allFixtures.filter((f) => f.round === round);
+  const roundFixtures = allFixtures.filter(
+    (f) => f.round === round && f.hteam != null && f.ateam != null,
+  );
 
   // Year matches (optionally constrained for point-in-time backfill)
   const yearWhere =
