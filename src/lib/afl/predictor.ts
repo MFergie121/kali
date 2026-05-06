@@ -138,12 +138,25 @@ function buildTeamLookups(allTeams: Team[]): {
   return { nameMap, teams: allTeams };
 }
 
+// Squiggle uses different names than footywire for some teams
+const TEAM_NAME_ALIASES: Record<string, string> = {
+  "brisbane lions": "brisbane",
+  "greater western sydney": "gws",
+  "gws giants": "gws",
+};
+
 function resolveTeam(
   name: string | null,
   lookups: { nameMap: Map<string, Team>; teams: Team[] },
 ): Team | null {
   if (!name) return null;
   const lower = name.toLowerCase();
+  // Alias normalisation (Squiggle ↔ footywire name divergences)
+  const aliased = TEAM_NAME_ALIASES[lower];
+  if (aliased) {
+    const byAlias = lookups.nameMap.get(aliased);
+    if (byAlias) return byAlias;
+  }
   const direct = lookups.nameMap.get(lower);
   if (direct) return direct;
   const slug = lower.replace(/\s+/g, "-");
@@ -151,9 +164,9 @@ function resolveTeam(
   if (bySlug) return bySlug;
   for (const t of lookups.teams) {
     const tName = t.name.toLowerCase();
-    if (tName.startsWith(lower) || lower.startsWith(tName)) return t;
+    if (tName.length > 0 && (tName.startsWith(lower) || lower.startsWith(tName))) return t;
   }
-  // Word-token overlap: "Greater Western Sydney" ↔ "GWS Giants"
+  // Word-token overlap fallback
   const lowerWords = lower.split(/\s+/).filter((w) => w.length > 3);
   if (lowerWords.length > 0) {
     for (const t of lookups.teams) {
