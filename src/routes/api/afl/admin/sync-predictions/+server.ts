@@ -4,11 +4,7 @@ import {
   assemblePredictorInputs,
   computePredictions,
 } from "$lib/afl/predictor";
-import {
-  getFixturesForYear,
-  updatePredictionOutcomes,
-  upsertPredictions,
-} from "$lib/db/afl/service";
+import { getFixturesForYear, upsertPredictions } from "$lib/db/afl/service";
 import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
@@ -34,11 +30,6 @@ export const POST: RequestHandler = async (event) => {
   }
 
   console.log(`[sync-predictions] year=${year} round=${round}`);
-
-  const settled = await updatePredictionOutcomes(year);
-  if (settled > 0) {
-    console.log(`[sync-predictions] settled ${settled} prior predictions`);
-  }
 
   if (round == null) {
     return json({

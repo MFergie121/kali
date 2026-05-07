@@ -130,9 +130,11 @@ function buildTeamLookups(allTeams: Team[]): {
   teams: Team[];
 } {
   const nameMap = new Map<string, Team>();
+  // shortName is intentionally not used as a lookup key: nameToTeamInfo derives
+  // it from the last word of the full name, so "Melbourne" and "North Melbourne"
+  // both produce shortName "Melbourne" (and Sydney / GWS likewise collide).
   for (const t of allTeams) {
     nameMap.set(t.name.toLowerCase(), t);
-    nameMap.set(t.shortName.toLowerCase(), t);
     nameMap.set(t.id, t);
   }
   return { nameMap, teams: allTeams };
