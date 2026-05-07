@@ -14,7 +14,8 @@
 		"db:down": "docker compose down",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"db:clear": "npx tsx --env-file=.env scripts/clear-afl-data.ts"
+		"db:clear": "npx tsx --env-file=.env scripts/clear-afl-data.ts",
+		"db:seed:dev": "bash scripts/seed-dev-db-from-prod.sh"
 	},
 	"devDependencies": {
 		"@internationalized/date": "^3.12.0",

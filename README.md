@@ -112,16 +112,17 @@ If your database password contains special characters, they must be URL-encoded 
 
 ## Useful Scripts
 
-| Command             | Description                             |
-| ------------------- | --------------------------------------- |
-| `npm run dev`       | Start local dev server                  |
-| `npm run build`     | Build for production                    |
-| `npm run check`     | Run Svelte type checks                  |
-| `npm run db:up`     | Start the local PostgreSQL container    |
-| `npm run db:down`   | Stop the local PostgreSQL container     |
-| `npm run db:push`   | Sync Drizzle schema to the database     |
-| `npm run db:studio` | Open Drizzle Studio (visual DB browser) |
-| `npm run db:clear`  | Clear AFL data from the database        |
+| Command               | Description                             |
+| --------------------- | --------------------------------------- |
+| `npm run dev`         | Start local dev server                  |
+| `npm run build`       | Build for production                    |
+| `npm run check`       | Run Svelte type checks                  |
+| `npm run db:up`       | Start the local PostgreSQL container    |
+| `npm run db:down`     | Stop the local PostgreSQL container     |
+| `npm run db:push`     | Sync Drizzle schema to the database     |
+| `npm run db:studio`   | Open Drizzle Studio (visual DB browser) |
+| `npm run db:clear`    | Clear AFL data from the database        |
+| `npm run db:seed:dev` | Refresh local AFL data from production  |
 
 ---
 
@@ -168,6 +169,14 @@ Once the push succeeds, deploy the app as normal (push to trigger Cloud Build). 
 Use this when production has the latest AFL data and you want to copy it into your local database without copying production users or API keys.
 
 This keeps the local `kali_users` and `api_keys` tables untouched, so local auth users and local API keys are preserved.
+
+For the fastest path, run:
+
+```bash
+npm run db:seed:dev
+```
+
+The script starts the local Docker database, starts a temporary Cloud SQL Auth Proxy if one is not already running on `localhost:5433`, prompts for the production database password, dumps production without `kali_users` and `api_keys`, and restores the dump into local dev.
 
 ### Step 1 — Start the local database
 
