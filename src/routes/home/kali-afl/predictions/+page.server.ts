@@ -25,6 +25,7 @@ export interface PredictionGame {
   squiggleConsensus: number | null;
   homeBreakdown: FactorBreakdown;
   awayBreakdown: FactorBreakdown;
+  actualWinner: "home" | "away" | "draw" | null;
 }
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -64,6 +65,7 @@ export const load: PageServerLoad = async ({ url }) => {
     squiggleConsensus: r.squiggleConsensus,
     homeBreakdown: r.homeBreakdown,
     awayBreakdown: r.awayBreakdown,
+    actualWinner: r.actualWinner as "home" | "away" | "draw" | null,
   }));
   return { selectedRound, predictions, availableRounds };
 };

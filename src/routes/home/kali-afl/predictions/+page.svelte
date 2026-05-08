@@ -41,6 +41,30 @@
 	};
 
 	const FACTOR_KEYS = ['form', 'scoring', 'stats', 'venue', 'h2h', 'squiggle'] as const;
+
+	type Outcome = 'correct' | 'wrong' | 'draw' | 'pending';
+
+	function predictionOutcome(p: { homeProbability: number; actualWinner: 'home' | 'away' | 'draw' | null }): Outcome {
+		if (p.actualWinner === null) return 'pending';
+		if (p.actualWinner === 'draw') return 'draw';
+		const favoured = p.homeProbability >= 50 ? 'home' : 'away';
+		return favoured === p.actualWinner ? 'correct' : 'wrong';
+	}
+
+	const summary = $derived.by(() => {
+		let hits = 0;
+		let misses = 0;
+		let pending = 0;
+		for (const p of data.predictions) {
+			const o = predictionOutcome(p);
+			if (o === 'correct') hits++;
+			else if (o === 'wrong') misses++;
+			else pending++; // draws fold in here — neither hit nor miss
+		}
+		const decided = hits + misses;
+		const accuracy = decided > 0 ? Math.round((hits / decided) * 100) : null;
+		return { hits, misses, pending, decided, accuracy };
+	});
 </script>
 
 <div class="page">
@@ -83,13 +107,32 @@
 			<span class="list-count">{data.predictions.length} game{data.predictions.length === 1 ? '' : 's'}</span>
 		</p>
 
+		{#if summary.decided > 0}
+			<div class="summary-pills" style="animation-delay: 100ms">
+				<span class="summary-pill summary-pill-correct">&check; {summary.hits} hit{summary.hits === 1 ? '' : 's'}</span>
+				<span class="summary-pill summary-pill-wrong">&times; {summary.misses} miss{summary.misses === 1 ? '' : 'es'}</span>
+				{#if summary.pending > 0}
+					<span class="summary-pill summary-pill-pending">{summary.pending} pending</span>
+				{/if}
+				<span class="summary-accuracy">{summary.accuracy}% accuracy</span>
+			</div>
+		{/if}
+
 		<div class="predictions-list">
 			{#each data.predictions as pred, i (pred.fixtureId)}
 				{@const isExpanded = expandedGame === pred.fixtureId}
 				{@const favoured = pred.homeProbability >= 50 ? 'home' : 'away'}
 				{@const confidence = Math.max(pred.homeProbability, pred.awayProbability)}
+				{@const outcome = predictionOutcome(pred)}
+				{@const actualTeam = pred.actualWinner === 'home' ? pred.homeTeam : pred.actualWinner === 'away' ? pred.awayTeam : null}
 
-				<div class="prediction-card" style="animation-delay: {120 + i * 50}ms">
+				<div
+					class="prediction-card"
+					class:card-correct={outcome === 'correct'}
+					class:card-wrong={outcome === 'wrong'}
+					class:card-draw={outcome === 'draw'}
+					style="animation-delay: {120 + i * 50}ms"
+				>
 
 					<!-- Header -->
 					<button
@@ -110,6 +153,13 @@
 							<span class="pred-verdict">
 								{favoured === 'home' ? pred.homeTeam : pred.awayTeam}
 							</span>
+							{#if outcome === 'correct'}
+								<span class="status-pill status-pill-correct">&check; correct</span>
+							{:else if outcome === 'wrong'}
+								<span class="status-pill status-pill-wrong">&times; wrong</span>
+							{:else if outcome === 'draw'}
+								<span class="status-pill status-pill-draw">draw</span>
+							{/if}
 						</div>
 
 						<div class="pred-team pred-team-away">
@@ -139,6 +189,11 @@
 							{/each}
 						</div>
 						<div class="pred-meta">
+							{#if actualTeam}
+								<span class="pred-meta-item pred-meta-actual">actual: {actualTeam}</span>
+							{:else if outcome === 'draw'}
+								<span class="pred-meta-item pred-meta-actual">actual: draw</span>
+							{/if}
 							{#if pred.venue}<span class="pred-meta-item">{pred.venue}</span>{/if}
 							<span class="pred-meta-item">{formatFixtureDate(pred.date)}</span>
 							<span class="chevron" class:chevron-open={isExpanded}>&#x25BC;</span>
@@ -457,6 +512,103 @@
 		background-color: var(--card);
 		overflow: hidden;
 		animation: rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+		position: relative;
+	}
+
+	.card-correct {
+		background-color: color-mix(in oklch, var(--primary), var(--card) 92%);
+		box-shadow: inset 3px 0 0 var(--primary);
+	}
+
+	.card-wrong {
+		background-color: color-mix(in oklch, var(--destructive), var(--card) 92%);
+		box-shadow: inset 3px 0 0 var(--destructive);
+	}
+
+	.card-draw {
+		box-shadow: inset 3px 0 0 var(--muted-foreground);
+	}
+
+	/* ── Round summary pills ── */
+	.summary-pills {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+		animation: rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	.summary-pill {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		padding: 0.2rem 0.55rem;
+		border-radius: 0.3rem;
+		border: 1px solid var(--border);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.summary-pill-correct {
+		background-color: color-mix(in oklch, var(--primary), transparent 85%);
+		color: var(--primary);
+		border-color: color-mix(in oklch, var(--primary), transparent 70%);
+	}
+
+	.summary-pill-wrong {
+		background-color: color-mix(in oklch, var(--destructive), transparent 85%);
+		color: var(--destructive);
+		border-color: color-mix(in oklch, var(--destructive), transparent 70%);
+	}
+
+	.summary-pill-pending {
+		background-color: color-mix(in oklch, var(--muted), transparent 40%);
+		color: var(--muted-foreground);
+	}
+
+	.summary-accuracy {
+		margin-left: auto;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* ── Status pill (per-card) ── */
+	.status-pill {
+		font-size: 0.5625rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.1rem 0.375rem;
+		border-radius: 0.25rem;
+		margin-top: 0.2rem;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.status-pill-correct {
+		background-color: color-mix(in oklch, var(--primary), transparent 85%);
+		color: var(--primary);
+		border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
+	}
+
+	.status-pill-wrong {
+		background-color: color-mix(in oklch, var(--destructive), transparent 85%);
+		color: var(--destructive);
+		border: 1px solid color-mix(in oklch, var(--destructive), transparent 70%);
+	}
+
+	.status-pill-draw {
+		background-color: color-mix(in oklch, var(--muted), transparent 40%);
+		color: var(--muted-foreground);
+		border: 1px solid var(--border);
+	}
+
+	.pred-meta-actual {
+		color: var(--foreground);
+		font-weight: 600;
 	}
 
 	/* ── Header ── */
