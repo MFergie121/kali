@@ -1,4 +1,8 @@
-import { updatePredictionOutcomes } from "$lib/db/afl/service";
+import { fetchSeasonFixture } from "$lib/afl/squiggle";
+import {
+  updatePredictionOutcomes,
+  upsertFixtures,
+} from "$lib/db/afl/service";
 import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
@@ -23,10 +27,21 @@ export const POST: RequestHandler = async (event) => {
 
   console.log(`[settle-predictions] year=${year}`);
 
+  const games = await fetchSeasonFixture(year);
+  await upsertFixtures(games);
+  console.log(
+    `[settle-predictions] refreshed ${games.length} fixtures from Squiggle`,
+  );
+
   const settled = await updatePredictionOutcomes(year);
   if (settled > 0) {
     console.log(`[settle-predictions] settled ${settled} predictions`);
   }
 
-  return json({ success: true, year, settled });
+  return json({
+    success: true,
+    year,
+    fixturesRefreshed: games.length,
+    settled,
+  });
 };

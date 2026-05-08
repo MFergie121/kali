@@ -1,7 +1,9 @@
 import { getLatestCompletedMatchId } from "$lib/afl/scraper";
+import { fetchSeasonFixture } from "$lib/afl/squiggle";
 import {
   scrapeAndPersistMatch,
   updatePredictionOutcomes,
+  upsertFixtures,
 } from "$lib/db/afl/service";
 import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
@@ -34,6 +36,12 @@ export const POST: RequestHandler = async (event) => {
   const result = await scrapeAndPersistMatch(latest.mid);
   console.log(`[afl-scraper] latest match mid=${latest.mid} done`);
 
+  const games = await fetchSeasonFixture(year);
+  await upsertFixtures(games);
+  console.log(
+    `[afl-scraper] refreshed ${games.length} fixtures from Squiggle`,
+  );
+
   const settled = await updatePredictionOutcomes(year);
   if (settled > 0) {
     console.log(`[afl-scraper] settled ${settled} predictions`);
@@ -50,6 +58,7 @@ export const POST: RequestHandler = async (event) => {
     awayScore: result.match.awayScore,
     homeStatsCount: result.homeStatsCount,
     awayStatsCount: result.awayStatsCount,
+    fixturesRefreshed: games.length,
     settled,
   });
 };
