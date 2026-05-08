@@ -1,4 +1,4 @@
-export type Font = "ibm-plex-mono" | "geist" | "fraunces" | "dm-sans" | "syne";
+export type Font = "ibm-plex-mono" | "geist" | "fraunces" | "dm-sans" | "syne" | "inter" | "cormorant-garamond";
 
 export const fonts: { id: Font; label: string; stack: string }[] = [
   {
@@ -10,6 +10,8 @@ export const fonts: { id: Font; label: string; stack: string }[] = [
   { id: "fraunces", label: "Fraunces", stack: '"Fraunces", serif' },
   { id: "dm-sans", label: "DM Sans", stack: '"DM Sans", sans-serif' },
   { id: "syne", label: "Syne", stack: '"Syne", sans-serif' },
+  { id: "inter", label: "Inter", stack: '"Inter", sans-serif' },
+  { id: "cormorant-garamond", label: "Cormorant Garamond", stack: '"Cormorant Garamond", serif' },
 ];
 
 function createFontStore() {

@@ -1,6 +1,6 @@
 import { setTheme } from "mode-watcher";
 
-export type Theme = "serika" | "retro" | "iceberg-light" | "lil-dragon" | "nord" | "forest" | "cyberpunk";
+export type Theme = "serika" | "retro" | "iceberg-light" | "lil-dragon" | "nord" | "forest" | "cyberpunk" | "bmw" | "claude";
 
 export const themes: { id: Theme; label: string }[] = [
   { id: "serika", label: "Serika" },
@@ -10,6 +10,8 @@ export const themes: { id: Theme; label: string }[] = [
   { id: "nord", label: "Nord" },
   { id: "forest", label: "Forest" },
   { id: "cyberpunk", label: "Cyberpunk" },
+  { id: "bmw", label: "BMW M" },
+  { id: "claude", label: "Claude" },
 ];
 
 function createThemeStore() {

@@ -462,6 +462,76 @@
   --sidebar-ring: oklch(0.62 0.17 145);
 }
 
+[data-theme="bmw"] {
+  /* BMW M Light — light surface with BMW Blue accent */
+  --background: oklch(0.977 0 0);
+  --foreground: oklch(0.135 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.135 0 0);
+  --popover: oklch(0.965 0 0);
+  --popover-foreground: oklch(0.135 0 0);
+  --primary: oklch(0.52 0.175 255);      /* #1c69d4 BMW Blue */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.135 0 0);
+  --muted: oklch(0.93 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.52 0.175 255);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.584 0.23 27);   /* #e22718 M Red */
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.89 0 0);
+  --ring: oklch(0.52 0.175 255);
+  --chart-1: oklch(0.52 0.175 255);
+  --chart-2: oklch(0.46 0.165 250);
+  --chart-3: oklch(0.584 0.23 27);
+  --chart-4: oklch(0.285 0 0);
+  --chart-5: oklch(0.52 0 0);
+  --sidebar: oklch(0.955 0 0);
+  --sidebar-foreground: oklch(0.135 0 0);
+  --sidebar-primary: oklch(0.52 0.175 255);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.93 0 0);
+  --sidebar-accent-foreground: oklch(0.135 0 0);
+  --sidebar-border: oklch(0.89 0 0);
+  --sidebar-ring: oklch(0.52 0.175 255);
+}
+
+[data-theme="claude"] {
+  /* Claude Light — warm cream canvas & coral accent */
+  --background: oklch(0.977 0.005 85);
+  --foreground: oklch(0.12 0.003 85);
+  --card: oklch(0.935 0.018 85);
+  --card-foreground: oklch(0.12 0.003 85);
+  --popover: oklch(0.956 0.012 85);
+  --popover-foreground: oklch(0.12 0.003 85);
+  --primary: oklch(0.622 0.115 37);        /* #cc785c coral */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.956 0.012 85);
+  --secondary-foreground: oklch(0.12 0.003 85);
+  --muted: oklch(0.9 0.018 85);
+  --muted-foreground: oklch(0.48 0.008 85);
+  --accent: oklch(0.935 0.018 85);
+  --accent-foreground: oklch(0.12 0.003 85);
+  --destructive: oklch(0.528 0.178 27);
+  --border: oklch(0.895 0.012 85);
+  --input: oklch(0.895 0.012 85);
+  --ring: oklch(0.622 0.115 37);
+  --chart-1: oklch(0.622 0.115 37);
+  --chart-2: oklch(0.68 0.1 177);          /* #5db8a6 teal */
+  --chart-3: oklch(0.73 0.13 58);          /* #e8a55a amber */
+  --chart-4: oklch(0.68 0.12 145);         /* #5db872 success green */
+  --chart-5: oklch(0.48 0.008 85);
+  --sidebar: oklch(0.956 0.012 85);
+  --sidebar-foreground: oklch(0.12 0.003 85);
+  --sidebar-primary: oklch(0.622 0.115 37);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.935 0.018 85);
+  --sidebar-accent-foreground: oklch(0.12 0.003 85);
+  --sidebar-border: oklch(0.895 0.012 85);
+  --sidebar-ring: oklch(0.622 0.115 37);
+}
+
 .dark[data-theme="cyberpunk"] {
   /* Cyberpunk Dark — neon on near-black */
   --background: oklch(0.13 0.025 280);
@@ -495,6 +565,76 @@
   --sidebar-accent-foreground: oklch(0.97 0.05 90);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.85 0.22 90);
+}
+
+.dark[data-theme="bmw"] {
+  /* BMW M Dark — true black canvas */
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.135 0 0);             /* #1a1a1a surface-card */
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.185 0 0);          /* #262626 surface-elevated */
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(0.52 0.175 255);     /* #1c69d4 BMW Blue */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.135 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.085 0 0);            /* #0d0d0d surface-soft */
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.46 0.165 250);      /* #0066b1 M Blue Light */
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.584 0.23 27);  /* #e22718 M Red */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.52 0.175 255);
+  --chart-1: oklch(0.52 0.175 255);
+  --chart-2: oklch(0.46 0.165 250);
+  --chart-3: oklch(0.584 0.23 27);
+  --chart-4: oklch(0.76 0 0);           /* #bbbbbb body */
+  --chart-5: oklch(0.52 0 0);
+  --sidebar: oklch(0.135 0 0);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.52 0.175 255);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.185 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.52 0.175 255);
+}
+
+.dark[data-theme="claude"] {
+  /* Claude Dark — dark navy canvas & coral accent */
+  --background: oklch(0.135 0.003 85);
+  --foreground: oklch(0.977 0.005 85);
+  --card: oklch(0.19 0.005 85);
+  --card-foreground: oklch(0.977 0.005 85);
+  --popover: oklch(0.16 0.004 85);
+  --popover-foreground: oklch(0.977 0.005 85);
+  --primary: oklch(0.622 0.115 37);        /* #cc785c coral */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.19 0.005 85);
+  --secondary-foreground: oklch(0.977 0.005 85);
+  --muted: oklch(0.19 0.005 85);
+  --muted-foreground: oklch(0.66 0.007 85);
+  --accent: oklch(0.19 0.005 85);
+  --accent-foreground: oklch(0.977 0.005 85);
+  --destructive: oklch(0.528 0.178 27);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.622 0.115 37);
+  --chart-1: oklch(0.622 0.115 37);
+  --chart-2: oklch(0.68 0.1 177);
+  --chart-3: oklch(0.73 0.13 58);
+  --chart-4: oklch(0.68 0.12 145);
+  --chart-5: oklch(0.66 0.007 85);
+  --sidebar: oklch(0.16 0.004 85);
+  --sidebar-foreground: oklch(0.977 0.005 85);
+  --sidebar-primary: oklch(0.622 0.115 37);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.19 0.005 85);
+  --sidebar-accent-foreground: oklch(0.977 0.005 85);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.622 0.115 37);
 }
 
 @theme inline {
