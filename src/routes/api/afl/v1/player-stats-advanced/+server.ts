@@ -3,8 +3,8 @@ import { requireApiKey } from '$lib/api/auth';
 import { getPlayerAdvancedStatsPaginated, VALID_PLAYER_ADVANCED_STAT_SORT_KEYS } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ request, url }) => {
-	const denied = await requireApiKey(request);
+export const GET: RequestHandler = async ({ request, locals, url }) => {
+	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
 	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '50', 10) || 50, 1), 200);

@@ -3,8 +3,8 @@ import { requireApiKey } from '$lib/api/auth';
 import { getPlayerSeasonStats } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ request, params, url }) => {
-	const denied = await requireApiKey(request);
+export const GET: RequestHandler = async ({ request, locals, params, url }) => {
+	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
 	const id = parseInt(params.id, 10);

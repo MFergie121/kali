@@ -10,7 +10,7 @@ PROD_PROXY_PORT="${PROD_PROXY_PORT:-5436}"
 LOCAL_DB_URL="${LOCAL_DB_URL:-postgresql://postgres:postgres@localhost:5435/kali-afl}"
 PROD_DB_USER="${PROD_DB_USER:-kali-afl-user}"
 PROD_DB_NAME="${PROD_DB_NAME:-kali-afl}"
-DUMP_FILE="${DUMP_FILE:-tmp/prod-without-users-api-keys.dump}"
+DUMP_FILE="${DUMP_FILE:-tmp/prod-without-auth.dump}"
 PROXY_LOG="${PROXY_LOG:-tmp/cloud-sql-proxy.log}"
 
 proxy_pid=""
@@ -56,6 +56,7 @@ require_command docker
 require_command cloud-sql-proxy
 require_command nc
 require_command node
+require_command npx
 require_command pg_dump
 require_command pg_restore
 
@@ -92,17 +93,25 @@ else
 	prod_database_url="postgresql://${PROD_DB_USER}:${encoded_password}@localhost:${PROD_PROXY_PORT}/${PROD_DB_NAME}"
 fi
 
-echo "Dumping production data without kali_users and api_keys..."
+echo "Clearing local AFL data while preserving users and API keys..."
+DATABASE_URL="$LOCAL_DB_URL" npx tsx scripts/clear-afl-data.ts
+
+echo "Dumping production data without local-only auth data..."
 pg_dump \
 	"$prod_database_url" \
 	--format=custom \
 	--exclude-table=kali_users \
+	--exclude-table=kali_users_id_seq \
 	--exclude-table=api_keys \
+	--exclude-table=api_keys_id_seq \
+	--exclude-table=api_request_log \
+	--exclude-table=api_request_log_id_seq \
 	--file="$DUMP_FILE"
 
 echo "Restoring dump into local dev database..."
 pg_restore \
 	--clean \
+	--exit-on-error \
 	--if-exists \
 	--no-owner \
 	--no-acl \

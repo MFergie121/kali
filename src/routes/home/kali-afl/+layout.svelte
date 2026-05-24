@@ -146,6 +146,13 @@
 										{/snippet}
 									</SidebarMenuButton>
 								</SidebarMenuItem>
+								<SidebarMenuItem>
+									<SidebarMenuButton isActive={page.url.pathname === '/home/kali-afl/admin/analytics'}>
+										{#snippet child({ props })}
+											<a href="/home/kali-afl/admin/analytics" {...props}>Analytics</a>
+										{/snippet}
+									</SidebarMenuButton>
+								</SidebarMenuItem>
 							</SidebarMenu>
 						</SidebarGroupContent>
 					</SidebarGroup>
