@@ -3,8 +3,8 @@ import { getPredictionsPaginated } from "$lib/db/afl/service";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
-export const GET: RequestHandler = async ({ request, url }) => {
-  const denied = await requireApiKey(request);
+export const GET: RequestHandler = async ({ request, locals, url }) => {
+  const denied = await requireApiKey(request, locals);
   if (denied) return denied;
 
   const limit = Math.min(

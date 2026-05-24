@@ -12,9 +12,16 @@ import type {
   PredictionFactor,
   PredictionGame,
 } from "$lib/afl/predictor";
-import type { ApiKey, KaliUser, Player, Team } from "$lib/db/afl/schema";
+import type {
+  ApiKey,
+  KaliUser,
+  NewApiRequestLog,
+  Player,
+  Team,
+} from "$lib/db/afl/schema";
 import {
   apiKeys,
+  apiRequestLog,
   fixtures,
   kaliUsers,
   matches,
@@ -1267,9 +1274,12 @@ export async function resetDailyApiUsage(): Promise<{ resetCount: number }> {
   return { resetCount: result.length };
 }
 
-export async function validateApiKey(
-  key: string,
-): Promise<{ valid: boolean; rateLimited?: boolean }> {
+export async function validateApiKey(key: string): Promise<{
+  valid: boolean;
+  rateLimited?: boolean;
+  apiKeyId?: number;
+  userId?: number;
+}> {
   const [row] = await db
     .select({
       keyId: apiKeys.id,
@@ -1305,7 +1315,166 @@ export async function validateApiKey(
     })
     .where(eq(kaliUsers.id, row.userId));
 
-  return { valid: true };
+  return { valid: true, apiKeyId: row.keyId, userId: row.userId };
+}
+
+// ─── API Request Analytics ────────────────────────────────────────────────────
+
+/**
+ * Fire-and-forget insert of a single API request log row. Never throws into the
+ * caller — an analytics outage must not be able to take down the public API.
+ */
+export async function recordApiRequest(row: NewApiRequestLog): Promise<void> {
+  try {
+    await db.insert(apiRequestLog).values(row);
+  } catch (err) {
+    console.error("[analytics] failed to record api request", err);
+  }
+}
+
+/**
+ * Build the `timestamp >= since` filter, or undefined for all-time (since = null).
+ * Stored timestamps are ISO text, so we compare against an ISO string.
+ */
+function sinceFilter(since: Date | null) {
+  return since ? gte(apiRequestLog.timestamp, since.toISOString()) : undefined;
+}
+
+export type TopEndpoint = {
+  routeId: string;
+  count: number;
+  errorPct: number;
+  p50LatencyMs: number;
+};
+
+/**
+ * Per-endpoint request count, error rate (status >= 400), and median latency
+ * over the selected window, busiest first.
+ */
+export async function getTopEndpoints({
+  since,
+}: {
+  since: Date | null;
+}): Promise<TopEndpoint[]> {
+  const rows = await db
+    .select({
+      routeId: apiRequestLog.routeId,
+      count: count(),
+      errors: sql<number>`count(*) filter (where ${apiRequestLog.status} >= 400)`,
+      p50: sql<number>`percentile_cont(0.5) within group (order by ${apiRequestLog.latencyMs})`,
+    })
+    .from(apiRequestLog)
+    .where(sinceFilter(since))
+    .groupBy(apiRequestLog.routeId)
+    .orderBy(desc(count()));
+
+  return rows.map((r) => ({
+    routeId: r.routeId,
+    count: Number(r.count),
+    errorPct:
+      Number(r.count) > 0
+        ? Math.round((Number(r.errors) / Number(r.count)) * 1000) / 10
+        : 0,
+    p50LatencyMs: Math.round(Number(r.p50) ?? 0),
+  }));
+}
+
+/**
+ * Known v1 routes (from the filesystem enumerator) that received zero requests
+ * in the selected window — candidates for deprecation.
+ */
+export async function getZeroTrafficRoutes({
+  since,
+  knownRoutes,
+}: {
+  since: Date | null;
+  knownRoutes: string[];
+}): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ routeId: apiRequestLog.routeId })
+    .from(apiRequestLog)
+    .where(sinceFilter(since));
+
+  const hit = new Set(rows.map((r) => r.routeId));
+  return knownRoutes.filter((route) => !hit.has(route));
+}
+
+export type RecentError = {
+  id: number;
+  timestamp: string;
+  routeId: string;
+  status: number;
+  queryString: string | null;
+  userName: string | null;
+  userEmail: string | null;
+};
+
+/**
+ * The most recent server-side failures (status >= 500), newest first.
+ */
+export async function getRecentErrors({
+  limit = 50,
+}: {
+  limit?: number;
+}): Promise<RecentError[]> {
+  return db
+    .select({
+      id: apiRequestLog.id,
+      timestamp: apiRequestLog.timestamp,
+      routeId: apiRequestLog.routeId,
+      status: apiRequestLog.status,
+      queryString: apiRequestLog.queryString,
+      userName: kaliUsers.name,
+      userEmail: kaliUsers.email,
+    })
+    .from(apiRequestLog)
+    .leftJoin(kaliUsers, eq(apiRequestLog.userId, kaliUsers.id))
+    .where(gte(apiRequestLog.status, 500))
+    .orderBy(desc(apiRequestLog.timestamp))
+    .limit(limit);
+}
+
+export type PerUserTotal = {
+  userId: number;
+  userName: string | null;
+  userEmail: string | null;
+  count: number;
+  errorPct: number;
+};
+
+/**
+ * Top users by request count over the window, with their personal error rate.
+ * Unauthenticated traffic (null user) is excluded.
+ */
+export async function getPerUserTotals({
+  since,
+}: {
+  since: Date | null;
+}): Promise<PerUserTotal[]> {
+  const rows = await db
+    .select({
+      userId: apiRequestLog.userId,
+      userName: kaliUsers.name,
+      userEmail: kaliUsers.email,
+      count: count(),
+      errors: sql<number>`count(*) filter (where ${apiRequestLog.status} >= 400)`,
+    })
+    .from(apiRequestLog)
+    .leftJoin(kaliUsers, eq(apiRequestLog.userId, kaliUsers.id))
+    .where(and(isNotNull(apiRequestLog.userId), sinceFilter(since)))
+    .groupBy(apiRequestLog.userId, kaliUsers.name, kaliUsers.email)
+    .orderBy(desc(count()));
+
+  return rows.map((r) => ({
+    userId: r.userId as number,
+    userName: r.userName,
+    userEmail: r.userEmail,
+    count: Number(r.count),
+    errorPct:
+      Number(r.count) > 0
+        ? Math.round((Number(r.errors) / Number(r.count)) * 1000) / 10
+        : 0,
+  }));
 }
 
 // ─── Sort Column Mappings ─────────────────────────────────────────────────────

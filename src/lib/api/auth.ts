@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { validateApiKey } from '$lib/db/afl/service';
 
-export async function requireApiKey(request: Request): Promise<Response | null> {
+export async function requireApiKey(
+	request: Request,
+	locals?: App.Locals
+): Promise<Response | null> {
 	const authHeader = request.headers.get('Authorization');
 	const key = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
@@ -16,6 +19,12 @@ export async function requireApiKey(request: Request): Promise<Response | null> 
 			return json({ error: 'Rate limit exceeded' }, { status: 429 });
 		}
 		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	// Stash identity on locals so hooks.server.ts can attribute the analytics row.
+	if (locals) {
+		locals.apiKeyId = result.apiKeyId ?? null;
+		locals.userId = result.userId ?? null;
 	}
 
 	return null;

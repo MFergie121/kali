@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -271,6 +272,36 @@ export const apiKeys = pgTable("api_keys", {
   ),
 });
 
+// ─── API Request Log ──────────────────────────────────────────────────────────
+
+// Structured per-request analytics for the public /api/afl/v1/* surface.
+// Written fire-and-forget from hooks.server.ts after each response is produced.
+// apiKeyId / userId are nullable so unauthenticated 401s are still logged.
+export const apiRequestLog = pgTable(
+  "api_request_log",
+  {
+    id: serial("id").primaryKey(),
+    timestamp: text("timestamp").notNull(), // ISO 8601, matching repo convention
+    apiKeyId: integer("api_key_id").references(() => apiKeys.id, {
+      onDelete: "set null",
+    }),
+    userId: integer("user_id").references(() => kaliUsers.id, {
+      onDelete: "set null",
+    }),
+    routeId: text("route_id").notNull(), // SvelteKit event.route.id (or pathname fallback)
+    method: text("method").notNull(),
+    status: integer("status").notNull(),
+    latencyMs: integer("latency_ms").notNull(),
+    responseBytes: integer("response_bytes").notNull(),
+    queryString: text("query_string"), // NULL when no params present
+  },
+  (table) => [
+    index("api_request_log_timestamp_idx").on(table.timestamp),
+    index("api_request_log_route_id_idx").on(table.routeId),
+    index("api_request_log_user_id_idx").on(table.userId),
+  ],
+);
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type Team = typeof teams.$inferSelect;
@@ -294,3 +325,5 @@ export type KaliUser = typeof kaliUsers.$inferSelect;
 export type NewKaliUser = typeof kaliUsers.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
+export type ApiRequestLog = typeof apiRequestLog.$inferSelect;
+export type NewApiRequestLog = typeof apiRequestLog.$inferInsert;

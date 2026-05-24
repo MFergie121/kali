@@ -16,6 +16,10 @@ if (!process.env.DATABASE_URL) {
 const sql = postgres(process.env.DATABASE_URL);
 
 const tables = [
+  "api_request_log",
+  "predictions",
+  "tips",
+  "fixtures",
   "player_stats_advanced",
   "player_stats",
   "player_team_assignments",
@@ -26,8 +30,9 @@ const tables = [
 
 console.log("Clearing AFL data...");
 
+await sql`TRUNCATE ${sql(tables)} RESTART IDENTITY CASCADE`;
+
 for (const table of tables) {
-  await sql`DELETE FROM ${sql(table)}`;
   console.log(`  ${table}: cleared`);
 }
 

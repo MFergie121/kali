@@ -3,8 +3,8 @@ import { requireApiKey } from '$lib/api/auth';
 import { getAllVenues } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ request }) => {
-	const denied = await requireApiKey(request);
+export const GET: RequestHandler = async ({ request, locals }) => {
+	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
 	const data = await getAllVenues();
