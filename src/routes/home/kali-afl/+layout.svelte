@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { navigating } from '$app/stores';
 	import { page } from '$app/state';
+	import { navigating } from '$app/stores';
 	import Logo from '$lib/components/ui/custom/logo.svelte';
 	import UserMenu from '$lib/components/ui/custom/userMenu.svelte';
 	import {
@@ -167,8 +167,9 @@
 					rel="noopener noreferrer"
 					class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-transform hover:scale-[1.02]"
 				>
-					Win a Bet?
-					<ExternalLinkIcon class="size-3 opacity-60" />
+					<span class="flex-1">Finding it useful? <br>
+					Shout a Four'N Twenty!</span>
+					<ExternalLinkIcon class="size-3 opacity-60 shrink-0" />
 				</a>
 			</SidebarFooter>
 			<SidebarRail />
