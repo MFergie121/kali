@@ -62,6 +62,7 @@
 				{:else}
 					<Button href="/auth/login" class="hero-btn">get started →</Button>
 				{/if}
+				<Button href="/docs" variant="outline" class="hero-btn-ghost">read the docs →</Button>
 				<a href="https://github.com/MFergie121/kali-afl-stats" target="_blank" rel="noopener noreferrer" class="github-link">
 					github ↗
 				</a>
@@ -205,7 +206,7 @@
 				<span class="endpoint-chip">{ep}</span>
 			{/each}
 		</div>
-		<a href="/docs" class="endpoints-note">full api reference →</a>
+		<a href="/docs" class="endpoints-cta">explore the interactive docs — try every endpoint live →</a>
 	</section>
 
 	<!-- ── OSS Callout ── -->
@@ -601,11 +602,22 @@
 		transition: border-color 0.15s ease, color 0.15s ease;
 	}
 
-	.endpoints-note {
-		font-size: 0.75rem;
-		color: var(--muted-foreground);
-		letter-spacing: 0.02em;
-		margin: 0;
+	.endpoints-cta {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--primary-foreground);
+		background-color: var(--primary);
+		letter-spacing: 0.01em;
+		padding: 0.55rem 1.1rem;
+		border-radius: 0.5rem;
+		text-decoration: none;
+		transition: opacity 0.15s ease;
+	}
+
+	.endpoints-cta:hover {
+		opacity: 0.88;
 	}
 
 	/* ── OSS Callout ── */

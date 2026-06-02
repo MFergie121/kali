@@ -6,6 +6,7 @@
 	import {
 	  Sidebar,
 	  SidebarContent,
+	  SidebarFooter,
 	  SidebarGroup,
 	  SidebarGroupContent,
 	  SidebarGroupLabel,
@@ -18,6 +19,7 @@
 	  SidebarTrigger
 	} from '$lib/components/ui/sidebar';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Collapsible } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -158,6 +160,17 @@
 					</SidebarGroup>
 				{/if}
 			</SidebarContent>
+			<SidebarFooter class="border-t border-sidebar-border pt-2">
+				<a
+					href="https://buymeacoffee.com/maxfergie"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-transform hover:scale-[1.02]"
+				>
+					Win a Bet?
+					<ExternalLinkIcon class="size-3 opacity-60" />
+				</a>
+			</SidebarFooter>
 			<SidebarRail />
 		</Sidebar>
 	{/if}
