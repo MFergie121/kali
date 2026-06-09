@@ -4,10 +4,15 @@
 	import FontPicker from '$lib/components/ui/custom/fontPicker.svelte';
 	import Logo from '$lib/components/ui/custom/logo.svelte';
 	import ThemePicker from '$lib/components/ui/custom/themePicker.svelte';
+	import UseCases from '$lib/components/overview/use-cases.svelte';
+	import ContactCta from '$lib/components/overview/contact-cta.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const limitFormatted = Number(data.apiLimit).toLocaleString();
+
+	const stats = data.stats;
+	const fmt = (n: number) => n.toLocaleString();
 </script>
 
 <svelte:head>
@@ -71,7 +76,7 @@
 
 		<div class="hero-stats" style="animation-delay: 320ms">
 			<div class="hero-stat">
-				<span class="hero-stat-val">25+</span>
+				<span class="hero-stat-val">{stats.seasonsCount}</span>
 				<span class="hero-stat-label">seasons</span>
 			</div>
 			<div class="hero-divider"></div>
@@ -88,6 +93,37 @@
 			<div class="hero-stat">
 				<span class="hero-stat-val">10+</span>
 				<span class="hero-stat-label">endpoints</span>
+			</div>
+		</div>
+	</section>
+
+	<!-- ── By the numbers ── -->
+	<section class="stats" style="animation-delay: 360ms">
+		<span class="section-label">by the numbers</span>
+		<div class="hero-stats" style="margin-top: 0">
+			<div class="hero-stat">
+				<span class="hero-stat-val">{fmt(stats.totalMatches)}</span>
+				<span class="hero-stat-label">matches</span>
+			</div>
+			<div class="hero-divider"></div>
+			<div class="hero-stat">
+				<span class="hero-stat-val">{fmt(stats.totalPlayers)}</span>
+				<span class="hero-stat-label">players</span>
+			</div>
+			<div class="hero-divider"></div>
+			<div class="hero-stat">
+				<span class="hero-stat-val">{fmt(stats.totalStatRecords)}</span>
+				<span class="hero-stat-label">stat records</span>
+			</div>
+			<div class="hero-divider"></div>
+			<div class="hero-stat">
+				<span class="hero-stat-val">{stats.seasonsCount}</span>
+				<span class="hero-stat-label">seasons</span>
+			</div>
+			<div class="hero-divider"></div>
+			<div class="hero-stat">
+				<span class="hero-stat-val">{stats.venuesCount}</span>
+				<span class="hero-stat-label">venues</span>
 			</div>
 		</div>
 	</section>
@@ -133,6 +169,12 @@
 			</div>
 
 		</div>
+	</section>
+
+	<!-- ── What you can build ── -->
+	<section class="usecases" style="animation-delay: 490ms">
+		<span class="section-label">what you can build</span>
+		<UseCases />
 	</section>
 
 	<!-- ── API Quick-look ── -->
@@ -207,6 +249,11 @@
 			{/each}
 		</div>
 		<a href="/docs" class="endpoints-cta">explore the interactive docs — try every endpoint live →</a>
+	</section>
+
+	<!-- ── Contact ── -->
+	<section class="contact" style="animation-delay: 620ms">
+		<ContactCta />
 	</section>
 
 	<!-- ── OSS Callout ── -->
@@ -809,5 +856,32 @@
 		.signin-section {
 			padding: 3.5rem 1.5rem;
 		}
+	}
+
+	/* ── By the numbers ── */
+	.stats {
+		max-width: 52rem;
+		margin: 0 auto;
+		padding: 3.5rem 1.5rem 1.5rem;
+		width: 100%;
+		animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	/* ── What you can build ── */
+	.usecases {
+		max-width: 72rem;
+		margin: 0 auto;
+		padding: 1.5rem 1.5rem 5rem;
+		width: 100%;
+		animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	/* ── Contact ── */
+	.contact {
+		max-width: 52rem;
+		margin: 0 auto;
+		padding: 0 1.5rem 5rem;
+		width: 100%;
+		animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 	}
 </style>

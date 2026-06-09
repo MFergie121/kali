@@ -58,6 +58,13 @@
 					<SidebarGroupContent>
 						<SidebarMenu>
 							<SidebarMenuItem>
+								<SidebarMenuButton isActive={page.url.pathname === '/home/kali-afl/overview'}>
+									{#snippet child({ props })}
+										<a href="/home/kali-afl/overview" {...props}>Overview</a>
+									{/snippet}
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+							<SidebarMenuItem>
 								<SidebarMenuButton isActive={isDashboardActive}>
 									{#snippet child({ props })}
 										<a href={dashboardHref} {...props}>Dashboard</a>

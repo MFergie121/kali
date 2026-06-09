@@ -2568,3 +2568,50 @@ export async function updatePredictionOutcomes(year: number): Promise<number> {
 
   return updated;
 }
+
+// ─── Data stats (public landing / in-app overview) ──────────────────────────────
+
+export interface DataStats {
+  totalMatches: number;
+  totalPlayers: number;
+  totalStatRecords: number;
+  seasonsCount: number;
+  venuesCount: number;
+}
+
+// These counts only change when a scrape runs, so a short in-memory cache keeps
+// the public landing page fast for anonymous traffic without going stale in any
+// way that matters. Self-heals on expiry — no invalidation hook needed.
+const DATA_STATS_TTL_MS = 60 * 60 * 1000; // 1 hour
+let dataStatsCache: { value: DataStats; expires: number } | null = null;
+
+export async function getDataStats(): Promise<DataStats> {
+  if (dataStatsCache && dataStatsCache.expires > Date.now()) {
+    return dataStatsCache.value;
+  }
+
+  const [[{ c: totalMatches }], [{ c: totalPlayers }], [{ c: totalStatRecords }]] =
+    await Promise.all([
+      db.select({ c: count() }).from(matches),
+      db.select({ c: count() }).from(players),
+      db.select({ c: count() }).from(playerStats),
+    ]);
+
+  const [{ c: seasonsCount }] = await db
+    .select({ c: sql<number>`count(distinct ${matches.year})` })
+    .from(matches);
+  const [{ c: venuesCount }] = await db
+    .select({ c: sql<number>`count(distinct ${matches.venue})` })
+    .from(matches);
+
+  const value: DataStats = {
+    totalMatches,
+    totalPlayers,
+    totalStatRecords,
+    seasonsCount: Number(seasonsCount),
+    venuesCount: Number(venuesCount),
+  };
+
+  dataStatsCache = { value, expires: Date.now() + DATA_STATS_TTL_MS };
+  return value;
+}
