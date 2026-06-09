@@ -18,6 +18,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:clear": "npx tsx --env-file=.env scripts/clear-afl-data.ts",
+    "db:hash-keys": "npx tsx --env-file=.env scripts/hash-api-keys.ts",
     "db:seed:dev": "bash scripts/seed-dev-db-from-prod.sh"
   },
   "devDependencies": {

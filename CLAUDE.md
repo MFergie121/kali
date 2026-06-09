@@ -45,7 +45,9 @@ SvelteKit 2 + Svelte 5 (runes) + Tailwind v4 + Drizzle ORM + PostgreSQL. SSR via
   const denied = await requireApiKey(request);
   if (denied) return denied;
   ```
-- Keys are tracked in `api_keys` with `usage` / `totalUsage` / `limit` for rate limiting.
+- Quota is enforced **per user**, not per key (issue #6). All of a user's keys share one daily bucket on `kali_users` (`usage` / `limit` / `reset_at`). `validateApiKey` resolves the bearer's SHA-256 hash → user and applies the lazy-reset + check-increment in a **single atomic `UPDATE`** (0 rows ⇒ 429). The window self-heals at 00:00 UTC — no cron. Per-key `usage` / `totalUsage` on `api_keys` are **visibility only** and gate nothing; they're bumped off the latency path in `hooks.server.ts`.
+- Keys are stored as `key_hash` (SHA-256, unique) + `key_prefix` (first 8 chars, non-secret); the plaintext token is shown once at creation and never persisted. Pure logic lives in `src/lib/api/{quota-window,key-crypto,refund}.ts` (unit-tested). `hooks.server.ts` emits `X-RateLimit-*` headers and refunds the user bucket on 5xx (`isRefundable`).
+- `npm run db:hash-keys` (`scripts/hash-api-keys.ts`) is the one-off backfill for the additive→backfill→drop migration sequence documented in that script.
 
 ### REST API conventions
 - Path: `src/routes/api/afl/v{n}/{resource}/+server.ts` (or `[id]/+server.ts` for single-resource).

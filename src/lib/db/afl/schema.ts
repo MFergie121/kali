@@ -248,28 +248,36 @@ export const kaliUsers = pgTable("kali_users", {
   prefTheme: text("pref_theme").notNull().default("serika"),
   prefFont: text("pref_font").notNull().default("ibm-plex-mono"),
   prefDarkMode: text("pref_dark_mode").notNull().default("system"),
-  totalApiUsage: integer("total_api_usage").notNull().default(0),
+  totalApiUsage: integer("total_api_usage").notNull().default(0), // lifetime analytics
+  // Per-user daily quota bucket. All of a user's API keys draw from this.
+  usage: integer("usage").notNull().default(0), // requests consumed in the current window
+  limit: integer("limit").default(
+    process.env.API_KEY_DEFAULT_LIMIT
+      ? parseInt(process.env.API_KEY_DEFAULT_LIMIT)
+      : 5000,
+  ), // null = unlimited
+  resetAt: text("reset_at"), // next 00:00 UTC boundary; null = uninitialised (lazily set on first request)
 });
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
+// API keys are pure credentials — they gate nothing on their own. Quota is
+// enforced per user (kali_users), so all of a user's keys share one bucket.
+// Stored as a SHA-256 hash with a short non-secret prefix; the plaintext token
+// is shown to the user exactly once at creation and is never retrievable.
 export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
     .notNull()
     .references(() => kaliUsers.id, { onDelete: "cascade" }),
-  key: text("key").notNull().unique(),
+  keyHash: text("key_hash").notNull().unique(), // sha256(rawToken), looked up on every request
+  keyPrefix: text("key_prefix").notNull(), // first 8 chars of the raw token, for UI identification
   name: text("name").notNull(),
   createdAt: text("created_at").notNull(),
   lastUsedAt: text("last_used_at"),
   revoked: boolean("revoked").notNull().default(false),
-  usage: integer("usage").notNull().default(0),
-  totalUsage: integer("total_usage").notNull().default(0),
-  limit: integer("limit").default(
-    process.env.API_KEY_DEFAULT_LIMIT
-      ? parseInt(process.env.API_KEY_DEFAULT_LIMIT)
-      : 5000,
-  ),
+  usage: integer("usage").notNull().default(0), // per-key visibility counter only — gates nothing
+  totalUsage: integer("total_usage").notNull().default(0), // per-key lifetime, visibility only
 });
 
 // ─── API Request Log ──────────────────────────────────────────────────────────
