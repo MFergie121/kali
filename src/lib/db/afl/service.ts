@@ -13,7 +13,6 @@ import type {
   PredictionGame,
 } from "$lib/afl/predictor";
 import type {
-  ApiKey,
   KaliUser,
   NewApiRequestLog,
   Player,
@@ -47,7 +46,8 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
+import { generateApiKey, hashApiKey, keyPrefix } from "$lib/api/key-crypto";
+import { nextResetAt } from "$lib/api/quota-window";
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
@@ -1202,57 +1202,100 @@ export async function getUserByEmail(email: string): Promise<KaliUser | null> {
   return user ?? null;
 }
 
-export async function setApiLimit(
-  keyId: number,
+/** Set a user's daily quota ceiling. `null` means unlimited. */
+export async function setUserLimit(
+  userId: number,
   limit: number | null,
 ): Promise<void> {
-  await db.update(apiKeys).set({ limit }).where(eq(apiKeys.id, keyId));
+  await db.update(kaliUsers).set({ limit }).where(eq(kaliUsers.id, userId));
+}
+
+/**
+ * Force a single user's quota window open again: zero the counter and advance
+ * the boundary to the next 00:00 UTC. Used by the admin force-reset tool to
+ * unblock someone before their window rolls over on its own.
+ */
+export async function forceResetUserQuota(userId: number): Promise<void> {
+  await db
+    .update(kaliUsers)
+    .set({ usage: 0, resetAt: nextResetAt() })
+    .where(eq(kaliUsers.id, userId));
 }
 
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
+/**
+ * Mint a new API key for a user. The raw token is returned exactly once; only
+ * its SHA-256 hash and a non-secret 8-char prefix are persisted. Keys carry no
+ * per-key limit — quota is enforced against the owning user.
+ */
 export async function createApiKey(
   userId: number,
   name: string,
 ): Promise<string> {
-  const key = randomBytes(32).toString("hex");
+  const raw = generateApiKey();
   const now = new Date().toISOString();
-  
-  const defaultLimit = env.API_KEY_DEFAULT_LIMIT ? parseInt(env.API_KEY_DEFAULT_LIMIT) : 5000;
 
   await db.insert(apiKeys).values({
     userId,
-    key,
+    keyHash: hashApiKey(raw),
+    keyPrefix: keyPrefix(raw),
     name,
     createdAt: now,
-    limit: defaultLimit,
-  }); 
-  return key;
+  });
+  return raw;
 }
 
-export async function listApiKeysForUser(userId: number): Promise<ApiKey[]> {
+// A key row joined with its owning user's shared quota bucket. Per-key
+// `keyUsage` / `totalUsage` are visibility-only; `usage` / `limit` / `resetAt`
+// are the user-level figures that actually gate access.
+export interface ApiKeyView {
+  id: number;
+  userId: number;
+  keyPrefix: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revoked: boolean;
+  keyUsage: number;
+  totalUsage: number;
+  usage: number;
+  limit: number | null;
+  resetAt: string | null;
+}
+
+const apiKeyViewColumns = {
+  id: apiKeys.id,
+  userId: apiKeys.userId,
+  keyPrefix: apiKeys.keyPrefix,
+  name: apiKeys.name,
+  createdAt: apiKeys.createdAt,
+  lastUsedAt: apiKeys.lastUsedAt,
+  revoked: apiKeys.revoked,
+  keyUsage: apiKeys.usage,
+  totalUsage: apiKeys.totalUsage,
+  usage: kaliUsers.usage,
+  limit: kaliUsers.limit,
+  resetAt: kaliUsers.resetAt,
+};
+
+export async function listApiKeysForUser(
+  userId: number,
+): Promise<ApiKeyView[]> {
   return db
-    .select()
+    .select(apiKeyViewColumns)
     .from(apiKeys)
+    .innerJoin(kaliUsers, eq(apiKeys.userId, kaliUsers.id))
     .where(eq(apiKeys.userId, userId))
     .orderBy(desc(apiKeys.createdAt));
 }
 
 export async function listAllApiKeys(): Promise<
-  (ApiKey & { userName: string; userEmail: string })[]
+  (ApiKeyView & { userName: string; userEmail: string })[]
 > {
   return db
     .select({
-      id: apiKeys.id,
-      userId: apiKeys.userId,
-      key: apiKeys.key,
-      name: apiKeys.name,
-      createdAt: apiKeys.createdAt,
-      lastUsedAt: apiKeys.lastUsedAt,
-      revoked: apiKeys.revoked,
-      usage: apiKeys.usage,
-      totalUsage: apiKeys.totalUsage,
-      limit: apiKeys.limit,
+      ...apiKeyViewColumns,
       userName: kaliUsers.name,
       userEmail: kaliUsers.email,
     })
@@ -1265,57 +1308,127 @@ export async function revokeApiKey(id: number): Promise<void> {
   await db.update(apiKeys).set({ revoked: true }).where(eq(apiKeys.id, id));
 }
 
-export async function resetDailyApiUsage(): Promise<{ resetCount: number }> {
-  const result = await db
-    .update(apiKeys)
-    .set({ usage: 0 })
-    .where(eq(apiKeys.revoked, false))
-    .returning({ id: apiKeys.id });
-  return { resetCount: result.length };
-}
-
-export async function validateApiKey(key: string): Promise<{
+export interface ValidateApiKeyResult {
   valid: boolean;
   rateLimited?: boolean;
   apiKeyId?: number;
   userId?: number;
-}> {
-  const [row] = await db
-    .select({
-      keyId: apiKeys.id,
-      revoked: apiKeys.revoked,
-      userId: apiKeys.userId,
-      usage: apiKeys.usage,
-      totalUsage: apiKeys.totalUsage,
-      limit: apiKeys.limit,
-    })
+  limit?: number | null;
+  remaining?: number;
+  resetAt?: string;
+}
+
+/**
+ * Resolve a raw bearer token to its owning user and, in a single atomic
+ * statement, apply the lazy calendar-aligned window reset and the
+ * check-and-increment against the per-user quota. The read and write cannot
+ * interleave, so two concurrent requests can neither both pass the boundary
+ * (TOCTOU) nor lose an increment.
+ *
+ * Zero rows returned means the user is over their limit (429). A `null` /
+ * uninitialised `reset_at` is treated as an expired window so it self-heals on
+ * the first request. Per-key counters are bumped off the latency path by hooks.
+ */
+export async function validateApiKey(
+  rawKey: string,
+): Promise<ValidateApiKeyResult> {
+  const hash = hashApiKey(rawKey);
+  const now = new Date().toISOString();
+  const next = nextResetAt(new Date(now));
+
+  // First resolve the key → its id + owning user, independent of quota state,
+  // so we can tell "no such key" (401) apart from "over limit" (429).
+  const [key] = await db
+    .select({ id: apiKeys.id, userId: apiKeys.userId })
     .from(apiKeys)
-    .where(eq(apiKeys.key, key));
+    .where(and(eq(apiKeys.keyHash, hash), eq(apiKeys.revoked, false)));
 
-  if (!row || row.revoked) return { valid: false };
+  if (!key) return { valid: false };
 
-  if (row.limit !== null && row.usage >= row.limit) {
-    return { valid: false, rateLimited: true };
+  // Atomic lazy-reset + check-increment on the user row. Postgres evaluates the
+  // SET CASE arms and the WHERE guard against the same pre-update row, so the
+  // "window expired" test is consistent across all three.
+  const rows = await db.execute<{
+    usage: number;
+    limit: number | null;
+    reset_at: string | null;
+  }>(sql`
+    UPDATE ${kaliUsers} SET
+      usage = CASE WHEN ${kaliUsers.resetAt} IS NULL OR ${now} >= ${kaliUsers.resetAt}
+                   THEN 1 ELSE ${kaliUsers.usage} + 1 END,
+      reset_at = CASE WHEN ${kaliUsers.resetAt} IS NULL OR ${now} >= ${kaliUsers.resetAt}
+                      THEN ${next} ELSE ${kaliUsers.resetAt} END,
+      total_api_usage = ${kaliUsers.totalApiUsage} + 1,
+      last_active_at = ${now}
+    WHERE ${kaliUsers.id} = ${key.userId}
+      AND (${kaliUsers.limit} IS NULL
+           OR ${kaliUsers.usage} < ${kaliUsers.limit}
+           OR ${kaliUsers.resetAt} IS NULL
+           OR ${now} >= ${kaliUsers.resetAt})
+    RETURNING ${kaliUsers.usage} AS usage, ${kaliUsers.limit} AS limit, ${kaliUsers.resetAt} AS reset_at
+  `);
+
+  const row = rows[0];
+  if (!row) {
+    // User exists but is over their limit within the current window. Fetch the
+    // figures (one extra read, only on the blocked path) so the 429 can carry
+    // accurate X-RateLimit-* / Retry-After headers.
+    const [u] = await db
+      .select({
+        usage: kaliUsers.usage,
+        limit: kaliUsers.limit,
+        resetAt: kaliUsers.resetAt,
+      })
+      .from(kaliUsers)
+      .where(eq(kaliUsers.id, key.userId));
+    return {
+      valid: false,
+      rateLimited: true,
+      userId: key.userId,
+      limit: u?.limit ?? null,
+      remaining: 0,
+      resetAt: u?.resetAt ?? next,
+    };
   }
 
-  const now = new Date().toISOString();
+  const limit = row.limit;
+  return {
+    valid: true,
+    apiKeyId: key.id,
+    userId: key.userId,
+    limit,
+    remaining: limit === null ? undefined : Math.max(0, limit - row.usage),
+    resetAt: row.reset_at ?? next,
+  };
+}
+
+/**
+ * Off-latency-path bump of a key's visibility counters after a request. Never
+ * gates anything; failures are swallowed by the caller (hooks).
+ */
+export async function bumpKeyUsage(apiKeyId: number): Promise<void> {
   await db
     .update(apiKeys)
     .set({
-      lastUsedAt: now,
-      usage: row.usage + 1,
-      totalUsage: row.totalUsage + 1,
+      usage: sql`${apiKeys.usage} + 1`,
+      totalUsage: sql`${apiKeys.totalUsage} + 1`,
+      lastUsedAt: new Date().toISOString(),
     })
-    .where(eq(apiKeys.id, row.keyId));
+    .where(eq(apiKeys.id, apiKeyId));
+}
+
+/**
+ * Refund one unit of a user's quota (and lifetime counter) after a 5xx, clamped
+ * so usage never goes below 0. Off the latency path; called from hooks.
+ */
+export async function refundUserQuota(userId: number): Promise<void> {
   await db
     .update(kaliUsers)
     .set({
-      lastActiveAt: now,
-      totalApiUsage: sql`${kaliUsers.totalApiUsage} + 1`,
+      usage: sql`GREATEST(${kaliUsers.usage} - 1, 0)`,
+      totalApiUsage: sql`GREATEST(${kaliUsers.totalApiUsage} - 1, 0)`,
     })
-    .where(eq(kaliUsers.id, row.userId));
-
-  return { valid: true, apiKeyId: row.keyId, userId: row.userId };
+    .where(eq(kaliUsers.id, userId));
 }
 
 // ─── API Request Analytics ────────────────────────────────────────────────────
