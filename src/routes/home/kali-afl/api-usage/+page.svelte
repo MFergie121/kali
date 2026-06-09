@@ -21,6 +21,19 @@
 	function isCritical(pct: number): boolean {
 		return pct >= 90;
 	}
+
+	function formatReset(iso: string | null | undefined) {
+		if (!iso) return '—';
+		return new Date(iso).toLocaleString('en-AU', {
+			day: 'numeric',
+			month: 'short',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
+	const quotaPct = $derived(usagePct(data.user.usage, data.user.limit));
+	const quotaCritical = $derived(isCritical(quotaPct));
 </script>
 
 <div class="mx-auto max-w-3xl space-y-6 p-6">
@@ -67,6 +80,29 @@
 		</div>
 	</div>
 
+	<!-- Quota summary (shared across all of this user's keys) -->
+	<div class="rounded-lg border border-border px-5 py-4">
+		<div class="flex items-baseline justify-between">
+			<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Daily quota</p>
+			<p class="text-xs text-muted-foreground">resets {formatReset(data.user.resetAt)}</p>
+		</div>
+		<p class="mt-2 font-mono text-sm text-foreground">
+			{data.user.usage.toLocaleString()} / {data.user.limit === null ? '∞' : data.user.limit.toLocaleString()}
+			<span class="text-xs text-muted-foreground">requests today</span>
+		</p>
+		{#if data.user.limit !== null}
+			<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+				<div
+					class="h-full rounded-full {quotaCritical ? 'bg-destructive' : 'bg-primary'}"
+					style="width: {quotaPct}%"
+				></div>
+			</div>
+		{/if}
+		<p class="mt-2 text-xs text-muted-foreground">
+			All of your API keys share this single bucket. Resets at 00:00 UTC.
+		</p>
+	</div>
+
 	<!-- Keys table -->
 	<div class="space-y-4">
 		<p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">API Keys</p>
@@ -77,8 +113,8 @@
 					<thead>
 						<tr class="border-b border-border bg-muted">
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
-							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Today / Total</th>
-							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Limit</th>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Prefix</th>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground">This key (today / total)</th>
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Last used</th>
 							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
 							<th class="px-3 py-2"></th>
@@ -86,29 +122,13 @@
 					</thead>
 					<tbody class="divide-y divide-border">
 						{#each data.keys as key (key.id)}
-							{@const pct = usagePct(key.usage, key.limit)}
-							{@const critical = isCritical(pct)}
 							<tr class="bg-card">
 								<td class="px-3 py-2 font-mono text-foreground">{key.name}</td>
+								<td class="px-3 py-2 font-mono text-muted-foreground">{key.keyPrefix}…</td>
 								<td class="px-3 py-2 text-muted-foreground">
-									<div>
-										<span class="font-mono">{key.usage.toLocaleString()}</span>
-										<span class="text-muted-foreground/60 text-xs"> today</span>
-										{#if key.limit !== null}
-											<div class="mt-1 h-1 w-16 overflow-hidden rounded-full bg-muted">
-												<div
-													class="h-full rounded-full {critical ? 'bg-destructive' : 'bg-primary'}"
-													style="width: {pct}%"
-												></div>
-											</div>
-										{/if}
-										<div class="mt-1 font-mono text-xs text-muted-foreground/60">
-											{key.totalUsage.toLocaleString()} total
-										</div>
-									</div>
-								</td>
-								<td class="px-3 py-2 font-mono text-muted-foreground">
-									{key.limit === null ? '∞' : key.limit.toLocaleString()}
+									<span class="font-mono">{key.keyUsage.toLocaleString()}</span>
+									<span class="text-muted-foreground/60 text-xs"> today</span>
+									<span class="font-mono text-muted-foreground/60"> · {key.totalUsage.toLocaleString()} total</span>
 								</td>
 								<td class="px-3 py-2 text-muted-foreground">{formatDateShort(key.lastUsedAt)}</td>
 								<td class="px-3 py-2">

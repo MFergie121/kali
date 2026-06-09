@@ -92,7 +92,7 @@
 							<th>Created</th>
 							<th>Last used</th>
 							<th>Status</th>
-							<th>Set limit</th>
+							<th>User quota</th>
 							<th></th>
 						</tr>
 					</thead>
@@ -105,7 +105,10 @@
 									<span class="user-name">{key.userName}</span>
 									<span class="user-email">{key.userEmail}</span>
 								</td>
-								<td class="td-mono">{key.name}</td>
+								<td class="td-mono">
+									{key.name}
+									<span class="key-prefix">{key.keyPrefix}…</span>
+								</td>
 								<td class="td-usage">
 									<span class="td-mono">
 										{key.usage.toLocaleString()} / {key.limit === null ? '∞' : key.limit.toLocaleString()}
@@ -119,7 +122,7 @@
 											></div>
 										</div>
 									{/if}
-									<div class="td-lifetime">{key.totalUsage.toLocaleString()} lifetime</div>
+									<div class="td-lifetime">{key.keyUsage.toLocaleString()} this key · {key.totalUsage.toLocaleString()} lifetime</div>
 								</td>
 								<td class="td-date">{formatDateShort(key.createdAt)}</td>
 								<td class="td-date">{formatDateShort(key.lastUsedAt)}</td>
@@ -136,7 +139,7 @@
 								</td>
 								<td>
 									<form method="POST" action="?/setLimit" use:enhance class="limit-form">
-										<input type="hidden" name="keyId" value={key.id} />
+										<input type="hidden" name="userId" value={key.userId} />
 										<input
 											name="limit"
 											type="number"
@@ -146,6 +149,14 @@
 											class="limit-input"
 										/>
 										<button type="submit" class="btn-small">Save</button>
+									</form>
+									<form method="POST" action="?/forceReset" use:enhance class="reset-form">
+										<input type="hidden" name="userId" value={key.userId} />
+										<button
+											type="submit"
+											class="btn-small"
+											onclick={(e) => { if (!confirm(`Reset today’s quota for ${key.userEmail}?`)) e.preventDefault(); }}
+										>Reset quota</button>
 									</form>
 								</td>
 								<td class="td-action">
@@ -431,11 +442,22 @@
 
 	.badge-revoked .badge-dot { background-color: var(--destructive); }
 
+	.key-prefix {
+		margin-left: 0.4rem;
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+		opacity: 0.7;
+	}
+
 	/* Limit form */
 	.limit-form {
 		display: flex;
 		align-items: center;
 		gap: 0.375rem;
+	}
+
+	.reset-form {
+		margin-top: 0.375rem;
 	}
 
 	.limit-input {

@@ -1,4 +1,9 @@
-import { listAllApiKeys, revokeApiKey, setApiLimit } from "$lib/db/afl/service";
+import {
+  forceResetUserQuota,
+  listAllApiKeys,
+  revokeApiKey,
+  setUserLimit,
+} from "$lib/db/afl/service";
 import { requireAdmin } from "$lib/server/admin";
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
@@ -31,14 +36,16 @@ export const actions: Actions = {
     return { revoked: true };
   },
 
+  // Quota is per-user now, so the limit is keyed by the owning user, not a key.
   setLimit: async ({ request, locals }) => {
     await requireAdmin(locals);
 
     const data = await request.formData();
-    const keyId = parseInt(data.get("keyId") as string, 10);
+    const userId = parseInt(data.get("userId") as string, 10);
     const limitRaw = (data.get("limit") as string)?.trim();
 
-    if (isNaN(keyId) || keyId < 1) return fail(400, { error: "Invalid key." });
+    if (isNaN(userId) || userId < 1)
+      return fail(400, { error: "Invalid user." });
 
     const limit =
       limitRaw === "" || limitRaw === "null" ? null : parseInt(limitRaw, 10);
@@ -49,7 +56,19 @@ export const actions: Actions = {
       });
     }
 
-    await setApiLimit(keyId, limit);
+    await setUserLimit(userId, limit);
     return { limitUpdated: true };
+  },
+
+  forceReset: async ({ request, locals }) => {
+    await requireAdmin(locals);
+
+    const data = await request.formData();
+    const userId = parseInt(data.get("userId") as string, 10);
+    if (isNaN(userId) || userId < 1)
+      return fail(400, { error: "Invalid user." });
+
+    await forceResetUserQuota(userId);
+    return { quotaReset: true };
   },
 };
