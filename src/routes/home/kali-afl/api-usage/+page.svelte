@@ -46,6 +46,17 @@
 		</p>
 	</div>
 
+	<!-- Key-deletion disclaimer -->
+	<div class="rounded-lg border border-border bg-muted p-4">
+		<p class="text-sm font-medium text-foreground">
+			Heads up — keys created before 9 June 2026 no longer work.
+		</p>
+		<p class="mt-1 text-sm text-muted-foreground">
+			A maintenance issue removed earlier API keys. If one of your keys has stopped authenticating,
+			generate a new key below; the old token cannot be recovered.
+		</p>
+	</div>
+
 	<!-- Success banner -->
 	{#if form && 'createdToken' in form && form.createdToken}
 		<div class="rounded-lg border border-border bg-muted p-4">
