@@ -1,6 +1,7 @@
 import {
   createApiKey,
   getUserByEmail,
+  lazyResetUserQuota,
   listApiKeysForUser,
   revokeApiKey,
 } from "$lib/db/afl/service";
@@ -15,9 +16,13 @@ export const load: PageServerLoad = async ({ locals }) => {
   const user = await getUserByEmail(session.user.email);
   if (!user) error(404, "User not found");
 
+  // Self-heal: if this user's quota window has expired, roll it over now so the
+  // page shows the true current-window figures instead of yesterday's stale row.
+  await lazyResetUserQuota(user.id);
+  const fresh = await getUserByEmail(session.user.email);
   const keys = await listApiKeysForUser(user.id);
 
-  return { user, keys };
+  return { user: fresh ?? user, keys };
 };
 
 export const actions: Actions = {

@@ -66,11 +66,26 @@
 				<span class="stat-label">revoked</span>
 			</div>
 		</div>
+		<form method="POST" action="?/resetExpired" use:enhance class="reset-expired-row">
+			<button
+				type="submit"
+				class="btn-primary"
+				onclick={(e) => { if (!confirm('Reset quota for all users whose window has expired?')) e.preventDefault(); }}
+			>
+				Reset expired quotas
+			</button>
+			<span class="reset-expired-hint">Rolls every expired window forward to the next 00:00 UTC.</span>
+		</form>
 	</div>
 
 	<!-- Action feedback -->
 	{#if form && 'error' in form && form.error}
 		<div class="banner banner-err">{form.error}</div>
+	{/if}
+	{#if form && 'resetExpiredCount' in form}
+		<div class="banner banner-ok">
+			Reset {form.resetExpiredCount} user{form.resetExpiredCount === 1 ? '' : 's'} whose window had expired.
+		</div>
 	{/if}
 
 	<!-- Keys table -->
@@ -300,6 +315,25 @@
 		background-color: color-mix(in oklch, var(--destructive), transparent 88%);
 		color: var(--destructive);
 		border: 1px solid color-mix(in oklch, var(--destructive), transparent 70%);
+	}
+
+	.banner-ok {
+		background-color: color-mix(in oklch, var(--primary), transparent 88%);
+		color: var(--primary);
+		border: 1px solid color-mix(in oklch, var(--primary), transparent 70%);
+	}
+
+	.reset-expired-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.reset-expired-hint {
+		font-size: 0.75rem;
+		color: var(--muted-foreground);
 	}
 
 	/* Table */

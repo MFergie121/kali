@@ -1222,6 +1222,43 @@ export async function forceResetUserQuota(userId: number): Promise<void> {
     .where(eq(kaliUsers.id, userId));
 }
 
+/**
+ * Lazily reset ONE user's quota window iff it has expired (or was never
+ * initialised). No-op when the window is still active, so it's idempotent and
+ * cheap to call on every page view. Used by the web UI so a signed-in user
+ * always sees the true current-window figures even if they haven't hit the API
+ * since the boundary rolled over. Sets `usage = 0` (a page view does not consume
+ * a request, unlike the API path which resets to 1).
+ */
+export async function lazyResetUserQuota(userId: number): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .update(kaliUsers)
+    .set({ usage: 0, resetAt: nextResetAt() })
+    .where(
+      and(
+        eq(kaliUsers.id, userId),
+        or(isNull(kaliUsers.resetAt), lte(kaliUsers.resetAt, now)),
+      ),
+    );
+}
+
+/**
+ * Lazily reset EVERY user whose window has expired, in one statement. Returns
+ * the number of users reset. Backs the admin "reset expired quotas" button so an
+ * admin can roll everyone's window forward without waiting for each user to make
+ * an API call.
+ */
+export async function lazyResetAllExpiredQuotas(): Promise<number> {
+  const now = new Date().toISOString();
+  const reset = await db
+    .update(kaliUsers)
+    .set({ usage: 0, resetAt: nextResetAt() })
+    .where(or(isNull(kaliUsers.resetAt), lte(kaliUsers.resetAt, now)))
+    .returning({ id: kaliUsers.id });
+  return reset.length;
+}
+
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
 /**

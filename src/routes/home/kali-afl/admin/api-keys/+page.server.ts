@@ -1,5 +1,6 @@
 import {
   forceResetUserQuota,
+  lazyResetAllExpiredQuotas,
   listAllApiKeys,
   revokeApiKey,
   setUserLimit,
@@ -70,5 +71,14 @@ export const actions: Actions = {
 
     await forceResetUserQuota(userId);
     return { quotaReset: true };
+  },
+
+  // Bulk lazy reset: roll forward every user whose window has already expired so
+  // the table reflects reset quotas without waiting on each user's next call.
+  resetExpired: async ({ locals }) => {
+    await requireAdmin(locals);
+
+    const count = await lazyResetAllExpiredQuotas();
+    return { resetExpiredCount: count };
   },
 };
