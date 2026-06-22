@@ -94,6 +94,20 @@ export interface ScrapedMatchAdvancedStats {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Fetch a footywire page and return its raw HTML. Isolates the only network I/O
+ * in the match scrapers so the parsing logic can live in pure, fixture-testable
+ * functions (parseMatchStats / parseMatchAdvancedStats).
+ */
+async function fetchHtml(url: string, label: string): Promise<string> {
+  console.log(`[afl-scraper] ${label}: fetching ${url}`);
+  const res = await fetch(url, { headers: HEADERS });
+  console.log(`[afl-scraper] ${label}: HTTP ${res.status}`);
+  const html = await res.text();
+  console.log(`[afl-scraper] ${label}: HTML length=${html.length}`);
+  return html;
+}
+
 function num(s: string | undefined): number {
   const n = parseInt(s?.trim() ?? "0", 10);
   return isNaN(n) ? 0 : n;
@@ -394,14 +408,20 @@ export async function getMatchIdsForRound(
 export async function scrapeMatchStats(
   mid: number,
 ): Promise<ScrapedMatchStats> {
-  const url = `${BASE}/ft_match_statistics?mid=${mid}`;
-  console.log(`[afl-scraper] scrapeMatchStats: fetching ${url}`);
+  const html = await fetchHtml(
+    `${BASE}/ft_match_statistics?mid=${mid}`,
+    "scrapeMatchStats",
+  );
+  return parseMatchStats(html, mid);
+}
 
-  const res = await fetch(url, { headers: HEADERS });
-  console.log(`[afl-scraper] scrapeMatchStats: HTTP ${res.status}`);
-  const html = await res.text();
-  console.log(`[afl-scraper] scrapeMatchStats: HTML length=${html.length}`);
-
+/**
+ * Pure parser for a footywire ft_match_statistics page: turns raw HTML into the
+ * structured match + per-player stats. No network or DB, so it can be exercised
+ * directly against saved HTML fixtures. Throws if the score table or the team
+ * stat sections can't be located.
+ */
+export function parseMatchStats(html: string, mid: number): ScrapedMatchStats {
   const root = parse(html);
 
   // ── Round / venue / date / year from body text ────────────────────────────
@@ -680,16 +700,21 @@ export async function scrapeMatchStats(
 export async function scrapeMatchAdvancedStats(
   mid: number,
 ): Promise<ScrapedMatchAdvancedStats> {
-  const url = `${BASE}/ft_match_statistics?mid=${mid}&advv=Y`;
-  console.log(`[afl-scraper] scrapeMatchAdvancedStats: fetching ${url}`);
-
-  const res = await fetch(url, { headers: HEADERS });
-  console.log(`[afl-scraper] scrapeMatchAdvancedStats: HTTP ${res.status}`);
-  const html = await res.text();
-  console.log(
-    `[afl-scraper] scrapeMatchAdvancedStats: HTML length=${html.length}`,
+  const html = await fetchHtml(
+    `${BASE}/ft_match_statistics?mid=${mid}&advv=Y`,
+    "scrapeMatchAdvancedStats",
   );
+  return parseMatchAdvancedStats(html, mid);
+}
 
+/**
+ * Pure parser for the advanced (advv=Y) footywire stats page. No network or DB.
+ * Pre-2015 pages lack the 17 advanced columns and yield empty stat arrays.
+ */
+export function parseMatchAdvancedStats(
+  html: string,
+  mid: number,
+): ScrapedMatchAdvancedStats {
   const root = parse(html);
 
   // ── Score table — same structure as base page ─────────────────────────────

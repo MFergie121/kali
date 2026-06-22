@@ -1,6 +1,8 @@
 import { env } from "$env/dynamic/private";
 import type {
   ScrapedMatch,
+  ScrapedMatchAdvancedStats,
+  ScrapedMatchStats,
   ScrapedPlayerAdvancedStat,
   ScrapedPlayerStat,
 } from "$lib/afl/scraper";
@@ -114,24 +116,30 @@ export async function scrapeAndPersistMatch(
   if (startDatetime != null) {
     data.match.startDatetime = startDatetime;
   }
-  await upsertMatch(data.match);
-  await batchUpsertPlayerStats(data.homeStats, mid, data.match.year);
-  await batchUpsertPlayerStats(data.awayStats, mid, data.match.year);
-  await batchUpsertPlayerAdvancedStats(
-    advData.homeAdvStats,
-    mid,
-    data.match.year,
-  );
-  await batchUpsertPlayerAdvancedStats(
-    advData.awayAdvStats,
-    mid,
-    data.match.year,
-  );
+  await persistScrapedMatch(data, advData);
   return {
     match: data.match,
     homeStatsCount: data.homeStats.length,
     awayStatsCount: data.awayStats.length,
   };
+}
+
+/**
+ * Persist already-parsed match data. Separated from scraping so callers can
+ * persist fixtures or a dry-run preview without hitting the network, and so the
+ * parsing step (scrapeMatchStats / scrapeMatchAdvancedStats) carries no DB
+ * coupling. mid and year are taken from the basic-stats match record.
+ */
+export async function persistScrapedMatch(
+  data: ScrapedMatchStats,
+  advData: ScrapedMatchAdvancedStats,
+): Promise<void> {
+  const { mid, year } = data.match;
+  await upsertMatch(data.match);
+  await batchUpsertPlayerStats(data.homeStats, mid, year);
+  await batchUpsertPlayerStats(data.awayStats, mid, year);
+  await batchUpsertPlayerAdvancedStats(advData.homeAdvStats, mid, year);
+  await batchUpsertPlayerAdvancedStats(advData.awayAdvStats, mid, year);
 }
 
 // ─── Players ──────────────────────────────────────────────────────────────────
