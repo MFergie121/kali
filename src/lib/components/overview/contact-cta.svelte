@@ -6,7 +6,7 @@
 </script>
 
 <div class="border-border bg-card rounded-lg border p-6">
-	<h3 class="text-foreground text-base font-semibold tracking-tight">need more than the daily limit?</h3>
+	<h3 class="text-foreground text-base font-semibold tracking-tight">need more than the daily or have any concerns?</h3>
 	<p class="text-muted-foreground mt-2 text-[0.8125rem] leading-relaxed">
 		The free tier is generous, but if you're building something that needs more headroom, just ask —
 		quota bumps are handled by hand and happy to oblige.
