@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "../src/lib/db/afl/schema.ts",
+    "../src/lib/api/key-crypto.ts",
+    "../src/lib/api/quota-window.ts"
+  ]
+}

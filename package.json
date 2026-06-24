@@ -19,7 +19,10 @@
     "db:studio": "drizzle-kit studio",
     "db:clear": "npx tsx --env-file=.env scripts/clear-afl-data.ts",
     "db:hash-keys": "npx tsx --env-file=.env scripts/hash-api-keys.ts",
-    "db:seed:dev": "bash scripts/seed-dev-db-from-prod.sh"
+    "db:seed:dev": "bash scripts/seed-dev-db-from-prod.sh",
+    "mcp:dev": "tsx watch --env-file=.env mcp/server.ts",
+    "mcp:start": "tsx mcp/server.ts",
+    "mcp:check": "tsc -p mcp/tsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -50,11 +53,14 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "drizzle-orm": "^0.45.1",
     "jose": "^6.2.0",
     "mode-watcher": "^1.1.0",
     "node-html-parser": "^7.1.0",
     "postgres": "^3.4.8",
-    "svelte-sonner": "^1.1.0"
+    "svelte-sonner": "^1.1.0",
+    "tsx": "^4.22.4",
+    "zod": "^4.4.3"
   }
 }
