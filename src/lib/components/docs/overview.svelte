@@ -14,6 +14,18 @@
 		</p>
 	</div>
 
+	<!-- New: MCP / Claude callout -->
+	<div class="border-primary/30 bg-primary/5 rounded-lg border p-4">
+		<p class="text-sm leading-relaxed">
+			<span class="text-foreground font-semibold">New — use this data with Claude.</span>
+			<span class="text-muted-foreground">
+				Connect Claude to the database with our MCP server and ask AFL questions in plain
+				English — no SQL or code required.
+			</span>
+			<a href="/docs/mcp" class="text-primary underline underline-offset-4">See the Claude / MCP guide →</a>
+		</p>
+	</div>
+
 	<!-- Authentication -->
 	<section id="authentication" class="scroll-mt-20 space-y-4 border-t pt-8">
 		<h2 class="text-xl font-semibold">Authentication</h2>

@@ -14,7 +14,8 @@
 		{ label: 'Fixture', href: '/docs/fixture' },
 		{ label: 'Tips', href: '/docs/tips' },
 		{ label: 'Predictions', href: '/docs/predictions' },
-		{ label: 'Leaderboards', href: '/docs/leaderboards' }
+		{ label: 'Leaderboards', href: '/docs/leaderboards' },
+		{ label: 'Claude / MCP', href: '/docs/mcp' }
 	];
 
 	let sidebarOpen = $state(false);

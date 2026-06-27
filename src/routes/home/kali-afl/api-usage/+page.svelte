@@ -46,6 +46,15 @@
 		</p>
 	</div>
 
+	<!-- MCP / Claude callout -->
+	<div class="rounded-lg border border-primary/30 bg-primary/5 p-4">
+		<p class="text-sm font-medium text-foreground">New — use your key with Claude</p>
+		<p class="mt-1 text-sm text-muted-foreground">
+			Plug any key below into the Kali MCP server to ask AFL questions in plain English, no SQL required.
+			<a href="/docs/mcp" class="text-primary underline underline-offset-4">See the Claude / MCP guide →</a>
+		</p>
+	</div>
+
 	<!-- Key-deletion disclaimer -->
 	<div class="rounded-lg border border-border bg-muted p-4">
 		<p class="text-sm font-medium text-foreground">
