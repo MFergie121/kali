@@ -45,7 +45,7 @@
 		<div class="space-y-1">
 			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">2. Add the server (Claude Code)</p>
 			<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">claude mcp add --transport http kali-afl \
-  https://kaliaflstats.com/mcp \
+  https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
   --header "Authorization: Bearer YOUR_API_KEY"</pre>
 		</div>
 
@@ -59,22 +59,15 @@
 		</div>
 	</section>
 
-	<!-- Claude Desktop -->
+	<!-- Availability -->
 	<section class="scroll-mt-20 space-y-4 border-t pt-8">
-		<h2 class="text-xl font-semibold">Using Claude Desktop?</h2>
+		<h2 class="text-xl font-semibold">Claude Code only (for now)</h2>
 		<p class="text-muted-foreground text-sm leading-relaxed">
-			Add the same server to <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">claude_desktop_config.json</code>
-			and restart the app:
+			This server currently works with <span class="text-foreground font-medium">Claude Code</span> only.
+			It's a remote server that uses the <span class="text-foreground font-medium">HTTP transport</span>, which
+			Claude Desktop doesn't support — Desktop only connects to local (stdio) MCP servers, so it can't
+			reach this one. We'll update this page if and when Desktop support becomes available.
 		</p>
-		<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">{`{
-  "mcpServers": {
-    "kali-afl": {
-      "type": "http",
-      "url": "https://kaliaflstats.com/mcp",
-      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
-    }
-  }
-}`}</pre>
 	</section>
 
 	<!-- Limits -->

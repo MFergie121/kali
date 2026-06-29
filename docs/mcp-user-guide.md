@@ -55,23 +55,22 @@ You need two things:
 
 ## Install the server
 
-Run this in your terminal, replacing the two placeholders:
+Run this in your terminal, replacing `<your-kali-api-key>` with your key:
 
 ```bash
-claude mcp add --transport http kali-afl https://<mcp-url>/mcp \
+claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
   --header "Authorization: Bearer <your-kali-api-key>"
 ```
 
 - `kali-afl` — a local name for the connection (you can call it anything).
-- `https://<mcp-url>/mcp` — the address of the kali MCP server (ask whoever runs kali
-  for the exact URL).
+- `https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp` — the address of the kali MCP server.
 - `<your-kali-api-key>` — the key you copied above. Keep the word `Bearer ` in front of it.
 
 By default this adds the server to your **current project** only. To use it in every
 project on your machine, add `--scope user`:
 
 ```bash
-claude mcp add --transport http kali-afl https://<mcp-url>/mcp \
+claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
   --header "Authorization: Bearer <your-kali-api-key>" \
   --scope user
 ```
@@ -151,7 +150,7 @@ If you rotate your key, remove the server and add it again with the new key:
 
 ```bash
 claude mcp remove kali-afl
-claude mcp add --transport http kali-afl https://<mcp-url>/mcp \
+claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
   --header "Authorization: Bearer <your-new-key>"
 ```
 
@@ -163,21 +162,11 @@ claude mcp remove kali-afl
 
 ---
 
-## Using Claude Desktop instead?
+## Claude Code only (for now)
 
-If you prefer the desktop app over the CLI, you can add the same server to its config
-file (`claude_desktop_config.json`):
+This server currently works with **Claude Code** only.
 
-```json
-{
-  "mcpServers": {
-    "kali-afl": {
-      "type": "http",
-      "url": "https://<mcp-url>/mcp",
-      "headers": { "Authorization": "Bearer <your-kali-api-key>" }
-    }
-  }
-}
-```
-
-Restart Claude Desktop after saving. The same API key, quota, and tools apply.
+It's a **remote** MCP server that uses the **HTTP transport**. Claude Desktop doesn't
+support HTTP MCP servers — it only connects to local (stdio) servers launched from your
+machine — so it can't reach this one. This guide will be updated if and when Desktop
+support becomes available.
