@@ -8,7 +8,7 @@
 	<!-- GET /matches -->
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/matches</code>
 		</div>
 		<p class="text-muted-foreground text-sm">
@@ -75,7 +75,7 @@ GET /matches?year=2024&round=10</pre>
 	<!-- GET /matches/:id -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/matches/:id</code>
 		</div>
 		<p class="text-muted-foreground text-sm">Returns a single match by numeric ID.</p>

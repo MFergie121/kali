@@ -1,35 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { navigating } from '$app/state';
+	import { formatFixtureDate, roundLongLabel } from '$lib/afl/format';
+	import EmptyState from '$lib/components/ui/custom/emptyState.svelte';
+	import RoundChips from '$lib/components/ui/custom/roundChips.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let expandedGame = $state<number | null>(null);
 	let methodologyOpen = $state(false);
-
-	function roundLabel(r: number): string {
-		if (r === 0) return 'pre-season';
-		if (r === 25) return 'finals wk 1';
-		if (r === 26) return 'semi finals';
-		if (r === 27) return 'prelim finals';
-		if (r === 28) return 'grand final';
-		return `round ${r}`;
-	}
-
-	function formatFixtureDate(dateStr: string | null): string {
-		if (!dateStr) return 'TBC';
-		const d = new Date(dateStr.replace(' ', 'T') + '+10:00');
-		if (isNaN(d.getTime())) return dateStr;
-		return new Intl.DateTimeFormat('en-AU', {
-			weekday: 'short',
-			day: 'numeric',
-			month: 'short',
-			hour: 'numeric',
-			minute: '2-digit',
-			hour12: true,
-			timeZone: 'Australia/Sydney',
-		}).format(d);
-	}
 
 	const FACTOR_LABELS: Record<string, string> = {
 		form: 'Form',
@@ -67,7 +47,11 @@
 	});
 </script>
 
-<div class="page">
+<svelte:head>
+	<title>Predictions · Kali AFL</title>
+</svelte:head>
+
+<div class="page" class:page-loading={!!navigating.to}>
 
 	<!-- ── Toolbar ── -->
 	<div class="toolbar" style="animation-delay: 0ms">
@@ -79,31 +63,34 @@
 
 	<!-- ── Round chip bar ── -->
 	{#if data.availableRounds.length > 0}
-		<div class="round-chips-panel" style="animation-delay: 40ms">
-			<div class="round-chips-header">
-				<span class="round-chips-label">round</span>
-			</div>
-			<div class="round-chips-grid">
-				{#each data.availableRounds as r (r)}
-					<button
-						class="round-chip"
-						class:round-chip-on={r === data.selectedRound}
-						onclick={() => goto(`?round=${r}`)}
-					>{r === 0 ? 'pre' : r === 25 ? 'QF' : r === 26 ? 'SF' : r === 27 ? 'PF' : r === 28 ? 'GF' : `r${r}`}</button>
-				{/each}
-			</div>
-		</div>
+		<RoundChips
+			rounds={data.availableRounds}
+			selected={data.selectedRound}
+			onSelect={(r) => goto(`?round=${r}`)}
+		/>
 	{/if}
 
 	<!-- ── Predictions ── -->
 	{#if data.predictions.length === 0}
-		<div class="empty-state" style="animation-delay: 80ms">
-			<p class="empty-title">no predictions available</p>
-			<p class="empty-sub">no fixture data found for {roundLabel(data.selectedRound)}</p>
-		</div>
+		{#if data.loadError}
+			<EmptyState
+				title="couldn't load predictions"
+				sub="the database is unreachable right now — try again shortly"
+			/>
+		{:else if !data.hasFixtures}
+			<EmptyState
+				title="no predictions available"
+				sub="no fixture data found for {roundLongLabel(data.selectedRound)}"
+			/>
+		{:else}
+			<EmptyState
+				title="predictions not generated yet"
+				sub="fixtures exist for {roundLongLabel(data.selectedRound)}, but the model hasn't produced predictions for it"
+			/>
+		{/if}
 	{:else}
 		<p class="list-meta" style="animation-delay: 80ms">
-			{roundLabel(data.selectedRound)}
+			{roundLongLabel(data.selectedRound)}
 			<span class="list-count">{data.predictions.length} game{data.predictions.length === 1 ? '' : 's'}</span>
 		</p>
 
@@ -352,7 +339,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+		transition: opacity 0.15s ease;
 	}
+	.page-loading { opacity: 0.55; pointer-events: none; }
 
 	@keyframes rise {
 		from { opacity: 0; transform: translateY(8px); }
@@ -387,67 +376,6 @@
 		letter-spacing: 0.03em;
 	}
 
-	/* ── Round chip bar ── */
-	.round-chips-panel {
-		border: 1px solid var(--border);
-		border-radius: 0.625rem;
-		padding: 0.75rem 0.875rem;
-		background-color: color-mix(in oklch, var(--muted), transparent 65%);
-		animation: rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
-	}
-
-	.round-chips-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 0.625rem;
-	}
-
-	.round-chips-label {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--muted-foreground);
-	}
-
-	.round-chips-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-
-	.round-chip {
-		font-size: 0.6875rem;
-		font-family: inherit;
-		padding: 0.2rem 0.5rem;
-		border-radius: 0.3rem;
-		border: 1px solid var(--border);
-		background: var(--card);
-		color: var(--muted-foreground);
-		cursor: pointer;
-		transition: all 0.1s ease;
-		opacity: 0.6;
-	}
-
-	.round-chip:hover {
-		border-color: var(--foreground);
-		color: var(--foreground);
-		opacity: 1;
-	}
-
-	.round-chip-on {
-		background-color: var(--foreground);
-		color: var(--background);
-		border-color: var(--foreground);
-		font-weight: 600;
-		opacity: 1;
-	}
-
-	.round-chip-on:hover {
-		opacity: 0.85;
-	}
-
 	/* ── List meta ── */
 	.list-meta {
 		display: flex;
@@ -469,33 +397,6 @@
 		padding: 0.1rem 0.45rem;
 		font-size: 0.6875rem;
 		letter-spacing: 0.02em;
-	}
-
-	/* ── Empty state ── */
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.625rem;
-		padding: 5rem 2rem;
-		border: 1px dashed var(--border);
-		border-radius: 0.75rem;
-		text-align: center;
-		animation: rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
-	}
-
-	.empty-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		color: var(--foreground);
-		margin: 0;
-	}
-
-	.empty-sub {
-		font-size: 0.8125rem;
-		color: var(--muted-foreground);
-		margin: 0;
 	}
 
 	/* ── Predictions list ── */

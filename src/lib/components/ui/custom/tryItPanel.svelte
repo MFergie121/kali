@@ -24,7 +24,9 @@
 	let result = $state<string | null>(null);
 	let status = $state<number | null>(null);
 
-	// Seed each param's input from its declared default (if any).
+	// Seed each param's input from its declared default (if any). The props are
+	// static per usage, and the inputs are user-owned after seeding.
+	// svelte-ignore state_referenced_locally
 	let values = $state<Record<string, string>>(
 		Object.fromEntries([...pathParams, ...queryParams].map((p) => [p.name, p.default ?? '']))
 	);

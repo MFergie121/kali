@@ -19,6 +19,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Admin — Analytics · Kali AFL</title>
+</svelte:head>
+
 <div class="page">
 	<div class="page-header">
 		<h1 class="page-title">admin</h1>

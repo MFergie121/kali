@@ -8,7 +8,7 @@
 	<!-- GET /teams -->
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/teams</code>
 		</div>
 		<p class="text-muted-foreground text-sm">Returns all 18 AFL teams, ordered alphabetically.</p>
@@ -44,7 +44,7 @@
 	<!-- GET /teams/:id -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/teams/:id</code>
 		</div>
 		<p class="text-muted-foreground text-sm">Returns a single team by its slug ID.</p>
@@ -72,7 +72,7 @@
 	<!-- GET /teams/:id/stats -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/teams/:id/stats</code>
 		</div>
 		<p class="text-muted-foreground text-sm">

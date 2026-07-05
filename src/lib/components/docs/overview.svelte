@@ -243,7 +243,7 @@ GET /player-stats?year=2024&round=10&sort_by=goals&order=desc</pre>
 						['GET', '/predictions/:id', 'Get a single prediction'],
 					] as [method, path, desc]}
 						<tr class="border-b last:border-0">
-							<td class="py-2 pr-4"><span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">{method}</span></td>
+							<td class="py-2 pr-4"><span class="rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">{method}</span></td>
 							<td class="py-2 pr-4 font-mono text-xs">{path}</td>
 							<td class="text-muted-foreground py-2">{desc}</td>
 						</tr>

@@ -1,4 +1,4 @@
-import { getUpcomingRound } from "$lib/afl/squiggle";
+import { resolveDefaultRound } from "$lib/afl/squiggle";
 import {
   MAX_ROUND,
   MODEL_VERSION,
@@ -31,14 +31,17 @@ export interface PredictionGame {
 export const load: PageServerLoad = async ({ url }) => {
   const currentYear = new Date().getFullYear();
 
-  const allFixtures = await getFixturesForYear(currentYear).catch(() => []);
+  let loadError = false;
+  const allFixtures = await getFixturesForYear(currentYear).catch(() => {
+    loadError = true;
+    return [];
+  });
 
-  const upcomingRound = getUpcomingRound(allFixtures);
   const rawRound = parseInt(url.searchParams.get("round") ?? "");
   const selectedRound =
     !isNaN(rawRound) && rawRound >= 0 && rawRound <= MAX_ROUND
       ? rawRound
-      : (upcomingRound ?? 1);
+      : resolveDefaultRound(allFixtures);
 
   const availableRounds = [
     ...new Set(allFixtures.map((f) => f.round)),
@@ -46,10 +49,13 @@ export const load: PageServerLoad = async ({ url }) => {
 
   const roundGames = allFixtures.filter((f) => f.round === selectedRound);
   if (roundGames.length === 0) {
-    return { selectedRound, predictions: [], availableRounds };
+    return { selectedRound, predictions: [], availableRounds, hasFixtures: false, loadError };
   }
 
-  const stored = await getPredictionsForRound(currentYear, selectedRound, MODEL_VERSION);
+  const stored = await getPredictionsForRound(currentYear, selectedRound, MODEL_VERSION).catch(() => {
+    loadError = true;
+    return [];
+  });
   const predictions: PredictionGame[] = stored.map((r) => ({
     fixtureId: r.fixtureId,
     round: r.round,
@@ -67,5 +73,5 @@ export const load: PageServerLoad = async ({ url }) => {
     awayBreakdown: r.awayBreakdown,
     actualWinner: r.actualWinner as "home" | "away" | "draw" | null,
   }));
-  return { selectedRound, predictions, availableRounds };
+  return { selectedRound, predictions, availableRounds, hasFixtures: true, loadError };
 };

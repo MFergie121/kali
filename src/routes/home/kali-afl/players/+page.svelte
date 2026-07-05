@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { navigating } from '$app/state';
+	import { roundShortLabel } from '$lib/afl/format';
 	import { Button } from '$lib/components/ui/button';
+	import BarChart from '$lib/components/ui/custom/barChart.svelte';
+	import EmptyState from '$lib/components/ui/custom/emptyState.svelte';
+	import ResultChip from '$lib/components/ui/custom/resultChip.svelte';
+	import SortableTh from '$lib/components/ui/custom/sortableTh.svelte';
+	import TabNav from '$lib/components/ui/custom/tabNav.svelte';
+	import YearNav from '$lib/components/ui/custom/yearNav.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Select from '$lib/components/ui/select';
 	import type { PageData } from './$types';
@@ -109,21 +117,30 @@
 		return new Set(data.rows.map(r => r.playerName));
 	})());
 
+	// Reset round/player selections only when the year actually changes — not when
+	// derived lists recompute (stat toggle, team filter), which used to clobber them.
+	let lastYear: number | null = null;
 	$effect(() => {
-		const savedRounds = browser ? sessionStorage.getItem(`afl-players-rounds-${data.selectedYear}`) : null;
-		if (savedRounds) {
-			const valid = new Set(allRounds);
-			selectedRounds = new Set((JSON.parse(savedRounds) as number[]).filter(r => valid.has(r)));
-		} else {
-			selectedRounds = new Set(allRounds);
+		const year = data.selectedYear;
+		const rows = data.rows;
+		if (lastYear === null) {
+			lastYear = year;
+			return;
 		}
-		const savedPlayers = browser ? sessionStorage.getItem(`afl-players-players-${data.selectedYear}`) : null;
-		if (savedPlayers) {
-			const valid = new Set(allPlayers);
-			selectedPlayers = new Set((JSON.parse(savedPlayers) as string[]).filter(p => valid.has(p)));
-		} else {
-			selectedPlayers = new Set(allPlayers);
-		}
+		if (year === lastYear) return;
+		lastYear = year;
+
+		const validRounds = new Set(rows.map(r => r.round));
+		const savedRounds = sessionStorage.getItem(`afl-players-rounds-${year}`);
+		selectedRounds = savedRounds
+			? new Set((JSON.parse(savedRounds) as number[]).filter(r => validRounds.has(r)))
+			: validRounds;
+
+		const validPlayers = new Set(rows.map(r => r.playerName));
+		const savedPlayers = sessionStorage.getItem(`afl-players-players-${year}`);
+		selectedPlayers = savedPlayers
+			? new Set((JSON.parse(savedPlayers) as string[]).filter(p => validPlayers.has(p)))
+			: validPlayers;
 	});
 
 	$effect(() => { if (browser) sessionStorage.setItem('afl-players-stat', selectedStat); });
@@ -180,7 +197,7 @@
 		const rs = roundStats.get(round);
 		if (!rs || rs.max === rs.min) return '';
 		const ratio = (val - rs.min) / (rs.max - rs.min);
-		if (ratio > 0.65) return `background-color:oklch(0.52 0.14 145/${Math.round(ratio * 18)}%);`;
+		if (ratio > 0.65) return `background-color:color-mix(in oklch,var(--success) ${Math.round(ratio * 18)}%,transparent);`;
 		if (ratio < 0.3) return `background-color:color-mix(in oklch,var(--destructive),transparent ${Math.round(88 + ratio * 30)}%);`;
 		return '';
 	}
@@ -202,14 +219,6 @@
 		return { name, avg };
 	});
 
-	function roundLabel(r: number) {
-		if (r === 0) return 'Pre';
-		if (r === 25) return 'QF';
-		if (r === 26) return 'SF';
-		if (r === 27) return 'PF';
-		if (r === 28) return 'GF';
-		return `R${r}`;
-	}
 	function toggleRound(r: number) {
 		const s = new Set(selectedRounds);
 		if (s.has(r)) s.delete(r); else s.add(r);
@@ -231,7 +240,14 @@
 	}
 
 	// ── Games tab ─────────────────────────────────────────────────────────────
-	let selectedPlayerId = $state<number>(data.allPlayers[0]?.id ?? 0);
+	// null = no explicit pick; fall back to the first player of the loaded year so
+	// the selection self-heals when the year (and player list) changes.
+	let selectedPlayerId = $state<number | null>(null);
+	const effectivePlayerId = $derived(
+		selectedPlayerId != null && data.allPlayers.some(p => p.id === selectedPlayerId)
+			? selectedPlayerId
+			: (data.allPlayers[0]?.id ?? 0)
+	);
 	let gamesStatKey  = $state<StatKey>('disposals');
 	let selectedGameMatchId = $state<number | null>(null);
 	let gamesSortCol  = $state<string>('round');
@@ -245,7 +261,7 @@
 	);
 
 	const selectedPlayerGames = $derived(
-		(data.playerGames as Record<number, PlayerGameRow[]>)[selectedPlayerId] ?? []
+		(data.playerGames as Record<number, PlayerGameRow[]>)[effectivePlayerId] ?? []
 	);
 
 	const gamesStatLabel = $derived(STAT_COLS.find(c => c.key === gamesStatKey)?.label ?? gamesStatKey);
@@ -339,7 +355,11 @@
 	const compareDataB = $derived(comparePlayerB ? insightsAvgs.get(comparePlayerB) : null);
 </script>
 
-<div class="page">
+<svelte:head>
+	<title>Player Stats · Kali AFL</title>
+</svelte:head>
+
+<div class="page" class:page-loading={!!navigating.to}>
 
 	<!-- ── Toolbar ──────────────────────────────────────────────────────────── -->
 	<div class="toolbar">
@@ -347,44 +367,34 @@
 			<h1 class="page-title">player stats</h1>
 			<span class="page-sub">{data.selectedYear}</span>
 		</div>
-		{#if true}
-			{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
-			<div class="year-nav">
-			<button
-				class="year-nav-btn"
-				disabled={yearIdx <= 0}
-				onclick={() => goto(`?year=${data.allYears[yearIdx - 1]}`)}
-			>←</button>
-			<span class="year-nav-label">{data.selectedYear}</span>
-			<button
-				class="year-nav-btn"
-				disabled={yearIdx >= data.allYears.length - 1}
-				onclick={() => goto(`?year=${data.allYears[yearIdx + 1]}`)}
-			>→</button>
-			</div>
-		{/if}
+		<YearNav
+			years={data.allYears}
+			selected={data.selectedYear}
+			onSelect={(y) => goto(`?year=${y}`)}
+		/>
 	</div>
 
 	<!-- ── Tab nav ──────────────────────────────────────────────────────────── -->
-	<nav class="tab-nav">
-		{#each (['overview', 'matrix', 'games', 'insights'] as const) as tab}
-			<button
-				class="tab-btn"
-				class:tab-active={activeTab === tab}
-				onclick={() => activeTab = tab}
-			>{tab}</button>
-		{/each}
-	</nav>
+	<TabNav
+		tabs={[
+			{ id: 'overview', label: 'overview' },
+			{ id: 'matrix', label: 'matrix' },
+			{ id: 'games', label: 'games' },
+			{ id: 'insights', label: 'insights' },
+		]}
+		active={activeTab}
+		onChange={(id) => (activeTab = id as typeof activeTab)}
+	/>
 
 	<!-- ══════════════════════════════════════════════════════════════════════
 	     OVERVIEW
 	══════════════════════════════════════════════════════════════════════════ -->
 	{#if activeTab === 'overview'}
 		{#if data.rows.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no data for {data.selectedYear}</p>
-				<p class="empty-sub">scrape some rounds on the matches &amp; stats page first</p>
-			</div>
+			<EmptyState
+				title="no data for {data.selectedYear}"
+				sub="scrape some rounds on the matches & stats page first"
+			/>
 		{:else}
 			<!-- Season leaders bar -->
 			<div class="leader-bar">
@@ -405,7 +415,7 @@
 			<p class="section-label">stat leaders</p>
 			<div class="leaderboard-scroll">
 				{#each data.leaderboards as lb}
-					<div class="lb-card" role="button" tabindex="0" onclick={() => jumpToStat(lb.stat as StatKey, lb.top5.map(e => e.playerName))} onkeydown={(e) => { if (e.key === 'Enter') jumpToStat(lb.stat as StatKey, lb.top5.map(e => e.playerName)); }}>
+					<div class="lb-card" role="button" tabindex="0" onclick={() => jumpToStat(lb.stat as StatKey, lb.top5.map(e => e.playerName))} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToStat(lb.stat as StatKey, lb.top5.map(e => e.playerName)); } }}>
 						<p class="lb-card-title">{lb.label}</p>
 						{#each lb.top5 as entry, i}
 							<div class="lb-row">
@@ -441,10 +451,10 @@
 	══════════════════════════════════════════════════════════════════════════ -->
 	{:else if activeTab === 'matrix'}
 		{#if data.rows.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no data for {data.selectedYear}</p>
-				<p class="empty-sub">scrape some rounds on the matches &amp; stats page first</p>
-			</div>
+			<EmptyState
+				title="no data for {data.selectedYear}"
+				sub="scrape some rounds on the matches & stats page first"
+			/>
 		{:else}
 			<!-- Season leader bar -->
 			{#if seasonLeader}
@@ -515,6 +525,7 @@
 							<input
 								type="text"
 								placeholder="search players…"
+								aria-label="search players"
 								bind:value={playerSearch}
 								class="filter-search"
 								onkeydown={(e) => e.stopPropagation()}
@@ -558,8 +569,9 @@
 						<button
 							class="round-chip"
 							class:round-chip-on={selectedRounds.has(r)}
+							aria-pressed={selectedRounds.has(r)}
 							onclick={() => toggleRound(r)}
-						>{roundLabel(r)}</button>
+						>{roundShortLabel(r)}</button>
 					{/each}
 				</div>
 			</div>
@@ -583,10 +595,10 @@
 
 			<!-- Empty / table -->
 			{#if visiblePlayers.length === 0 || visibleRounds.length === 0}
-				<div class="empty-state">
-					<p class="empty-title">nothing to display</p>
-					<p class="empty-sub">select at least one player and one round using the filters above</p>
-				</div>
+				<EmptyState
+					title="nothing to display"
+					sub="select at least one player and one round using the filters above"
+				/>
 			{:else}
 				<div class="table-wrap">
 					<table class="matrix">
@@ -594,16 +606,18 @@
 							<tr>
 								<th class="col-player col-head">player</th>
 								{#each visibleRounds as r (r)}
-									<th class="col-round col-head">{roundLabel(r)}</th>
+									<th class="col-round col-head">{roundShortLabel(r)}</th>
 								{/each}
 								{#if showAvg}
 									<th
 										class="col-avg col-head col-head-avg"
 										class:col-head-sort={sortByAvgDesc}
-										role="button" tabindex="0"
-										onclick={() => sortByAvgDesc = !sortByAvgDesc}
-										onkeydown={(e) => { if (e.key === 'Enter') sortByAvgDesc = !sortByAvgDesc; }}
-									>avg {sortByAvgDesc ? '▼' : ''}</th>
+										aria-sort={sortByAvgDesc ? 'descending' : undefined}
+									>
+										<button class="avg-sort-btn" onclick={() => sortByAvgDesc = !sortByAvgDesc}>
+											avg {sortByAvgDesc ? '▼' : '↕'}
+										</button>
+									</th>
 								{/if}
 							</tr>
 						</thead>
@@ -637,10 +651,10 @@
 	══════════════════════════════════════════════════════════════════════════ -->
 	{:else if activeTab === 'games'}
 		{#if data.allPlayers.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no data for {data.selectedYear}</p>
-				<p class="empty-sub">scrape some rounds on the matches &amp; stats page first</p>
-			</div>
+			<EmptyState
+				title="no data for {data.selectedYear}"
+				sub="scrape some rounds on the matches & stats page first"
+			/>
 		{:else}
 			<!-- Selectors -->
 			<div class="games-selectors">
@@ -648,7 +662,7 @@
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Button variant="outline" size="sm" {...props} class="games-player-btn">
-								{data.allPlayers.find(p => p.id === selectedPlayerId)?.name ?? 'select player'}
+								{data.allPlayers.find(p => p.id === effectivePlayerId)?.name ?? 'select player'}
 							</Button>
 						{/snippet}
 					</DropdownMenu.Trigger>
@@ -657,6 +671,7 @@
 							<input
 								type="text"
 								placeholder="search players…"
+								aria-label="search players"
 								bind:value={gamesPlayerSearch}
 								class="filter-search"
 								onkeydown={(e) => e.stopPropagation()}
@@ -666,7 +681,7 @@
 							<DropdownMenu.Item
 								onSelect={() => { selectedPlayerId = p.id; selectedGameMatchId = null; }}
 							>
-								<span class="games-player-item" class:games-player-item-active={p.id === selectedPlayerId}>
+								<span class="games-player-item" class:games-player-item-active={p.id === effectivePlayerId}>
 									{p.name}
 									{#if p.teamName}<span class="games-player-team">{p.teamName}</span>{/if}
 								</span>
@@ -693,14 +708,14 @@
 			</div>
 
 			{#if selectedPlayerGames.length === 0}
-				<div class="empty-state">
-					<p class="empty-title">no games found for this player</p>
-					<p class="empty-sub">try selecting a different player or year</p>
-				</div>
+				<EmptyState
+					title="no games found for this player"
+					sub="try selecting a different player or year"
+				/>
 			{:else}
 				<!-- Avg summary -->
 				<div class="games-avg-bar">
-					<span class="gab-player">{data.allPlayers.find(p => p.id === selectedPlayerId)?.name}</span>
+					<span class="gab-player">{data.allPlayers.find(p => p.id === effectivePlayerId)?.name}</span>
 					<span class="gab-sep">·</span>
 					<span class="gab-stat">{gamesStatLabel}</span>
 					<span class="gab-sep">·</span>
@@ -712,40 +727,16 @@
 
 				<!-- Bar chart (stat vs season avg as baseline) -->
 				{#if chartGames.length > 0}
-					{@const BW = 18}
-					{@const GAP = 5}
-					{@const HALF = 68}
-					{@const TH = HALF * 2 + 22}
-					{@const W = Math.max(1, chartGames.length * (BW + GAP) - GAP)}
-					{@const maxDelta = Math.max(1, ...chartGames.map(g => Math.abs(((g as unknown as Record<string,unknown>)[gamesStatKey] as number ?? 0) - playerSeasonAvg)))}
-					<div class="chart-wrap">
-						<p class="chart-label">{gamesStatLabel} per round — baseline = season avg {playerSeasonAvg.toFixed(1)}</p>
-						<div class="chart-scroll">
-							<svg viewBox="0 0 {W} {TH}" class="chart-svg" style="min-width:{W}px">
-								<!-- Baseline -->
-								<line x1="0" y1={HALF} x2={W} y2={HALF} stroke="var(--border)" stroke-width="1"/>
-								{#each chartGames as g, i}
-									{@const val = (g as unknown as Record<string,unknown>)[gamesStatKey] as number ?? 0}
-									{@const delta = val - playerSeasonAvg}
-									{@const bh = Math.max(2, (Math.abs(delta) / maxDelta) * HALF)}
-									{@const bx = i * (BW + GAP)}
-									{@const by = delta > 0 ? HALF - bh : HALF}
-									{@const fill = delta > 0 ? 'oklch(0.52 0.14 145)' : delta < 0 ? 'var(--destructive)' : 'var(--muted-foreground)'}
-									<rect
-										x={bx} y={by} width={BW} height={bh} fill={fill} rx="2"
-										opacity={selectedGameMatchId != null && selectedGameMatchId !== g.matchId ? 0.3 : 1}
-										class="chart-bar"
-										role="button" tabindex="0"
-										onclick={() => { selectedGameMatchId = selectedGameMatchId === g.matchId ? null : g.matchId; }}
-										onkeydown={(e) => { if (e.key === 'Enter') selectedGameMatchId = selectedGameMatchId === g.matchId ? null : g.matchId; }}
-									/>
-									{#if chartGames.length <= 30}
-										<text x={bx + BW / 2} y={TH - 3} text-anchor="middle" font-size="7" fill="var(--muted-foreground)" font-family="inherit">{roundLabel(g.round)}</text>
-									{/if}
-								{/each}
-							</svg>
-						</div>
-					</div>
+					<BarChart
+						caption="{gamesStatLabel} per round — baseline = season avg {playerSeasonAvg.toFixed(1)}"
+						bars={chartGames.map((g) => ({
+							id: g.matchId,
+							delta: ((g as unknown as Record<string, unknown>)[gamesStatKey] as number ?? 0) - playerSeasonAvg,
+							label: roundShortLabel(g.round),
+						}))}
+						selectedId={selectedGameMatchId}
+						onToggle={(id) => { selectedGameMatchId = selectedGameMatchId === id ? null : id; }}
+					/>
 				{/if}
 
 				<!-- Games table -->
@@ -761,19 +752,13 @@
 									{ col: gamesStatKey,   label: gamesStatLabel },
 									{ col: 'delta',        label: 'vs avg'   },
 									{ col: 'result',       label: 'Result'   },
-								] as h}
-									<th
-										class="th"
-										class:th-active={gamesSortCol === h.col}
-										onclick={() => setGamesSortCol(h.col)}
-										role="button" tabindex="0"
-										onkeydown={(e) => { if (e.key === 'Enter') setGamesSortCol(h.col); }}
-									>
-										{h.label}
-										{#if gamesSortCol === h.col}
-											<span class="sort-arrow">{gamesSortAsc ? '↑' : '↓'}</span>
-										{/if}
-									</th>
+								] as h (h.col)}
+									<SortableTh
+										label={h.label}
+										active={gamesSortCol === h.col}
+										asc={gamesSortAsc}
+										onSort={() => setGamesSortCol(h.col)}
+									/>
 								{/each}
 							</tr>
 						</thead>
@@ -786,7 +771,7 @@
 									class:game-row-active={selectedGameMatchId === g.matchId}
 									onclick={() => { selectedGameMatchId = selectedGameMatchId === g.matchId ? null : g.matchId; }}
 								>
-									<td class="td td-num">{roundLabel(g.round)}</td>
+									<td class="td td-num">{roundShortLabel(g.round)}</td>
 									<td class="td">{g.date}</td>
 									<td class="td td-opp">{g.opponentShort}</td>
 									<td class="td td-centre">{g.isHome ? 'H' : 'A'}</td>
@@ -796,7 +781,7 @@
 									</td>
 									<td class="td td-centre">
 										{#if g.result}
-											<span class="result-chip result-{g.result.toLowerCase()}">{g.result}</span>
+											<ResultChip result={g.result} />
 										{:else}–{/if}
 									</td>
 								</tr>
@@ -812,10 +797,10 @@
 	══════════════════════════════════════════════════════════════════════════ -->
 	{:else if activeTab === 'insights'}
 		{#if data.advRows.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no advanced stats for {data.selectedYear}</p>
-				<p class="empty-sub">scrape rounds with advanced stats on the matches &amp; stats page first</p>
-			</div>
+			<EmptyState
+				title="no advanced stats for {data.selectedYear}"
+				sub="scrape rounds with advanced stats on the matches & stats page first"
+			/>
 		{:else}
 			<!-- Advanced stats table -->
 			<p class="section-label">advanced stats — season averages</p>
@@ -824,19 +809,13 @@
 					<thead>
 						<tr>
 							<th class="th th-player">Player</th>
-							{#each insightsCols as col}
-								<th
-									class="th"
-									class:th-active={insightsSortCol === col.key}
-									onclick={() => setInsightsSortCol(col.key)}
-									role="button" tabindex="0"
-									onkeydown={(e) => { if (e.key === 'Enter') setInsightsSortCol(col.key); }}
-								>
-									{col.label}
-									{#if insightsSortCol === col.key}
-										<span class="sort-arrow">{insightsSortAsc ? '↑' : '↓'}</span>
-									{/if}
-								</th>
+							{#each insightsCols as col (col.key)}
+								<SortableTh
+									label={col.label}
+									active={insightsSortCol === col.key}
+									asc={insightsSortAsc}
+									onSort={() => setInsightsSortCol(col.key)}
+								/>
 							{/each}
 						</tr>
 					</thead>
@@ -918,7 +897,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+		transition: opacity 0.15s ease;
 	}
+	.page-loading { opacity: 0.55; pointer-events: none; }
 
 	/* ── Toolbar ────────────────────────────────────────────────────────────── */
 	.toolbar {
@@ -931,62 +912,6 @@
 	.toolbar-left  { display: flex; align-items: baseline; gap: 0.625rem; }
 	.page-title    { font-size: 1.125rem; font-weight: 600; color: var(--foreground); letter-spacing: -0.02em; }
 	.page-sub      { font-size: 0.75rem; color: var(--muted-foreground); letter-spacing: 0.03em; }
-
-	/* ── Year nav ── */
-	.year-nav {
-		display: flex;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 0.375rem;
-		overflow: hidden;
-	}
-	.year-nav-btn {
-		font-family: inherit;
-		font-size: 0.8125rem;
-		padding: 0.25rem 0.5rem;
-		background: none;
-		border: none;
-		color: var(--muted-foreground);
-		cursor: pointer;
-		transition: background-color 0.12s ease, color 0.12s ease;
-		line-height: 1;
-	}
-	.year-nav-btn:hover:not(:disabled) {
-		background-color: var(--secondary);
-		color: var(--foreground);
-	}
-	.year-nav-btn:disabled { opacity: 0.3; cursor: default; }
-	.year-nav-label {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		color: var(--foreground);
-		padding: 0.25rem 0.5rem;
-		border-left: 1px solid var(--border);
-		border-right: 1px solid var(--border);
-		min-width: 3rem;
-		text-align: center;
-		font-variant-numeric: tabular-nums;
-	}
-
-	/* ── Tabs ───────────────────────────────────────────────────────────────── */
-	.tab-nav  { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
-	.tab-btn  {
-		font-size: 0.8125rem; font-family: inherit; background: none; border: none;
-		border-bottom: 2px solid transparent; padding: 0.625rem 1rem; cursor: pointer;
-		color: var(--muted-foreground); transition: color 0.12s, border-color 0.12s;
-		margin-bottom: -1px; letter-spacing: 0.01em;
-	}
-	.tab-btn:hover  { color: var(--foreground); }
-	.tab-active     { color: var(--foreground); border-bottom-color: var(--primary); font-weight: 600; }
-
-	/* ── Empty state ────────────────────────────────────────────────────────── */
-	.empty-state {
-		display: flex; flex-direction: column; align-items: center; justify-content: center;
-		gap: 0.375rem; padding: 4rem 2rem; border: 1px dashed var(--border);
-		border-radius: 0.75rem; text-align: center;
-	}
-	.empty-title { font-size: 0.9375rem; font-weight: 600; color: var(--foreground); }
-	.empty-sub   { font-size: 0.8125rem; color: var(--muted-foreground); }
 
 	/* ── Section labels ─────────────────────────────────────────────────────── */
 	.section-label {
@@ -1045,7 +970,7 @@
 		font-size: 0.6875rem; font-weight: 700; color: var(--muted-foreground);
 		width: 1rem; flex-shrink: 0; text-align: center;
 	}
-	.lb-rank-1 { color: oklch(0.52 0.14 145); }
+	.lb-rank-1 { color: var(--success); }
 	.lb-name   { flex: 1; color: var(--foreground); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.lb-avg    { color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-size: 0.75rem; }
 
@@ -1174,8 +1099,12 @@
 		color: var(--foreground); background-color: color-mix(in oklch, var(--muted), transparent 35%);
 		border-left: 1px solid var(--border);
 	}
-	.col-head-sort { cursor: pointer; }
-	.col-head-sort:hover { color: var(--foreground); }
+	.avg-sort-btn {
+		font-family: inherit; font-size: inherit; font-weight: inherit; color: inherit;
+		background: none; border: none; cursor: pointer; padding: 0;
+		transition: color 0.1s;
+	}
+	.avg-sort-btn:hover { color: var(--foreground); }
 	tbody tr     { border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 45%); transition: background-color 0.1s; }
 	tbody tr:last-child { border-bottom: none; }
 	tbody tr:hover .col-player,
@@ -1220,7 +1149,7 @@
 		color: var(--muted-foreground);
 	}
 	.legend-swatch-high {
-		background-color: oklch(0.52 0.14 145 / 80%);
+		background-color: color-mix(in oklch, var(--success) 80%, transparent);
 	}
 	.legend-swatch-mid {
 		background-color: var(--card);
@@ -1268,26 +1197,14 @@
 	.gab-unit   { color: var(--muted-foreground); font-size: 0.75rem; }
 	.gab-games  { color: var(--muted-foreground); font-size: 0.75rem; }
 
-	/* ── Chart ──────────────────────────────────────────────────────────────── */
-	.chart-wrap   { display: flex; flex-direction: column; gap: 0.5rem; }
-	.chart-label  { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); }
-	.chart-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.625rem; padding: 0.75rem 1rem; background-color: var(--card); }
-	.chart-svg    { display: block; height: 160px; }
-	.chart-bar    { cursor: pointer; transition: opacity 0.12s ease; }
-	.chart-bar:hover { opacity: 0.75 !important; }
-
 	/* ── Games table ─────────────────────────────────────────────────────────── */
 	.games-table  { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 	.th {
 		padding: 0.5rem 0.875rem; text-align: left; font-weight: 600; font-size: 0.75rem;
 		color: var(--muted-foreground); background-color: color-mix(in oklch, var(--muted), transparent 55%);
-		border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap;
-		user-select: none; transition: color 0.1s;
+		border-bottom: 1px solid var(--border); white-space: nowrap;
 	}
-	.th:hover    { color: var(--foreground); }
-	.th-active   { color: var(--foreground); }
 	.th-player   { min-width: 10rem; }
-	.sort-arrow  { margin-left: 0.25rem; font-size: 0.6875rem; color: var(--primary); }
 
 	.game-row         { border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 45%); cursor: pointer; transition: background-color 0.1s; }
 	.game-row:last-child { border-bottom: none; }
@@ -1297,12 +1214,8 @@
 	.td-num           { text-align: right; font-variant-numeric: tabular-nums; }
 	.td-centre        { text-align: center; }
 	.td-opp           { font-weight: 500; color: var(--foreground); }
-	.margin-pos       { color: oklch(0.52 0.14 145); font-weight: 600; }
+	.margin-pos       { color: var(--success); font-weight: 600; }
 	.margin-neg       { color: var(--destructive); font-weight: 600; }
-	.result-chip      { font-size: 0.6875rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 0.25rem; }
-	.result-w         { background-color: oklch(0.52 0.14 145 / 0.18); color: oklch(0.52 0.14 145); }
-	.result-l         { background-color: color-mix(in oklch, var(--destructive), transparent 82%); color: var(--destructive); }
-	.result-d         { background-color: var(--secondary); color: var(--muted-foreground); }
 
 	/* ── Insights ───────────────────────────────────────────────────────────── */
 	.compare-selectors {
@@ -1335,7 +1248,7 @@
 	.cmp-center        { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; }
 	.cmp-label         { font-size: 0.75rem; color: var(--muted-foreground); text-align: center; }
 	.cmp-bar-track     { width: 100%; height: 4px; border-radius: 2px; background-color: color-mix(in oklch, var(--destructive), transparent 75%); overflow: hidden; }
-	.cmp-bar-fill      { height: 100%; border-radius: 2px; background-color: oklch(0.52 0.14 145 / 0.85); transition: width 0.3s ease; }
+	.cmp-bar-fill      { height: 100%; border-radius: 2px; background-color: color-mix(in oklch, var(--success), transparent 15%); transition: width 0.3s ease; }
 
 	.compare-placeholder {
 		padding: 2.5rem; text-align: center;

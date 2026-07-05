@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { navigating } from '$app/state';
+	import { formatFixtureDate, roundLongLabel } from '$lib/afl/format';
+	import EmptyState from '$lib/components/ui/custom/emptyState.svelte';
+	import RoundChips from '$lib/components/ui/custom/roundChips.svelte';
+	import YearNav from '$lib/components/ui/custom/yearNav.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -50,40 +55,15 @@
 
 	const activeCols = $derived(showAdvanced ? ADV_STAT_COLS : STAT_COLS);
 
-	function roundLabel(r: number): string {
-		if (r === 0) return 'pre-season';
-		if (r === 25) return 'finals wk 1';
-		if (r === 26) return 'semi finals';
-		if (r === 27) return 'prelim finals';
-		if (r === 28) return 'grand final';
-		return `round ${r}`;
-	}
-
 	function teamSlug(name: string): string {
 		return name.toLowerCase().replace(/\s+/g, '-');
 	}
 
-	function formatFixtureDate(dateStr: string | null): string {
-		if (!dateStr) return 'TBC';
-		const d = new Date(dateStr.replace(' ', 'T') + '+10:00');
-		if (isNaN(d.getTime())) return dateStr;
-		return new Intl.DateTimeFormat('en-AU', {
-			weekday: 'short',
-			day: 'numeric',
-			month: 'short',
-			hour: 'numeric',
-			minute: '2-digit',
-			hour12: true,
-			timeZone: 'Australia/Sydney',
-		}).format(d);
-	}
-
-	function roundChipClass(r: number): string {
-		if (r === data.selectedRound) return 'round-chip round-chip-on';
-		if (data.storedRounds.includes(r)) return 'round-chip round-chip-scraped';
-		if (data.upcomingByRound[r]?.length) return 'round-chip round-chip-upcoming';
-		return 'round-chip';
-	}
+	const visibleRounds = $derived(
+		data.allRounds.filter(
+			(r) => data.storedRounds.includes(r) || data.upcomingByRound[r]?.length || r === data.selectedRound
+		)
+	);
 
 	// Average hconfidence per gameid across all tipsters
 	const tipsByGame = $derived.by(() => {
@@ -108,7 +88,11 @@
 	const upcomingGames = $derived(data.upcomingByRound[data.selectedRound] ?? []);
 </script>
 
-<div class="page">
+<svelte:head>
+	<title>Matches & Stats · Kali AFL</title>
+</svelte:head>
+
+<div class="page" class:page-loading={!!navigating.to}>
 
 	<!-- ── Toolbar ── -->
 	<div class="toolbar">
@@ -122,54 +106,29 @@
 				class="adv-toggle"
 				class:adv-toggle-active={showAdvanced}
 				onclick={() => (showAdvanced = !showAdvanced)}
+				aria-pressed={showAdvanced}
+				aria-label={showAdvanced ? 'showing advanced stats — switch to standard' : 'showing standard stats — switch to advanced'}
 				title={showAdvanced ? 'showing advanced stats' : 'showing standard stats'}
 			>
 				{showAdvanced ? 'adv' : 'std'}
 			</button>
 
-			{#if true}
-				{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
-				<div class="year-nav">
-				<button
-					class="year-nav-btn"
-					disabled={yearIdx <= 0}
-					onclick={() => goto(`?year=${data.allYears[yearIdx - 1]}&round=${data.selectedRound}`)}
-				>←</button>
-				<span class="year-nav-label">{data.selectedYear}</span>
-				<button
-					class="year-nav-btn"
-					disabled={yearIdx >= data.allYears.length - 1}
-					onclick={() => goto(`?year=${data.allYears[yearIdx + 1]}&round=${data.selectedRound}`)}
-				>→</button>
-				</div>
-			{/if}
+			<YearNav
+				years={data.allYears}
+				selected={data.selectedYear}
+				onSelect={(y) => goto(`?year=${y}&round=${data.selectedRound}`)}
+			/>
 		</div>
 	</div>
 
 	<!-- ── Round chip bar ── -->
-	<div class="round-chips-panel">
-		<div class="round-chips-header">
-			<span class="round-chips-label">round</span>
-			<div class="round-chips-legend">
-				<span class="legend-item">
-					<span class="legend-swatch legend-swatch-scraped"></span>scraped
-				</span>
-				<span class="legend-item">
-					<span class="legend-swatch legend-swatch-upcoming"></span>upcoming
-				</span>
-			</div>
-		</div>
-		<div class="round-chips-grid">
-			{#each data.allRounds as r (r)}
-				{#if data.storedRounds.includes(r) || data.upcomingByRound[r]?.length || r === data.selectedRound}
-				<button
-					class={roundChipClass(r)}
-					onclick={() => goto(`?year=${data.selectedYear}&round=${r}`)}
-				>{r === 0 ? 'pre' : r === 25 ? 'QF' : r === 26 ? 'SF' : r === 27 ? 'PF' : r === 28 ? 'GF' : `r${r}`}</button>
-				{/if}
-			{/each}
-		</div>
-	</div>
+	<RoundChips
+		rounds={visibleRounds}
+		selected={data.selectedRound}
+		onSelect={(r) => goto(`?year=${data.selectedYear}&round=${r}`)}
+		statusFor={(r) => data.storedRounds.includes(r) ? 'scraped' : data.upcomingByRound[r]?.length ? 'upcoming' : 'none'}
+		showLegend
+	/>
 
 	<!-- ── Content ── -->
 	{#if isUpcomingRound}
@@ -177,7 +136,7 @@
 		<!-- Upcoming fixture (inline) -->
 		<div class="match-list">
 			<p class="list-meta">
-				upcoming · {roundLabel(data.selectedRound)}, {data.selectedYear}
+				upcoming · {roundLongLabel(data.selectedRound)}, {data.selectedYear}
 				<span class="list-count">{upcomingGames.length} game{upcomingGames.length === 1 ? '' : 's'}</span>
 				<span class="list-source">squiggle.com.au</span>
 			</p>
@@ -216,21 +175,24 @@
 
 	{:else if !data.hasData}
 
-		<div class="empty-state">
-			<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
-				<ellipse cx="12" cy="5" rx="9" ry="3"/>
-				<path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-				<path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-			</svg>
-			<p class="empty-title">no data for {roundLabel(data.selectedRound)}, {data.selectedYear}</p>
-			<p class="empty-sub">this round hasn't been scraped yet</p>
-		</div>
+		<EmptyState
+			title="no data for {roundLongLabel(data.selectedRound)}, {data.selectedYear}"
+			sub="this round hasn't been scraped yet"
+		>
+			{#snippet icon()}
+				<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+					<ellipse cx="12" cy="5" rx="9" ry="3"/>
+					<path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+					<path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+				</svg>
+			{/snippet}
+		</EmptyState>
 
 	{:else}
 
 		<div class="match-list">
 			<p class="list-meta">
-				{roundLabel(data.selectedRound)}, {data.selectedYear}
+				{roundLongLabel(data.selectedRound)}, {data.selectedYear}
 				<span class="list-count">{data.matches.length} match{data.matches.length === 1 ? '' : 'es'}</span>
 			</p>
 
@@ -284,6 +246,7 @@
 								type="text"
 								class="stats-search-input"
 								placeholder="search players…"
+								aria-label="search players"
 								bind:value={statsSearch}
 							/>
 						</div>
@@ -335,7 +298,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+		transition: opacity 0.15s ease;
 	}
+	.page-loading { opacity: 0.55; pointer-events: none; }
 
 	/* ── Toolbar ── */
 	.toolbar {
@@ -372,49 +337,6 @@
 		flex-wrap: wrap;
 	}
 
-	/* ── Year nav ── */
-	.year-nav {
-		display: flex;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 0.375rem;
-		overflow: hidden;
-	}
-
-	.year-nav-btn {
-		font-family: inherit;
-		font-size: 0.8125rem;
-		padding: 0.25rem 0.5rem;
-		background: none;
-		border: none;
-		color: var(--muted-foreground);
-		cursor: pointer;
-		transition: background-color 0.12s ease, color 0.12s ease;
-		line-height: 1;
-	}
-
-	.year-nav-btn:hover:not(:disabled) {
-		background-color: var(--secondary);
-		color: var(--foreground);
-	}
-
-	.year-nav-btn:disabled {
-		opacity: 0.3;
-		cursor: default;
-	}
-
-	.year-nav-label {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		color: var(--foreground);
-		padding: 0.25rem 0.5rem;
-		border-left: 1px solid var(--border);
-		border-right: 1px solid var(--border);
-		min-width: 3rem;
-		text-align: center;
-		font-variant-numeric: tabular-nums;
-	}
-
 	/* ── Adv toggle ── */
 	.adv-toggle {
 		font-size: 0.6875rem;
@@ -444,142 +366,6 @@
 
 	.adv-toggle-active:hover {
 		background-color: color-mix(in oklch, var(--primary), black 10%);
-	}
-
-	/* ── Round chip bar ── */
-	.round-chips-panel {
-		border: 1px solid var(--border);
-		border-radius: 0.625rem;
-		padding: 0.75rem 0.875rem;
-		background-color: color-mix(in oklch, var(--muted), transparent 65%);
-	}
-
-	.round-chips-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 0.625rem;
-	}
-
-	.round-chips-label {
-		font-size: 0.6875rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--muted-foreground);
-	}
-
-	.round-chips-legend {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		font-size: 0.625rem;
-		color: var(--muted-foreground);
-		letter-spacing: 0.03em;
-	}
-
-	.legend-swatch {
-		width: 0.5rem;
-		height: 0.5rem;
-		border-radius: 0.15rem;
-		flex-shrink: 0;
-	}
-
-	.legend-swatch-scraped {
-		background-color: var(--foreground);
-		opacity: 0.6;
-	}
-
-	.legend-swatch-upcoming {
-		background-color: var(--primary);
-		opacity: 0.7;
-	}
-
-	.round-chips-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-
-	.round-chip {
-		font-size: 0.6875rem;
-		font-family: inherit;
-		padding: 0.2rem 0.5rem;
-		border-radius: 0.3rem;
-		border: 1px solid var(--border);
-		background: var(--card);
-		color: var(--muted-foreground);
-		cursor: pointer;
-		transition: all 0.1s ease;
-		opacity: 0.4;
-	}
-
-	.round-chip:hover {
-		border-color: var(--foreground);
-		color: var(--foreground);
-		opacity: 1;
-	}
-
-	.round-chip-on {
-		background-color: var(--foreground);
-		color: var(--background);
-		border-color: var(--foreground);
-		font-weight: 600;
-		opacity: 1;
-	}
-
-	.round-chip-on:hover {
-		opacity: 0.85;
-	}
-
-	.round-chip-scraped {
-		border-color: color-mix(in oklch, var(--primary), transparent 50%);
-		color: var(--foreground);
-		opacity: 1;
-	}
-
-	.round-chip-upcoming {
-		border-color: var(--primary);
-		color: var(--primary);
-		background: color-mix(in oklch, var(--primary), transparent 90%);
-		opacity: 1;
-	}
-
-	/* ── Empty state ── */
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.625rem;
-		padding: 5rem 2rem;
-		border: 1px dashed var(--border);
-		border-radius: 0.75rem;
-		text-align: center;
-	}
-
-	.empty-icon {
-		color: var(--muted-foreground);
-		opacity: 0.4;
-		margin-bottom: 0.25rem;
-	}
-
-	.empty-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		color: var(--foreground);
-	}
-
-	.empty-sub {
-		font-size: 0.8125rem;
-		color: var(--muted-foreground);
-		margin-bottom: 0.5rem;
 	}
 
 	/* ── Match list ── */

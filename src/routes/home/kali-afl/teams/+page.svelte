@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { navigating } from '$app/state';
+	import { roundShortLabel } from '$lib/afl/format';
+	import BarChart from '$lib/components/ui/custom/barChart.svelte';
+	import EmptyState from '$lib/components/ui/custom/emptyState.svelte';
+	import ResultChip from '$lib/components/ui/custom/resultChip.svelte';
+	import SortableTh from '$lib/components/ui/custom/sortableTh.svelte';
+	import TabNav from '$lib/components/ui/custom/tabNav.svelte';
+	import YearNav from '$lib/components/ui/custom/yearNav.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import type { PageData } from './$types';
 	import type { TeamGameRow, TeamSummary, GameDetail } from './+page.server';
@@ -7,8 +15,15 @@
 	let { data }: { data: PageData } = $props();
 
 	// ── Global state ──────────────────────────────────────────────────────────
+	// svelte-ignore state_referenced_locally -- initial tab only; the $effect below tracks later URL changes
 	let activeTab      = $state<'overview' | 'games' | 'h2h'>(data.compareTeamId ? 'h2h' : 'overview');
 	let selectedMatchId = $state<number | null>(null);
+	let drawerCloseBtn = $state<HTMLButtonElement | null>(null);
+
+	// Move focus into the drawer when it opens so Escape/tab work from keyboard
+	$effect(() => {
+		if (selectedMatchId != null) drawerCloseBtn?.focus();
+	});
 
 	// ── Games tab state ───────────────────────────────────────────────────────
 	let sortCol    = $state<string>('round');
@@ -39,8 +54,13 @@
 		if (venFilter === 'home')   gs = gs.filter(g => g.isHome);
 		if (venFilter === 'away')   gs = gs.filter(g => !g.isHome);
 		if (oppSearch.trim()) gs = gs.filter(g => g.opponentName.toLowerCase().includes(oppSearch.toLowerCase()));
+		const RESULT_ORDER: Record<string, number> = { W: 2, D: 1, L: 0 };
 		return gs.sort((a, b) => {
 			let av = (a as any)[sortCol]; let bv = (b as any)[sortCol];
+			if (sortCol === 'result') {
+				av = av != null ? RESULT_ORDER[av] : null;
+				bv = bv != null ? RESULT_ORDER[bv] : null;
+			}
 			if (av == null) av = sortAsc ?  Infinity : -Infinity;
 			if (bv == null) bv = sortAsc ?  Infinity : -Infinity;
 			const r = av < bv ? -1 : av > bv ? 1 : 0;
@@ -100,8 +120,18 @@
 	] as const;
 </script>
 
+<svelte:head>
+	<title>Teams & Stats · Kali AFL</title>
+</svelte:head>
+
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape' && selectedMatchId != null) selectedMatchId = null;
+	}}
+/>
+
 <!-- ═══ Root ═════════════════════════════════════════════════════════════════ -->
-<div class="page">
+<div class="page" class:page-loading={!!navigating.to}>
 
 	<!-- ── Sticky toolbar ─────────────────────────────────────────────────── -->
 	<div class="toolbar">
@@ -121,48 +151,35 @@
 				</Select.Content>
 			</Select.Root>
 
-			{#if true}
-				{@const yearIdx = data.allYears.indexOf(data.selectedYear)}
-				<div class="year-nav">
-				<button
-					class="year-nav-btn"
-					disabled={yearIdx <= 0}
-					onclick={() => nav({ year: String(data.allYears[yearIdx - 1]), compare: null })}
-				>←</button>
-				<span class="year-nav-label">{data.selectedYear}</span>
-				<button
-					class="year-nav-btn"
-					disabled={yearIdx >= data.allYears.length - 1}
-					onclick={() => nav({ year: String(data.allYears[yearIdx + 1]), compare: null })}
-				>→</button>
-				</div>
-			{/if}
+			<YearNav
+				years={data.allYears}
+				selected={data.selectedYear}
+				onSelect={(y) => nav({ year: String(y), compare: null })}
+			/>
 		</div>
 
 	</div>
 
 	<!-- ── Tab nav ────────────────────────────────────────────────────────── -->
-	<nav class="tab-nav">
-		{#each (['overview', 'games', 'h2h'] as const) as tab}
-			<button
-				class="tab-btn"
-				class:tab-active={activeTab === tab}
-				onclick={() => activeTab = tab}
-			>
-				{tab === 'h2h' ? 'head-to-head' : tab}
-			</button>
-		{/each}
-	</nav>
+	<TabNav
+		tabs={[
+			{ id: 'overview', label: 'overview' },
+			{ id: 'games', label: 'games' },
+			{ id: 'h2h', label: 'head-to-head' },
+		]}
+		active={activeTab}
+		onChange={(id) => (activeTab = id as typeof activeTab)}
+	/>
 
 	<!-- ═══════════════════════════════════════════════════════════════════════
 	     SECTION 1 — OVERVIEW
 	══════════════════════════════════════════════════════════════════════════ -->
 	{#if activeTab === 'overview'}
 		{#if !data.teamSummary || data.teamGames.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no data for {data.allTeams.find(t => t.id === data.selectedTeamId)?.name ?? 'this team'}</p>
-				<p class="empty-sub">scrape some rounds on the matches &amp; stats page first</p>
-			</div>
+			<EmptyState
+				title="no data for {data.allTeams.find(t => t.id === data.selectedTeamId)?.name ?? 'this team'}"
+				sub="scrape some rounds on the matches & stats page first"
+			/>
 		{:else}
 			{@const s = data.teamSummary as TeamSummary}
 			{@const team = data.allTeams.find(t => t.id === data.selectedTeamId)}
@@ -227,46 +244,19 @@
 	══════════════════════════════════════════════════════════════════════════ -->
 	{:else if activeTab === 'games'}
 		{#if data.teamGames.length === 0}
-			<div class="empty-state">
-				<p class="empty-title">no games scraped yet</p>
-				<p class="empty-sub">head to the matches &amp; stats page to scrape some rounds</p>
-			</div>
+			<EmptyState
+				title="no games scraped yet"
+				sub="head to the matches & stats page to scrape some rounds"
+			/>
 		{:else}
 			<!-- Margin bar chart -->
 			{#if chartGames.length > 0}
-				{@const BW = 18}
-				{@const GAP = 5}
-				{@const HALF = 68}
-				{@const TH = HALF * 2 + 22}
-				{@const maxAbs = Math.max(1, ...chartGames.map(g => Math.abs(g.margin!)))}
-				{@const W = chartGames.length * (BW + GAP) - GAP}
-				<div class="chart-wrap">
-					<p class="chart-label">margin by round</p>
-					<div class="chart-scroll">
-						<svg viewBox="0 0 {W} {TH}" class="chart-svg" style="min-width: {W}px">
-							<line x1="0" y1={HALF} x2={W} y2={HALF} stroke="var(--border)" stroke-width="1"/>
-							{#each chartGames as g, i}
-								{@const bh = Math.max(2, (Math.abs(g.margin!) / maxAbs) * HALF)}
-								{@const x = i * (BW + GAP)}
-								{@const y = g.margin! > 0 ? HALF - bh : HALF}
-								{@const fill = g.margin! > 0 ? 'oklch(0.52 0.14 145)' : g.margin! < 0 ? 'var(--destructive)' : 'var(--muted-foreground)'}
-								<rect
-									{x} {y} width={BW} height={bh} fill={fill} rx="2"
-									opacity={selectedMatchId != null && selectedMatchId !== g.matchId ? 0.35 : 1}
-									class="chart-bar"
-									role="button" tabindex="0"
-									onclick={() => { selectedMatchId = selectedMatchId === g.matchId ? null : g.matchId; }}
-									onkeydown={(e) => { if (e.key === 'Enter') selectedMatchId = selectedMatchId === g.matchId ? null : g.matchId; }}
-								/>
-								{#if chartGames.length <= 30}
-									<text x={x + BW / 2} y={TH - 3} text-anchor="middle" font-size="7" fill="var(--muted-foreground)" font-family="inherit">
-										R{g.round}
-									</text>
-								{/if}
-							{/each}
-						</svg>
-					</div>
-				</div>
+				<BarChart
+					caption="margin by round"
+					bars={chartGames.map((g) => ({ id: g.matchId, delta: g.margin!, label: roundShortLabel(g.round) }))}
+					selectedId={selectedMatchId}
+					onToggle={(id) => { selectedMatchId = selectedMatchId === id ? null : id; }}
+				/>
 			{/if}
 
 			<!-- Filters -->
@@ -281,7 +271,7 @@
 						<button class="filter-pill" class:filter-on={resFilter === v} onclick={() => resFilter = v}>{v}</button>
 					{/each}
 				</div>
-				<input type="text" class="opp-search" placeholder="search opponent…" bind:value={oppSearch} />
+				<input type="text" class="opp-search" placeholder="search opponent…" aria-label="search opponent" bind:value={oppSearch} />
 			</div>
 
 			<!-- Games table -->
@@ -298,19 +288,13 @@
 								{ col: 'oppScore',    label: 'Opp'      },
 								{ col: 'margin',      label: 'Margin'   },
 								{ col: 'result',      label: 'Result'   },
-							] as h}
-								<th
-									class="th"
-									class:th-active={sortCol === h.col}
-									onclick={() => setSortCol(h.col)}
-									role="button" tabindex="0"
-									onkeydown={(e) => { if (e.key === 'Enter') setSortCol(h.col); }}
-								>
-									{h.label}
-									{#if sortCol === h.col}
-										<span class="sort-arrow">{sortAsc ? '↑' : '↓'}</span>
-									{/if}
-								</th>
+							] as h (h.col)}
+								<SortableTh
+									label={h.label}
+									active={sortCol === h.col}
+									asc={sortAsc}
+									onSort={() => setSortCol(h.col)}
+								/>
 							{/each}
 						</tr>
 					</thead>
@@ -321,7 +305,7 @@
 								class:game-row-active={selectedMatchId === g.matchId}
 								onclick={() => { selectedMatchId = selectedMatchId === g.matchId ? null : g.matchId; }}
 							>
-								<td class="td td-num">R{g.round}</td>
+								<td class="td td-num">{roundShortLabel(g.round)}</td>
 								<td class="td td-opp">{g.opponentShort}</td>
 								<td class="td td-venue">{g.venue}</td>
 								<td class="td td-centre">{g.isHome ? 'H' : 'A'}</td>
@@ -332,7 +316,7 @@
 								</td>
 								<td class="td td-centre">
 									{#if g.result}
-										<span class="result-chip result-{g.result.toLowerCase()}">{g.result}</span>
+										<ResultChip result={g.result} />
 									{:else}–{/if}
 								</td>
 							</tr>
@@ -355,7 +339,7 @@
 				<span class="picker-label">team a</span>
 				<span class="picker-name">{data.allTeams.find(t => t.id === data.selectedTeamId)?.name ?? '—'}</span>
 			</div>
-			<button class="swap-btn" onclick={() => {
+			<button class="swap-btn" aria-label="swap teams" disabled={!data.compareTeamId} onclick={() => {
 				if (data.compareTeamId) nav({ team: data.compareTeamId, compare: data.selectedTeamId });
 			}} title="swap teams">⇄</button>
 			<div class="picker-block picker-b">
@@ -378,15 +362,15 @@
 		</div>
 
 		{#if !data.compareTeamId}
-			<div class="empty-state">
-				<p class="empty-title">select a team to compare</p>
-				<p class="empty-sub">choose team b above to start the comparison</p>
-			</div>
+			<EmptyState
+				title="select a team to compare"
+				sub="choose team b above to start the comparison"
+			/>
 		{:else if !data.teamSummary || !data.compareSummary}
-			<div class="empty-state">
-				<p class="empty-title">not enough data</p>
-				<p class="empty-sub">scrape rounds for both teams first</p>
-			</div>
+			<EmptyState
+				title="not enough data"
+				sub="scrape rounds for both teams first"
+			/>
 		{:else}
 			{@const teamA = data.allTeams.find(t => t.id === data.selectedTeamId)}
 			{@const teamB = data.allTeams.find(t => t.id === data.compareTeamId)}
@@ -451,13 +435,13 @@
 					<div class="h2h-meetings">
 						{#each h2hRecord.last5 as g (g.matchId)}
 							<div class="h2h-meeting">
-								<span class="h2h-meeting-meta">{g.year} R{g.round}</span>
+								<span class="h2h-meeting-meta">{g.year} {roundShortLabel(g.round)}</span>
 								<span class="h2h-meeting-score">
 									{g.teamScore ?? '–'} – {g.oppScore ?? '–'}
 								</span>
 								<span class="h2h-meeting-venue">{g.venue}</span>
 								{#if g.result}
-									<span class="result-chip result-{g.result.toLowerCase()} result-sm">{g.result}</span>
+									<ResultChip result={g.result} small />
 								{/if}
 							</div>
 						{/each}
@@ -473,19 +457,19 @@
 
 <!-- ═══ Game detail drawer ═════════════════════════════════════════════════ -->
 {#if selectedMatchId != null && drawerRow && drawerGame}
-	<!-- Backdrop -->
-	<div class="drawer-backdrop" role="button" tabindex="-1" onclick={() => selectedMatchId = null} onkeydown={() => {}}></div>
+	<!-- Backdrop (mouse-only affordance; Escape handled on window, close button is focusable) -->
+	<div class="drawer-backdrop" aria-hidden="true" onclick={() => selectedMatchId = null}></div>
 
-	<aside class="drawer">
+	<div class="drawer" role="dialog" aria-modal="true" aria-label="game details">
 		<div class="drawer-header">
 			<div class="drawer-title-block">
-				<span class="drawer-round">R{drawerRow.round} · {drawerRow.date}</span>
+				<span class="drawer-round">{roundShortLabel(drawerRow.round)} · {drawerRow.date}</span>
 				<span class="drawer-matchup">
 					{drawerTeam?.shortName ?? ''} vs {drawerRow.opponentShort}
 				</span>
 				<span class="drawer-score">{drawerRow.teamScore ?? '–'} – {drawerRow.oppScore ?? '–'}</span>
 			</div>
-			<button class="drawer-close" onclick={() => selectedMatchId = null}>✕</button>
+			<button class="drawer-close" aria-label="close game details" bind:this={drawerCloseBtn} onclick={() => selectedMatchId = null}>✕</button>
 		</div>
 
 		<!-- Team stat comparison -->
@@ -534,7 +518,7 @@
 				{/each}
 			</div>
 		</div>
-	</aside>
+	</div>
 {/if}
 
 <style>
@@ -546,7 +530,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+		transition: opacity 0.15s ease;
 	}
+	.page-loading { opacity: 0.55; pointer-events: none; }
 
 	/* ── Toolbar ── */
 	.toolbar {
@@ -557,68 +543,6 @@
 		gap: 0.75rem;
 	}
 	.toolbar-left { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-
-	/* ── Year nav ── */
-	.year-nav {
-		display: flex;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 0.375rem;
-		overflow: hidden;
-	}
-	.year-nav-btn {
-		font-family: inherit;
-		font-size: 0.8125rem;
-		padding: 0.25rem 0.5rem;
-		background: none;
-		border: none;
-		color: var(--muted-foreground);
-		cursor: pointer;
-		transition: background-color 0.12s ease, color 0.12s ease;
-		line-height: 1;
-	}
-	.year-nav-btn:hover:not(:disabled) {
-		background-color: var(--secondary);
-		color: var(--foreground);
-	}
-	.year-nav-btn:disabled { opacity: 0.3; cursor: default; }
-	.year-nav-label {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		color: var(--foreground);
-		padding: 0.25rem 0.5rem;
-		border-left: 1px solid var(--border);
-		border-right: 1px solid var(--border);
-		min-width: 3rem;
-		text-align: center;
-		font-variant-numeric: tabular-nums;
-	}
-
-	/* ── Tabs ── */
-	.tab-nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
-	.tab-btn {
-		font-size: 0.8125rem;
-		font-family: inherit;
-		background: none;
-		border: none;
-		border-bottom: 2px solid transparent;
-		padding: 0.625rem 1rem;
-		cursor: pointer;
-		color: var(--muted-foreground);
-		transition: color 0.12s, border-color 0.12s;
-		margin-bottom: -1px;
-		letter-spacing: 0.01em;
-	}
-	.tab-btn:hover { color: var(--foreground); }
-	.tab-active { color: var(--foreground); border-bottom-color: var(--primary); font-weight: 600; }
-
-	/* ── Empty state ── */
-	.empty-state {
-		display: flex; flex-direction: column; align-items: center; justify-content: center;
-		gap: 0.375rem; padding: 4rem 2rem; border: 1px dashed var(--border); border-radius: 0.75rem; text-align: center;
-	}
-	.empty-title { font-size: 0.9375rem; font-weight: 600; color: var(--foreground); }
-	.empty-sub   { font-size: 0.8125rem; color: var(--muted-foreground); }
 
 	/* ── Hero card ── */
 	.hero-card {
@@ -632,7 +556,7 @@
 	.hero-name { font-size: 1.375rem; font-weight: 700; color: var(--foreground); letter-spacing: -0.025em; margin-bottom: 0.5rem; }
 	.hero-record { display: flex; gap: 0.375rem; margin-bottom: 0.875rem; }
 	.record-chip { font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 0.375rem; letter-spacing: 0.03em; }
-	.record-w { background-color: oklch(0.52 0.14 145 / 0.15); color: oklch(0.52 0.14 145); border: 1px solid oklch(0.52 0.14 145 / 0.3); }
+	.record-w { background-color: color-mix(in oklch, var(--success), transparent 85%); color: var(--success); border: 1px solid color-mix(in oklch, var(--success), transparent 70%); }
 	.record-l { background-color: color-mix(in oklch, var(--destructive), transparent 85%); color: var(--destructive); border: 1px solid color-mix(in oklch, var(--destructive), transparent 65%); }
 	.record-d { background-color: var(--secondary); color: var(--muted-foreground); border: 1px solid var(--border); }
 
@@ -647,7 +571,7 @@
 	.form-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); }
 	.form-guide { display: flex; gap: 0.25rem; }
 	.form-pill  { font-size: 0.75rem; font-weight: 700; width: 1.5rem; height: 1.5rem; border-radius: 0.3rem; display: flex; align-items: center; justify-content: center; }
-	.form-w { background-color: oklch(0.52 0.14 145 / 0.18); color: oklch(0.52 0.14 145); }
+	.form-w { background-color: color-mix(in oklch, var(--success), transparent 82%); color: var(--success); }
 	.form-l { background-color: color-mix(in oklch, var(--destructive), transparent 82%); color: var(--destructive); }
 	.form-d { background-color: var(--secondary); color: var(--muted-foreground); }
 
@@ -662,16 +586,8 @@
 	}
 	.stat-val    { font-size: 1.875rem; font-weight: 700; color: var(--foreground); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 	.stat-margin { color: var(--muted-foreground); }
-	.positive    { color: oklch(0.52 0.14 145); }
+	.positive    { color: var(--success); }
 	.stat-label  { font-size: 0.75rem; color: var(--muted-foreground); letter-spacing: 0.02em; }
-
-	/* ── Chart ── */
-	.chart-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
-	.chart-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); }
-	.chart-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.625rem; padding: 0.75rem 1rem; background-color: var(--card); }
-	.chart-svg { display: block; height: 160px; }
-	.chart-bar { cursor: pointer; transition: opacity 0.12s ease; }
-	.chart-bar:hover { opacity: 0.8 !important; }
 
 	/* ── Filters ── */
 	.filters { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -698,15 +614,6 @@
 	/* ── Games table ── */
 	.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.625rem; }
 	.games-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-	.th {
-		padding: 0.5rem 0.875rem; text-align: left; font-weight: 600; font-size: 0.75rem;
-		color: var(--muted-foreground); background-color: color-mix(in oklch, var(--muted), transparent 55%);
-		border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none;
-		transition: color 0.1s;
-	}
-	.th:hover { color: var(--foreground); }
-	.th-active { color: var(--foreground); }
-	.sort-arrow { margin-left: 0.25rem; font-size: 0.6875rem; color: var(--primary); }
 
 	.game-row { border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 45%); cursor: pointer; transition: background-color 0.1s; }
 	.game-row:last-child { border-bottom: none; }
@@ -718,15 +625,9 @@
 	.td-centre   { text-align: center; }
 	.td-opp      { font-weight: 500; color: var(--foreground); }
 	.td-venue    { font-size: 0.75rem; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; }
-	.margin-pos  { color: oklch(0.52 0.14 145); font-weight: 600; }
+	.margin-pos  { color: var(--success); font-weight: 600; }
 	.margin-neg  { color: var(--destructive); font-weight: 600; }
 	.td-empty    { padding: 2rem; text-align: center; color: var(--muted-foreground); }
-
-	.result-chip { font-size: 0.6875rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 0.25rem; }
-	.result-w { background-color: oklch(0.52 0.14 145 / 0.18); color: oklch(0.52 0.14 145); }
-	.result-l { background-color: color-mix(in oklch, var(--destructive), transparent 82%); color: var(--destructive); }
-	.result-d { background-color: var(--secondary); color: var(--muted-foreground); }
-	.result-sm { font-size: 0.625rem; }
 
 	/* ── H2H section ── */
 	.h2h-pickers {
@@ -742,7 +643,8 @@
 		padding: 0.375rem 0.625rem; cursor: pointer; color: var(--muted-foreground);
 		transition: all 0.12s; flex-shrink: 0;
 	}
-	.swap-btn:hover { color: var(--foreground); border-color: var(--foreground); }
+	.swap-btn:hover:not(:disabled) { color: var(--foreground); border-color: var(--foreground); }
+	.swap-btn:disabled { opacity: 0.4; cursor: default; }
 
 	.compare-card { border: 1px solid var(--border); border-radius: 0.75rem; background-color: var(--card); overflow: hidden; }
 	.compare-header {
@@ -798,7 +700,7 @@
 
 	/* ── Drawer ── */
 	.drawer-backdrop {
-		position: fixed; inset: 0; background-color: oklch(0 0 0 / 0.35);
+		position: fixed; inset: 0; background-color: var(--overlay);
 		z-index: 40; backdrop-filter: blur(2px);
 		animation: fade-in 0.15s ease both;
 	}

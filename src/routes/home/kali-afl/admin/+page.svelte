@@ -36,6 +36,7 @@
 	}
 
 	// ── Scrape latest game state ──────────────────────────────────────────────
+	// svelte-ignore state_referenced_locally -- year pickers intentionally default to the loaded year once
 	let latestYear = $state(data.selectedYear);
 	let latestLoading = $state(false);
 	let latestResult = $state<{ success?: boolean; error?: string; mid?: number; round?: number; year?: number; homeTeam?: string; awayTeam?: string; homeScore?: number; awayScore?: number } | null>(null);
@@ -59,7 +60,9 @@
 	// ── Bulk scrape state ──────────────────────────────────────────────────────
 	const MAX_ROUND = 28;
 
+	// svelte-ignore state_referenced_locally -- year pickers intentionally default to the loaded year once
 	let bulkFromYear = $state(data.selectedYear);
+	// svelte-ignore state_referenced_locally -- year pickers intentionally default to the loaded year once
 	let bulkToYear   = $state(data.selectedYear);
 	let bulkRunning  = $state(false);
 	let bulkAbort    = $state(false);
@@ -144,6 +147,10 @@
 		return `${year}-${round}`;
 	}
 </script>
+
+<svelte:head>
+	<title>Admin — Scraper · Kali AFL</title>
+</svelte:head>
 
 <div class="page">
 	<div class="page-header">

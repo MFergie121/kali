@@ -97,6 +97,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Dashboard · Kali AFL</title>
+</svelte:head>
+
 <div class="page">
 
 	<!-- ── Toolbar ── -->

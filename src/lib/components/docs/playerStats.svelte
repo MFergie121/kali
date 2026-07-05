@@ -48,7 +48,7 @@
 	<!-- GET /player-stats -->
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/player-stats</code>
 		</div>
 		<p class="text-muted-foreground text-sm">
@@ -139,7 +139,7 @@ GET /player-stats?year=2024&round=10&sort_by=tackles&limit=10</pre>
 	<!-- GET /player-stats-advanced -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/player-stats-advanced</code>
 		</div>
 		<p class="text-muted-foreground text-sm">
@@ -207,7 +207,7 @@ GET /player-stats-advanced?year=2024&round=10&sort_by=metres_gained&limit=10</pr
 	<!-- GET /player-team-assignments -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/player-team-assignments</code>
 		</div>
 		<p class="text-muted-foreground text-sm">

@@ -3,7 +3,7 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const limitFormatted = Number(data.apiLimit).toLocaleString();
+	const limitFormatted = $derived(Number(data.apiLimit).toLocaleString());
 </script>
 
 <svelte:head>

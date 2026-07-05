@@ -8,7 +8,7 @@
 	<!-- GET /players -->
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/players</code>
 		</div>
 		<p class="text-muted-foreground text-sm">
@@ -59,7 +59,7 @@ GET /players?team_id=collingwood&year=2024</pre>
 	<!-- GET /players/:id -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/players/:id</code>
 		</div>
 		<p class="text-muted-foreground text-sm">Returns a single player by numeric ID.</p>
@@ -78,7 +78,7 @@ GET /players?team_id=collingwood&year=2024</pre>
 	<!-- GET /players/:id/career -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/players/:id/career</code>
 		</div>
 		<p class="text-muted-foreground text-sm">
@@ -106,7 +106,7 @@ GET /players?team_id=collingwood&year=2024</pre>
 	<!-- GET /players/:id/season -->
 	<div class="space-y-4 border-t pt-8">
 		<div class="flex items-center gap-3">
-			<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-300">GET</span>
+			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/players/:id/season</code>
 		</div>
 		<p class="text-muted-foreground text-sm">

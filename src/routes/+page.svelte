@@ -9,9 +9,9 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const limitFormatted = Number(data.apiLimit).toLocaleString();
+	const limitFormatted = $derived(Number(data.apiLimit).toLocaleString());
 
-	const stats = data.stats;
+	const stats = $derived(data.stats);
 	const fmt = (n: number) => n.toLocaleString();
 </script>
 

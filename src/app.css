@@ -24,6 +24,9 @@
   --accent: oklch(0.78 0.165 87);
   --accent-foreground: oklch(0.22 0.01 260);
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.52 0.14 145);
+  --overlay: oklch(0 0 0 / 0.5);
   --border: oklch(0.845 0.018 89.5);
   --input: oklch(0.845 0.018 89.5);
   --ring: oklch(0.78 0.165 87);
@@ -269,6 +272,8 @@
   --accent: oklch(0.78 0.165 87);
   --accent-foreground: oklch(0.198 0.008 260);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.68 0.15 145);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.78 0.165 87);
@@ -514,6 +519,7 @@
   --accent: oklch(0.935 0.018 85);
   --accent-foreground: oklch(0.12 0.003 85);
   --destructive: oklch(0.528 0.178 27);
+  --success: oklch(0.55 0.12 145);
   --border: oklch(0.895 0.012 85);
   --input: oklch(0.895 0.012 85);
   --ring: oklch(0.622 0.115 37);
@@ -549,6 +555,7 @@
   --accent: oklch(0.528 0.215 27);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.56 0.21 27);      /* #f13a2c semantic-warning */
+  --success: oklch(0.52 0.15 150);         /* #03904a success green */
   --border: oklch(0.86 0 0);              /* #d2d2d2 hairline-on-light */
   --input: oklch(0.86 0 0);
   --ring: oklch(0.528 0.215 27);
@@ -654,6 +661,7 @@
   --accent: oklch(0.19 0.005 85);
   --accent-foreground: oklch(0.977 0.005 85);
   --destructive: oklch(0.528 0.178 27);
+  --success: oklch(0.68 0.12 145);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.622 0.115 37);
@@ -689,6 +697,7 @@
   --accent: oklch(0.528 0.215 27);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.56 0.21 27);
+  --success: oklch(0.62 0.15 150);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.528 0.215 27);
@@ -728,6 +737,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-overlay: var(--overlay);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -753,5 +765,16 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

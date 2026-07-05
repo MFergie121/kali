@@ -71,3 +71,37 @@ export function getUpcomingRound(games: GameLike[]): number | null {
 	if (upcoming.length === 0) return null;
 	return Math.min(...upcoming.map((g) => g.round));
 }
+
+/**
+ * Default round for the current season, shared by the matches and predictions pages:
+ *   1. a round in progress (≥1 game started, ≥1 not complete)
+ *   2. otherwise the upcoming round (next round with unstarted games)
+ *   3. otherwise the latest completed round
+ *   4. otherwise the first entry of `fallbackRounds`, then 1
+ */
+export function resolveDefaultRound(games: GameLike[], fallbackRounds: number[] = []): number {
+	if (games.length > 0) {
+		const now = new Date();
+		const byRound = new Map<number, GameLike[]>();
+		for (const g of games) {
+			if (!byRound.has(g.round)) byRound.set(g.round, []);
+			byRound.get(g.round)!.push(g);
+		}
+		for (const [round, roundGames] of byRound) {
+			const hasStarted = roundGames.some((g) => {
+				if (g.complete > 0) return true;
+				if (!g.date) return false;
+				return new Date(g.date.replace(' ', 'T') + '+10:00') <= now;
+			});
+			const hasIncomplete = roundGames.some((g) => g.complete < 100);
+			if (hasStarted && hasIncomplete) return round;
+		}
+		const upcoming = getUpcomingRound(games);
+		if (upcoming !== null) return upcoming;
+		const latestCompleted = games
+			.filter((g) => g.complete >= 100)
+			.reduce((max, g) => Math.max(max, g.round), 0);
+		if (latestCompleted > 0) return latestCompleted;
+	}
+	return fallbackRounds[0] ?? 1;
+}

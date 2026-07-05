@@ -36,6 +36,10 @@
 	const quotaCritical = $derived(isCritical(quotaPct));
 </script>
 
+<svelte:head>
+	<title>API Usage · Kali AFL</title>
+</svelte:head>
+
 <div class="mx-auto max-w-3xl space-y-6 p-6">
 
 	<!-- Header -->

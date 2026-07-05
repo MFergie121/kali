@@ -2,11 +2,28 @@
 	import type { PageData } from './$types';
 	import { Button } from '$lib/components/ui/button';
 	import DarkToggle from '$lib/components/ui/custom/darkToggle.svelte';
-	import ThemePicker from '$lib/components/ui/custom/themePicker.svelte';
 	import FontPicker from '$lib/components/ui/custom/fontPicker.svelte';
+	import Logo from '$lib/components/ui/custom/logo.svelte';
+	import ThemePicker from '$lib/components/ui/custom/themePicker.svelte';
 
 	let { data }: { data: PageData } = $props();
 </script>
+
+<svelte:head>
+	<title>Preferences · Kali AFL</title>
+</svelte:head>
+
+<header class="bg-background sticky top-0 z-40 flex h-14 items-center border-b px-4">
+	<nav class="flex w-full items-center justify-between">
+		<a href="/home/kali-afl" class="flex items-center gap-2">
+			<Logo size={22} />
+			<span class="text-sm font-semibold">Kali-AFL</span>
+		</a>
+		<a href="/home/kali-afl" class="text-muted-foreground hover:text-foreground text-sm transition-colors">
+			← back to dashboard
+		</a>
+	</nav>
+</header>
 
 <div class="mx-auto max-w-2xl space-y-8 p-8">
 	<h1 class="text-3xl font-bold">Preferences</h1>
