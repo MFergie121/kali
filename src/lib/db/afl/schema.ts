@@ -254,7 +254,7 @@ export const kaliUsers = pgTable("kali_users", {
   limit: integer("limit").default(
     process.env.API_KEY_DEFAULT_LIMIT
       ? parseInt(process.env.API_KEY_DEFAULT_LIMIT)
-      : 5000,
+      : 1000,
   ), // null = unlimited
   resetAt: text("reset_at"), // next 00:00 UTC boundary; null = uninitialised (lazily set on first request)
 });

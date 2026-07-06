@@ -25,7 +25,7 @@ if (!process.env.DATABASE_URL) {
 
 const DEFAULT_LIMIT = process.env.API_KEY_DEFAULT_LIMIT
   ? parseInt(process.env.API_KEY_DEFAULT_LIMIT)
-  : 5000;
+  : 1000;
 
 /** Next 00:00 UTC boundary strictly after `now` — must match quota-window.ts. */
 function nextResetAt(now = new Date()): string {
