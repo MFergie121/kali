@@ -51,8 +51,8 @@ SvelteKit 2 + Svelte 5 (runes) + Tailwind v4 + Drizzle ORM + PostgreSQL. SSR via
 
 ### REST API conventions
 - Path: `src/routes/api/afl/v{n}/{resource}/+server.ts` (or `[id]/+server.ts` for single-resource).
-- Pagination: `limit` clamped to 1–200 (default 50); `offset` ≥ 0 (default 0). Same parsing pattern in every list endpoint — copy from `v1/matches/+server.ts`.
-- List response: `json({ data, meta: { limit, offset, count, total } })`.
+- Query parsing and response shaping go through `src/lib/api/v1.ts` (`parseListQuery`/`parseQuery`/`parseId` + `listResponse`/`resource`, param specs via `q.*`). The rules themselves — snake_case wire names, silent 1–200/≥0 pagination clamping, "Bad request: …" messages, grouped required-param errors — live in the pure, unit-tested `src/lib/api/query.ts`. A handler is: `requireApiKey` gate → parse (a returned `Response` short-circuits) → service call → responder. Copy from `v1/matches/+server.ts`.
+- List response: `json({ data, meta: { limit, offset, count, total } })` — produced by `listResponse`.
 - Errors: `json({ error: 'message' }, { status })` — 400 for bad query params, 401 unauthorized, 429 rate-limited.
 - All DB access goes through `src/lib/db/afl/service.ts`. Do not write Drizzle queries inline in `+server.ts`. Types come from `$inferSelect` on `schema.ts`.
 

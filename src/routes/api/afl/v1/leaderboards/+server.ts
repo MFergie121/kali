@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
 import { requireApiKey } from '$lib/api/auth';
+import { listResponse, parseListQuery, q } from '$lib/api/v1';
 import { getLeaderboard, VALID_LEADERBOARD_STATS } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
@@ -7,31 +7,13 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
 	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
-	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '50', 10) || 50, 1), 200);
-	const offset = Math.max(parseInt(url.searchParams.get('offset') ?? '0', 10) || 0, 0);
+	const query = parseListQuery(url, {
+		stat: q.enum(VALID_LEADERBOARD_STATS, { required: true }),
+		year: q.int(),
+		round: q.int({ min: 0 }),
+		teamId: q.string()
+	});
+	if (query instanceof Response) return query;
 
-	const stat = url.searchParams.get('stat');
-	if (!stat) {
-		return json({ error: `Bad request: stat is required. Valid values: ${VALID_LEADERBOARD_STATS.join(', ')}` }, { status: 400 });
-	}
-	if (!VALID_LEADERBOARD_STATS.includes(stat)) {
-		return json({ error: `Bad request: invalid stat '${stat}'. Valid values: ${VALID_LEADERBOARD_STATS.join(', ')}` }, { status: 400 });
-	}
-
-	const yearParam = url.searchParams.get('year');
-	const roundParam = url.searchParams.get('round');
-	const teamId = url.searchParams.get('team_id') ?? undefined;
-
-	const year = yearParam ? parseInt(yearParam, 10) : undefined;
-	const round = roundParam ? parseInt(roundParam, 10) : undefined;
-
-	if (yearParam && (isNaN(year!) || year! < 1)) {
-		return json({ error: 'Bad request: year must be a positive integer' }, { status: 400 });
-	}
-	if (roundParam && (isNaN(round!) || round! < 0)) {
-		return json({ error: 'Bad request: round must be a non-negative integer' }, { status: 400 });
-	}
-
-	const { data, total } = await getLeaderboard({ stat, year, round, teamId, limit, offset });
-	return json({ data, meta: { limit, offset, count: data.length, total } });
+	return listResponse(await getLeaderboard(query), query);
 };

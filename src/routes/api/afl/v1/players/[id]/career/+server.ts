@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
 import { requireApiKey } from '$lib/api/auth';
+import { parseId, resource } from '$lib/api/v1';
 import { getPlayerCareerStats } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
@@ -7,15 +7,8 @@ export const GET: RequestHandler = async ({ request, locals, params }) => {
 	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
-	const id = parseInt(params.id, 10);
-	if (isNaN(id) || id < 1) {
-		return json({ error: 'Bad request: id must be a positive integer' }, { status: 400 });
-	}
+	const id = parseId(params.id);
+	if (id instanceof Response) return id;
 
-	const stats = await getPlayerCareerStats(id);
-	if (!stats) {
-		return json({ error: 'Player not found' }, { status: 404 });
-	}
-
-	return json({ data: stats });
+	return resource(await getPlayerCareerStats(id), 'Player');
 };

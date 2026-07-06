@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { requireApiKey } from '$lib/api/auth';
+import { parseQuery, q } from '$lib/api/v1';
 import { getTipsForRound } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
@@ -7,23 +8,12 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
 	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
-	const yearParam = url.searchParams.get('year');
-	const roundParam = url.searchParams.get('round');
+	const query = parseQuery(url, {
+		year: q.int({ required: true }),
+		round: q.int({ required: true })
+	});
+	if (query instanceof Response) return query;
 
-	if (!yearParam || !roundParam) {
-		return json({ error: 'Bad request: year and round are required' }, { status: 400 });
-	}
-
-	const year = parseInt(yearParam, 10);
-	const round = parseInt(roundParam, 10);
-
-	if (isNaN(year) || year < 1) {
-		return json({ error: 'Bad request: year must be a positive integer' }, { status: 400 });
-	}
-	if (isNaN(round) || round < 1) {
-		return json({ error: 'Bad request: round must be a positive integer' }, { status: 400 });
-	}
-
-	const data = await getTipsForRound(year, round);
-	return json({ data, meta: { year, round, count: data.length } });
+	const data = await getTipsForRound(query.year, query.round);
+	return json({ data, meta: { year: query.year, round: query.round, count: data.length } });
 };

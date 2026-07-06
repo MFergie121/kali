@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
 import { requireApiKey } from '$lib/api/auth';
+import { resource } from '$lib/api/v1';
 import { getTeamById } from '$lib/db/afl/service';
 import type { RequestHandler } from './$types';
 
@@ -7,10 +7,5 @@ export const GET: RequestHandler = async ({ request, locals, params }) => {
 	const denied = await requireApiKey(request, locals);
 	if (denied) return denied;
 
-	const team = await getTeamById(params.id);
-	if (!team) {
-		return json({ error: 'Team not found' }, { status: 404 });
-	}
-
-	return json({ data: team });
+	return resource(await getTeamById(params.id), 'Team');
 };
