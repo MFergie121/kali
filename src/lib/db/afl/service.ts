@@ -10,9 +10,9 @@ import { scrapeMatchAdvancedStats, scrapeMatchStats } from "$lib/afl/scraper";
 import type { SquiggleGame, SquiggleTip } from "$lib/afl/squiggle";
 import { db } from "$lib/db/afl";
 import type {
-  FactorBreakdown,
-  PredictionFactor,
+  PredictionFactors,
   PredictionGame,
+  PredictionTeamBreakdown,
 } from "$lib/afl/predictor";
 import type {
   KaliUser,
@@ -2347,12 +2347,18 @@ export interface PredictionRow {
   date: string | null;
   homeProbability: number;
   awayProbability: number;
+  /** Home-positive points; null on v1 rows. */
+  predictedMargin: number | null;
   squiggleConsensus: number | null;
-  homeBreakdown: FactorBreakdown;
-  awayBreakdown: FactorBreakdown;
-  factors: PredictionFactor[];
+  // jsonb payloads are typed for the current model; rows with modelVersion
+  // "v1" carry the legacy factor-score shape instead.
+  homeBreakdown: PredictionTeamBreakdown;
+  awayBreakdown: PredictionTeamBreakdown;
+  factors: PredictionFactors;
   modelVersion: string;
   actualWinner: string | null;
+  /** Home-positive points; null until settled with scores. */
+  actualMargin: number | null;
   computedAt: string;
   settledAt: string | null;
 }
@@ -2367,12 +2373,14 @@ function shapePredictionRow(
     awayTeamId: string;
     homeProbability: number;
     awayProbability: number;
+    predictedMargin: number | null;
     squiggleConsensus: number | null;
     homeBreakdown: unknown;
     awayBreakdown: unknown;
     factors: unknown;
     modelVersion: string;
     actualWinner: string | null;
+    actualMargin: number | null;
     computedAt: string;
     settledAt: string | null;
     venue: string | null;
@@ -2395,12 +2403,14 @@ function shapePredictionRow(
     date: r.date,
     homeProbability: r.homeProbability / 10,
     awayProbability: r.awayProbability / 10,
+    predictedMargin: r.predictedMargin,
     squiggleConsensus: r.squiggleConsensus,
-    homeBreakdown: r.homeBreakdown as FactorBreakdown,
-    awayBreakdown: r.awayBreakdown as FactorBreakdown,
-    factors: r.factors as PredictionFactor[],
+    homeBreakdown: r.homeBreakdown as PredictionTeamBreakdown,
+    awayBreakdown: r.awayBreakdown as PredictionTeamBreakdown,
+    factors: r.factors as PredictionFactors,
     modelVersion: r.modelVersion,
     actualWinner: r.actualWinner,
+    actualMargin: r.actualMargin,
     computedAt: r.computedAt,
     settledAt: r.settledAt,
   };
@@ -2423,6 +2433,7 @@ export async function upsertPredictions(
     awayTeamId: p.awayTeamId,
     homeProbability: Math.round(p.homeProbability * 10),
     awayProbability: Math.round(p.awayProbability * 10),
+    predictedMargin: p.predictedMargin,
     squiggleConsensus: p.squiggleConsensus,
     homeBreakdown: p.homeBreakdown,
     awayBreakdown: p.awayBreakdown,
@@ -2439,6 +2450,7 @@ export async function upsertPredictions(
       set: {
         homeProbability: sql`excluded.home_probability`,
         awayProbability: sql`excluded.away_probability`,
+        predictedMargin: sql`excluded.predicted_margin`,
         squiggleConsensus: sql`excluded.squiggle_consensus`,
         homeBreakdown: sql`excluded.home_breakdown`,
         awayBreakdown: sql`excluded.away_breakdown`,
@@ -2461,12 +2473,14 @@ const PREDICTION_SELECT = {
   awayTeamId: predictions.awayTeamId,
   homeProbability: predictions.homeProbability,
   awayProbability: predictions.awayProbability,
+  predictedMargin: predictions.predictedMargin,
   squiggleConsensus: predictions.squiggleConsensus,
   homeBreakdown: predictions.homeBreakdown,
   awayBreakdown: predictions.awayBreakdown,
   factors: predictions.factors,
   modelVersion: predictions.modelVersion,
   actualWinner: predictions.actualWinner,
+  actualMargin: predictions.actualMargin,
   computedAt: predictions.computedAt,
   settledAt: predictions.settledAt,
   venue: fixtures.venue,
@@ -2566,6 +2580,40 @@ export async function getPredictionsForRound(
 }
 
 /**
+ * Lean per-game rows for season-level model grading (page scoreboard):
+ * probabilities, margins, outcomes, and the tipster-consensus benchmark.
+ */
+export interface SeasonPredictionRow {
+  round: number;
+  homeProbability: number;
+  predictedMargin: number | null;
+  squiggleConsensus: number | null;
+  actualWinner: string | null;
+  actualMargin: number | null;
+}
+
+export async function getSeasonPredictionRows(
+  year: number,
+  modelVersion: string,
+): Promise<SeasonPredictionRow[]> {
+  const rows = await db
+    .select({
+      round: predictions.round,
+      homeProbability: predictions.homeProbability,
+      predictedMargin: predictions.predictedMargin,
+      squiggleConsensus: predictions.squiggleConsensus,
+      actualWinner: predictions.actualWinner,
+      actualMargin: predictions.actualMargin,
+    })
+    .from(predictions)
+    .where(
+      and(eq(predictions.year, year), eq(predictions.modelVersion, modelVersion)),
+    )
+    .orderBy(asc(predictions.round), asc(predictions.fixtureId));
+  return rows.map((r) => ({ ...r, homeProbability: r.homeProbability / 10 }));
+}
+
+/**
  * Populate `actualWinner` / `settledAt` for any prediction whose fixture has
  * completed. Idempotent — only updates rows where actualWinner is still null.
  */
@@ -2598,17 +2646,20 @@ export async function updatePredictionOutcomes(year: number): Promise<number> {
     }
     if (!outcome) continue;
 
+    const actualMargin =
+      f.hscore != null && f.ascore != null ? f.hscore - f.ascore : null;
+    // When scores are known, also repair older settled rows missing a margin.
+    const settleWhere =
+      actualMargin != null
+        ? or(isNull(predictions.actualWinner), isNull(predictions.actualMargin))
+        : isNull(predictions.actualWinner);
+
     const result = await db
       .update(predictions)
-      .set({ actualWinner: outcome, settledAt: now })
-      .where(
-        and(
-          eq(predictions.fixtureId, f.id),
-          isNull(predictions.actualWinner),
-        ),
-      );
-    // Drizzle update doesn't always return rowCount; count fixtures touched
-    updated += Array.isArray(result) ? result.length : 1;
+      .set({ actualWinner: outcome, actualMargin, settledAt: now })
+      .where(and(eq(predictions.fixtureId, f.id), settleWhere))
+      .returning({ id: predictions.id });
+    updated += result.length;
   }
 
   return updated;

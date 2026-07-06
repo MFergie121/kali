@@ -1,31 +1,88 @@
 import { resolveDefaultRound } from "$lib/afl/squiggle";
+import { MAX_ROUND, MODEL_VERSION } from "$lib/afl/predictor";
+import backtest from "$lib/afl/model-performance.json";
 import {
-  MAX_ROUND,
-  MODEL_VERSION,
-  type PredictionFactor,
-  type FactorBreakdown,
-} from "$lib/afl/predictor";
-import { getFixturesForYear, getPredictionsForRound } from "$lib/db/afl/service";
+  getFixturesForYear,
+  getPredictionsForRound,
+  getSeasonPredictionRows,
+  type PredictionRow,
+  type SeasonPredictionRow,
+} from "$lib/db/afl/service";
 import type { PageServerLoad } from "./$types";
 
-export type { PredictionFactor, FactorBreakdown };
+export type { PredictionRow };
 
-export interface PredictionGame {
-  fixtureId: number;
+export interface RoundAccuracy {
   round: number;
-  date: string | null;
-  venue: string | null;
-  homeTeam: string;
-  awayTeam: string;
-  homeTeamId: string;
-  awayTeamId: string;
-  homeProbability: number;
-  awayProbability: number;
-  factors: PredictionFactor[];
-  squiggleConsensus: number | null;
-  homeBreakdown: FactorBreakdown;
-  awayBreakdown: FactorBreakdown;
-  actualWinner: "home" | "away" | "draw" | null;
+  hits: number;
+  decided: number;
+}
+
+/** Season-to-date model grading shown in the scoreboard strip. */
+export interface Scoreboard {
+  decided: number;
+  hits: number;
+  accuracy: number | null;
+  brier: number | null;
+  marginMae: number | null;
+  /** Model vs tipster-consensus accuracy on the games both called. */
+  benchmark: { games: number; modelHits: number; tipsterHits: number } | null;
+  rounds: RoundAccuracy[];
+}
+
+function computeScoreboard(rows: SeasonPredictionRow[]): Scoreboard {
+  let hits = 0;
+  let decided = 0;
+  let brierSum = 0;
+  let brierGames = 0;
+  let maeSum = 0;
+  let maeGames = 0;
+  let benchGames = 0;
+  let benchModel = 0;
+  let benchTipster = 0;
+  const byRound = new Map<number, RoundAccuracy>();
+
+  for (const r of rows) {
+    if (r.actualWinner === null) continue;
+    const outcome =
+      r.actualWinner === "home" ? 1 : r.actualWinner === "away" ? 0 : 0.5;
+    brierSum += (r.homeProbability / 100 - outcome) ** 2;
+    brierGames++;
+    if (r.predictedMargin !== null && r.actualMargin !== null) {
+      maeSum += Math.abs(r.predictedMargin - r.actualMargin);
+      maeGames++;
+    }
+    if (r.actualWinner === "home" || r.actualWinner === "away") {
+      decided++;
+      const modelRight = (r.homeProbability >= 50) === (r.actualWinner === "home");
+      if (modelRight) hits++;
+      let entry = byRound.get(r.round);
+      if (!entry) {
+        entry = { round: r.round, hits: 0, decided: 0 };
+        byRound.set(r.round, entry);
+      }
+      entry.decided++;
+      if (modelRight) entry.hits++;
+      if (r.squiggleConsensus !== null) {
+        benchGames++;
+        if (modelRight) benchModel++;
+        if ((r.squiggleConsensus >= 50) === (r.actualWinner === "home")) benchTipster++;
+      }
+    }
+  }
+
+  return {
+    decided,
+    hits,
+    accuracy: decided > 0 ? Math.round((hits / decided) * 1000) / 10 : null,
+    brier: brierGames > 0 ? Math.round((brierSum / brierGames) * 10000) / 10000 : null,
+    marginMae: maeGames > 0 ? Math.round((maeSum / maeGames) * 10) / 10 : null,
+    benchmark:
+      benchGames > 0
+        ? { games: benchGames, modelHits: benchModel, tipsterHits: benchTipster }
+        : null,
+    rounds: [...byRound.values()].sort((a, b) => a.round - b.round),
+  };
 }
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -43,35 +100,39 @@ export const load: PageServerLoad = async ({ url }) => {
       ? rawRound
       : resolveDefaultRound(allFixtures);
 
-  const availableRounds = [
-    ...new Set(allFixtures.map((f) => f.round)),
-  ].sort((a, b) => a - b);
+  const availableRounds = [...new Set(allFixtures.map((f) => f.round))].sort(
+    (a, b) => a - b,
+  );
 
-  const roundGames = allFixtures.filter((f) => f.round === selectedRound);
-  if (roundGames.length === 0) {
-    return { selectedRound, predictions: [], availableRounds, hasFixtures: false, loadError };
-  }
+  const backtestData = {
+    seasons: backtest.seasons,
+    validatedOn: backtest.validatedOn,
+    tunedOn: backtest.tunedOn,
+    params: backtest.params,
+  };
 
-  const stored = await getPredictionsForRound(currentYear, selectedRound, MODEL_VERSION).catch(() => {
-    loadError = true;
-    return [];
-  });
-  const predictions: PredictionGame[] = stored.map((r) => ({
-    fixtureId: r.fixtureId,
-    round: r.round,
-    date: r.date,
-    venue: r.venue,
-    homeTeam: r.homeTeam,
-    awayTeam: r.awayTeam,
-    homeTeamId: r.homeTeamId,
-    awayTeamId: r.awayTeamId,
-    homeProbability: r.homeProbability,
-    awayProbability: r.awayProbability,
-    factors: r.factors,
-    squiggleConsensus: r.squiggleConsensus,
-    homeBreakdown: r.homeBreakdown,
-    awayBreakdown: r.awayBreakdown,
-    actualWinner: r.actualWinner as "home" | "away" | "draw" | null,
-  }));
-  return { selectedRound, predictions, availableRounds, hasFixtures: true, loadError };
+  const hasFixtures = allFixtures.some((f) => f.round === selectedRound);
+  const [predictions, seasonRows] = await Promise.all([
+    hasFixtures
+      ? getPredictionsForRound(currentYear, selectedRound, MODEL_VERSION).catch(() => {
+          loadError = true;
+          return [] as PredictionRow[];
+        })
+      : Promise.resolve([] as PredictionRow[]),
+    getSeasonPredictionRows(currentYear, MODEL_VERSION).catch(() => {
+      loadError = true;
+      return [];
+    }),
+  ]);
+
+  return {
+    year: currentYear,
+    selectedRound,
+    availableRounds,
+    predictions,
+    scoreboard: computeScoreboard(seasonRows),
+    backtest: backtestData,
+    hasFixtures,
+    loadError,
+  };
 };

@@ -1,19 +1,11 @@
-import {
-  MODEL_VERSION,
-  assemblePredictorInputs,
-  computePredictions,
-} from "$lib/afl/predictor";
-import {
-  getFixturesForYear,
-  updatePredictionOutcomes,
-  upsertPredictions,
-} from "$lib/db/afl/service";
-import { requireAdmin } from "$lib/server/admin";
+import { MODEL_VERSION, backfillPredictionsPipeline } from "$lib/afl/predictor";
+import { updatePredictionOutcomes } from "$lib/db/afl/service";
+import { requireAdminOrCron } from "$lib/server/admin";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async (event) => {
-  await requireAdmin(event.locals);
+  await requireAdminOrCron(event.request, event.locals);
 
   const body = await event.request.json().catch(() => ({}));
   const year = parseInt(body.year, 10);
@@ -30,81 +22,39 @@ export const POST: RequestHandler = async (event) => {
       : MODEL_VERSION;
   const skipTips = body.skipTips === true;
 
-  const allFixtures = await getFixturesForYear(year);
-  if (allFixtures.length === 0) {
-    return json({ success: true, year, count: 0, rounds: [] });
-  }
-
-  const allRounds = [...new Set(allFixtures.map((f) => f.round))].sort(
-    (a, b) => a - b,
-  );
-
   const fromRound =
-    body.fromRound !== undefined
-      ? parseInt(body.fromRound, 10)
-      : allRounds[0];
+    body.fromRound !== undefined ? parseInt(body.fromRound, 10) : undefined;
   const toRound =
-    body.toRound !== undefined
-      ? parseInt(body.toRound, 10)
-      : allRounds[allRounds.length - 1];
-
-  if (isNaN(fromRound) || isNaN(toRound) || fromRound > toRound) {
+    body.toRound !== undefined ? parseInt(body.toRound, 10) : undefined;
+  if (
+    (fromRound !== undefined && isNaN(fromRound)) ||
+    (toRound !== undefined && isNaN(toRound)) ||
+    (fromRound !== undefined && toRound !== undefined && fromRound > toRound)
+  ) {
     return json(
       { error: "Bad request: invalid fromRound/toRound" },
       { status: 400 },
     );
   }
 
-  const rounds = allRounds.filter((r) => r >= fromRound && r <= toRound);
-  let totalCount = 0;
-  const summary: { round: number; count: number }[] = [];
-
-  for (const round of rounds) {
-    // Earliest fixture date in this round → asOfDate (use day before to be safe)
-    const roundFixtures = allFixtures.filter((f) => f.round === round);
-    const earliest = roundFixtures
-      .map((f) => f.date)
-      .filter((d): d is string => !!d)
-      .sort()[0];
-
-    let beforeDate: string | undefined;
-    if (earliest) {
-      const d = new Date(earliest.replace(" ", "T"));
-      d.setDate(d.getDate() - 1);
-      beforeDate = d.toISOString().slice(0, 10);
-    }
-
-    const inputs = await assemblePredictorInputs(year, round, {
-      upToRound: round,
-      beforeDate,
-      skipTips,
-    });
-
-    if (inputs.roundFixtures.length === 0) {
-      summary.push({ round, count: 0 });
-      continue;
-    }
-
-    const preds = computePredictions(inputs);
-    await upsertPredictions(preds, year, round, modelVersion);
-    summary.push({ round, count: preds.length });
-    totalCount += preds.length;
-    console.log(
-      `[backfill-predictions] year=${year} round=${round} stored ${preds.length}`,
-    );
-  }
-
+  const summary = await backfillPredictionsPipeline(year, {
+    fromRound,
+    toRound,
+    modelVersion,
+    skipTips,
+  });
+  console.log(
+    `[backfill-predictions] year=${year} stored ${summary.total} across ${summary.rounds.length} rounds`,
+  );
   const settled = await updatePredictionOutcomes(year);
 
   return json({
     success: true,
     year,
-    fromRound,
-    toRound,
     modelVersion,
     skipTips,
-    rounds: summary,
-    count: totalCount,
+    rounds: summary.rounds,
+    count: summary.total,
     settled,
   });
 };

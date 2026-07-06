@@ -1,0 +1,210 @@
+{
+  "generatedAt": "2026-07-06",
+  "modelVersion": "v2",
+  "tunedOn": "2000–2019 (evaluated 2003–2019)",
+  "validatedOn": "2020–2025 (held out)",
+  "params": {
+    "historyYears": 5,
+    "initialRating": 1500,
+    "k": 65,
+    "homeAdvantage": 38,
+    "marginScale": 38,
+    "seasonRegression": 0.3,
+    "pointsPerElo": 0.14,
+    "formWeight": 0.8,
+    "formWindow": 8,
+    "venueWeight": 20,
+    "venueMinGames": 3,
+    "travelPenalty": 40,
+    "restWeight": 0,
+    "restCap": 4,
+    "h2hWeight": 0,
+    "h2hWindow": 6
+  },
+  "seasons": [
+    {
+      "year": 2003,
+      "games": 185,
+      "accuracy": 71.4,
+      "brier": 0.199,
+      "marginMae": 28.2,
+      "homeBaselineAccuracy": 65.4
+    },
+    {
+      "year": 2004,
+      "games": 185,
+      "accuracy": 65.9,
+      "brier": 0.2032,
+      "marginMae": 31,
+      "homeBaselineAccuracy": 63.2
+    },
+    {
+      "year": 2005,
+      "games": 185,
+      "accuracy": 64.7,
+      "brier": 0.2184,
+      "marginMae": 31.7,
+      "homeBaselineAccuracy": 61.4
+    },
+    {
+      "year": 2006,
+      "games": 185,
+      "accuracy": 63.4,
+      "brier": 0.2192,
+      "marginMae": 31.5,
+      "homeBaselineAccuracy": 56.8
+    },
+    {
+      "year": 2007,
+      "games": 185,
+      "accuracy": 61.5,
+      "brier": 0.2106,
+      "marginMae": 29,
+      "homeBaselineAccuracy": 59.3
+    },
+    {
+      "year": 2008,
+      "games": 185,
+      "accuracy": 67.8,
+      "brier": 0.2053,
+      "marginMae": 30.5,
+      "homeBaselineAccuracy": 57.4
+    },
+    {
+      "year": 2009,
+      "games": 185,
+      "accuracy": 66.7,
+      "brier": 0.1908,
+      "marginMae": 27.6,
+      "homeBaselineAccuracy": 58.5
+    },
+    {
+      "year": 2010,
+      "games": 186,
+      "accuracy": 64.5,
+      "brier": 0.206,
+      "marginMae": 30.1,
+      "homeBaselineAccuracy": 61.7
+    },
+    {
+      "year": 2011,
+      "games": 196,
+      "accuracy": 73.6,
+      "brier": 0.1703,
+      "marginMae": 30.6,
+      "homeBaselineAccuracy": 56.5
+    },
+    {
+      "year": 2012,
+      "games": 207,
+      "accuracy": 76.7,
+      "brier": 0.1778,
+      "marginMae": 30.9,
+      "homeBaselineAccuracy": 55.8
+    },
+    {
+      "year": 2013,
+      "games": 207,
+      "accuracy": 71.4,
+      "brier": 0.1813,
+      "marginMae": 27.4,
+      "homeBaselineAccuracy": 55.8
+    },
+    {
+      "year": 2014,
+      "games": 207,
+      "accuracy": 71.8,
+      "brier": 0.195,
+      "marginMae": 29.2,
+      "homeBaselineAccuracy": 56.8
+    },
+    {
+      "year": 2015,
+      "games": 206,
+      "accuracy": 69.6,
+      "brier": 0.1993,
+      "marginMae": 31,
+      "homeBaselineAccuracy": 53.4
+    },
+    {
+      "year": 2016,
+      "games": 207,
+      "accuracy": 69.6,
+      "brier": 0.187,
+      "marginMae": 30,
+      "homeBaselineAccuracy": 59.4
+    },
+    {
+      "year": 2017,
+      "games": 207,
+      "accuracy": 63.2,
+      "brier": 0.2151,
+      "marginMae": 29.1,
+      "homeBaselineAccuracy": 59.3
+    },
+    {
+      "year": 2018,
+      "games": 207,
+      "accuracy": 71.4,
+      "brier": 0.1968,
+      "marginMae": 27.2,
+      "homeBaselineAccuracy": 54.9
+    },
+    {
+      "year": 2019,
+      "games": 207,
+      "accuracy": 66.7,
+      "brier": 0.2158,
+      "marginMae": 27,
+      "homeBaselineAccuracy": 57
+    },
+    {
+      "year": 2020,
+      "games": 162,
+      "accuracy": 69.4,
+      "brier": 0.208,
+      "marginMae": 23.9,
+      "homeBaselineAccuracy": 56.9
+    },
+    {
+      "year": 2021,
+      "games": 207,
+      "accuracy": 65.7,
+      "brier": 0.2197,
+      "marginMae": 27.5,
+      "homeBaselineAccuracy": 52.5
+    },
+    {
+      "year": 2022,
+      "games": 207,
+      "accuracy": 72.8,
+      "brier": 0.1905,
+      "marginMae": 24.9,
+      "homeBaselineAccuracy": 60.2
+    },
+    {
+      "year": 2023,
+      "games": 216,
+      "accuracy": 70.6,
+      "brier": 0.2052,
+      "marginMae": 25.9,
+      "homeBaselineAccuracy": 57.9
+    },
+    {
+      "year": 2024,
+      "games": 216,
+      "accuracy": 63.4,
+      "brier": 0.2099,
+      "marginMae": 26.9,
+      "homeBaselineAccuracy": 57.7
+    },
+    {
+      "year": 2025,
+      "games": 216,
+      "accuracy": 72.1,
+      "brier": 0.1849,
+      "marginMae": 27.1,
+      "homeBaselineAccuracy": 55.8
+    }
+  ]
+}

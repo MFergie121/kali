@@ -101,12 +101,16 @@ export const predictions = pgTable(
     // Probabilities stored as integer tenths-of-a-percent (723 = 72.3%)
     homeProbability: integer("home_probability").notNull(),
     awayProbability: integer("away_probability").notNull(),
+    // Expected margin in points, home-positive (-18 = away by 18). Null on v1 rows.
+    predictedMargin: integer("predicted_margin"),
     squiggleConsensus: integer("squiggle_consensus"), // null if no Squiggle tips
-    homeBreakdown: jsonb("home_breakdown").notNull(), // FactorBreakdown
+    homeBreakdown: jsonb("home_breakdown").notNull(), // v1: FactorBreakdown · v2: EloBreakdown
     awayBreakdown: jsonb("away_breakdown").notNull(),
     factors: jsonb("factors").notNull(), // top-3 PredictionFactor[]
     modelVersion: text("model_version").notNull(),
     actualWinner: text("actual_winner"), // "home" | "away" | "draw" | null
+    // Actual margin in points, home-positive. Null until settled (and on rows settled pre-v2).
+    actualMargin: integer("actual_margin"),
     computedAt: text("computed_at").notNull(),
     settledAt: text("settled_at"),
   },
