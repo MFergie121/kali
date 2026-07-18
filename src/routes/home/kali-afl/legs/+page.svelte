@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import EmptyState from '$lib/components/ui/custom/emptyState.svelte';
 	import type { LegsSearchResult } from '$lib/afl/legs.server';
+	import { STAT_LABELS, type ShowcaseStatKey } from '$lib/afl/legs-engine';
 	import DayChips from './components/DayChips.svelte';
 	import PlayerLegCard from './components/PlayerLegCard.svelte';
 	import SearchBox from './components/SearchBox.svelte';
 	import ShowcaseList from './components/ShowcaseList.svelte';
+	import StatChips from './components/StatChips.svelte';
 	import TeamLegTable from './components/TeamLegTable.svelte';
 	import type { PageData } from './$types';
 
@@ -41,8 +43,25 @@
 		searchError = null;
 	}
 
+	// Navigate the showcase, overriding only the given params so day and stat
+	// filters survive each other. A null value drops the param.
+	function navigate(overrides: { date?: string; stat?: ShowcaseStatKey | null }) {
+		const sp = new URLSearchParams(page.url.search);
+		if (overrides.date !== undefined) sp.set('date', overrides.date);
+		if (overrides.stat !== undefined) {
+			if (overrides.stat) sp.set('stat', overrides.stat);
+			else sp.delete('stat');
+		}
+		const qs = sp.toString();
+		goto(qs ? `?${qs}` : '?', { keepFocus: true, noScroll: true });
+	}
+
 	function selectDay(date: string) {
-		goto(`?date=${date}`, { keepFocus: true, noScroll: true });
+		navigate({ date });
+	}
+
+	function selectStat(stat: ShowcaseStatKey | null) {
+		navigate({ stat });
 	}
 
 	function onShowcasePick(playerId: number) {
@@ -113,11 +132,17 @@
 	{:else}
 		<div class="showcase-head">
 			<DayChips days={data.showcase.days} selected={data.showcase.day} onSelect={selectDay} />
+			<StatChips selected={data.showcase.stat} onSelect={selectStat} />
 			<p class="showcase-caption">
 				Round {data.showcase.round} · {data.showcase.fixtureCount} game{data.showcase.fixtureCount ===
 				1
 					? ''
-					: 's'} · players projected furthest from their 10-game average
+					: 's'} ·
+				{#if data.showcase.stat}
+					players ranked by {STAT_LABELS[data.showcase.stat]} deviation from their 10-game average
+				{:else}
+					players projected furthest from their 10-game average
+				{/if}
 			</p>
 		</div>
 

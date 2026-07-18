@@ -119,6 +119,8 @@ export interface LegsShowcaseResult {
   days: LegsDay[];
   rows: ShowcaseRow[];
   fixtureCount: number;
+  /** Active single-stat filter, or null for the max-deviation view across featured stats. */
+  stat: ShowcaseStatKey | null;
 }
 
 export type LegsSearchResult =
@@ -303,6 +305,7 @@ function baselineAverage(games: SampledGame[], stat: ShowcaseStatKey): number {
 export async function loadLegsShowcase(
   year: number,
   dateParam: string | null,
+  statParam: ShowcaseStatKey | null = null,
 ): Promise<LegsShowcaseResult> {
   const [allTeams, allFixtures] = await Promise.all([
     getAllTeams(),
@@ -312,7 +315,7 @@ export async function loadLegsShowcase(
 
   const round = getUpcomingRound(allFixtures);
   if (round === null) {
-    return { round: null, day: null, days: [], rows: [], fixtureCount: 0 };
+    return { round: null, day: null, days: [], rows: [], fixtureCount: 0, stat: statParam };
   }
 
   // Remaining days of the upcoming round: any day with an unplayed game.
@@ -331,7 +334,7 @@ export async function loadLegsShowcase(
 
   const day = dateParam && daySet.has(dateParam) ? dateParam : (days[0]?.date ?? null);
   if (day === null) {
-    return { round, day: null, days, rows: [], fixtureCount: 0 };
+    return { round, day: null, days, rows: [], fixtureCount: 0, stat: statParam };
   }
 
   // Fixtures being showcased on the selected day.
@@ -341,7 +344,7 @@ export async function loadLegsShowcase(
     .filter((rf): rf is ResolvedFixture => rf !== null);
 
   if (dayFixtures.length === 0) {
-    return { round, day, days, rows: [], fixtureCount: 0 };
+    return { round, day, days, rows: [], fixtureCount: 0, stat: statParam };
   }
 
   const [tipsByGame, modelProbs, lineups] = await Promise.all([
@@ -444,7 +447,7 @@ export async function loadLegsShowcase(
     }
   }
 
-  const rows: ShowcaseRow[] = rankShowcase(candidates).map((r) => {
+  const rows: ShowcaseRow[] = rankShowcase(candidates, statParam).map((r) => {
     const meta = metaById.get(r.playerId)!;
     return {
       playerId: r.playerId,
@@ -464,7 +467,7 @@ export async function loadLegsShowcase(
     };
   });
 
-  return { round, day, days, rows, fixtureCount: dayFixtures.length };
+  return { round, day, days, rows, fixtureCount: dayFixtures.length, stat: statParam };
 }
 
 // ─── Search (endpoint) ──────────────────────────────────────────────────────────

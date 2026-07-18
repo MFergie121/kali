@@ -12,6 +12,7 @@ import {
   winMultiplier,
   type DeviationCandidate,
   type SampledGame,
+  type ShowcaseStatKey,
   type StatKey,
 } from "./legs-engine";
 
@@ -185,15 +186,29 @@ describe("relativeDeviation", () => {
 });
 
 describe("rankShowcase", () => {
+  type StatMap = Partial<Record<ShowcaseStatKey, number>>;
+  // Unspecified stats sit at a neutral value where predicted === average, so
+  // their deviation is 0 and they never win the "largest deviation" selection.
+  const NEUTRAL = 10;
+  function fill(m: StatMap = {}): Record<ShowcaseStatKey, number> {
+    return {
+      tackles: NEUTRAL,
+      disposals: NEUTRAL,
+      marks: NEUTRAL,
+      goals: NEUTRAL,
+      fantasyPoints: NEUTRAL,
+      ...m,
+    };
+  }
   function candidate(
     playerId: number,
-    over: Partial<DeviationCandidate>,
+    over: { careerGames?: number; predicted?: StatMap; average?: StatMap },
   ): DeviationCandidate {
     return {
       playerId,
       careerGames: over.careerGames ?? 50,
-      predicted: over.predicted ?? { tackles: 4, disposals: 20, goals: 1 },
-      average: over.average ?? { tackles: 4, disposals: 20, goals: 1 },
+      predicted: fill(over.predicted),
+      average: fill(over.average),
     };
   }
 
@@ -249,7 +264,48 @@ describe("rankShowcase", () => {
         average: { tackles: 4, disposals: 20, goals: 1 },
       }),
     );
-    expect(rankShowcase(many, 10)).toHaveLength(10);
+    expect(rankShowcase(many, null, 10)).toHaveLength(10);
+  });
+
+  it("filters to a single stat, ranking by that stat's deviation only", () => {
+    // A deviates hugely on tackles but modestly on disposals.
+    const a = candidate(1, {
+      predicted: { tackles: 12, disposals: 22 },
+      average: { tackles: 4, disposals: 20 },
+    });
+    // B deviates most on disposals.
+    const b = candidate(2, {
+      predicted: { tackles: 4, disposals: 34 },
+      average: { tackles: 4, disposals: 20 },
+    });
+    const ranked = rankShowcase([a, b], "disposals");
+    expect(ranked.every((r) => r.stat === "disposals")).toBe(true);
+    // B's disposals deviation (+70%) beats A's (+10%) despite A's huge tackles.
+    expect(ranked[0].playerId).toBe(2);
+  });
+
+  it("filter still gates on career games and truncates to size", () => {
+    const rookie = candidate(1, {
+      careerGames: MIN_CAREER_GAMES - 1,
+      predicted: { goals: 5 },
+      average: { goals: 1 },
+    });
+    expect(rankShowcase([rookie], "goals")).toHaveLength(0);
+
+    const many = Array.from({ length: 15 }, (_, i) =>
+      candidate(i + 1, { predicted: { marks: 5 + i }, average: { marks: 5 } }),
+    );
+    expect(rankShowcase(many, "marks", 10)).toHaveLength(10);
+  });
+
+  it("ranks the newly featured stats (marks, fantasy)", () => {
+    const c = candidate(1, {
+      predicted: { fantasyPoints: 150 },
+      average: { fantasyPoints: 90 },
+    });
+    const [row] = rankShowcase([c], "fantasyPoints");
+    expect(row.stat).toBe("fantasyPoints");
+    expect(row.direction).toBe("up");
   });
 });
 

@@ -22,8 +22,14 @@ export const STAT_KEYS = [
 ] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 
-/** Stats that drive the "unusual day" showcase ranking. */
-export const SHOWCASE_STAT_KEYS = ["tackles", "disposals", "goals"] as const;
+/** Stats that drive the "unusual day" showcase ranking (and its per-stat filter). */
+export const SHOWCASE_STAT_KEYS = [
+  "tackles",
+  "disposals",
+  "marks",
+  "goals",
+  "fantasyPoints",
+] as const;
 export type ShowcaseStatKey = (typeof SHOWCASE_STAT_KEYS)[number];
 
 export const STAT_LABELS: Record<StatKey, string> = {
@@ -247,21 +253,26 @@ export interface ShowcaseRanking {
 
 /**
  * Rank players by how far their projection deviates from their own baseline.
- * One entry per player (their single largest absolute relative deviation across
- * tackles/disposals/goals), players below MIN_CAREER_GAMES excluded, ranked by
+ * One entry per player, players below MIN_CAREER_GAMES excluded, ranked by
  * absolute deviation descending, top `size` returned.
+ *
+ * With `filterStat` set, ranks by that stat's deviation alone. Otherwise each
+ * player is represented by their single largest absolute deviation across the
+ * featured stats (SHOWCASE_STAT_KEYS).
  */
 export function rankShowcase(
   candidates: DeviationCandidate[],
+  filterStat: ShowcaseStatKey | null = null,
   size = SHOWCASE_SIZE,
 ): ShowcaseRanking[] {
+  const stats = filterStat ? [filterStat] : SHOWCASE_STAT_KEYS;
   const rankings: ShowcaseRanking[] = [];
 
   for (const c of candidates) {
     if (c.careerGames < MIN_CAREER_GAMES) continue;
 
     let best: ShowcaseRanking | null = null;
-    for (const stat of SHOWCASE_STAT_KEYS) {
+    for (const stat of stats) {
       const deviation = relativeDeviation(c.predicted[stat], c.average[stat]);
       if (best === null || Math.abs(deviation) > Math.abs(best.deviation)) {
         best = {
