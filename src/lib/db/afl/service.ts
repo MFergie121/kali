@@ -42,12 +42,14 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   isNotNull,
   isNull,
   lte,
   or,
   sql,
 } from "drizzle-orm";
+import type { SampledGame } from "$lib/afl/legs-engine";
 import { generateApiKey, hashApiKey, keyPrefix } from "$lib/api/key-crypto";
 import { nextResetAt } from "$lib/api/quota-window";
 
@@ -2710,4 +2712,296 @@ export async function getDataStats(): Promise<DataStats> {
 
   dataStatsCache = { value, expires: Date.now() + DATA_STATS_TTL_MS };
   return value;
+}
+
+// ─── Legs (player stat predictions) ─────────────────────────────────────────────
+//
+// Batched queries feeding the pure prediction engine (src/lib/afl/legs-engine.ts).
+// Every player-history read uses a window function to cap rows per player, so a
+// whole day's fixtures cost a handful of round trips rather than one per player.
+
+/** Row shape returned by the sampled-game window queries (pre team-name mapping). */
+interface RawSampledGame {
+  playerId: number;
+  matchId: number;
+  year: number;
+  round: number;
+  opponentTeamId: string | null;
+  isHome: boolean | null;
+  date: string | null;
+  tackles: number;
+  marks: number;
+  goals: number;
+  disposals: number;
+  kicks: number;
+  handballs: number;
+  clearances: number;
+  fantasyPoints: number;
+}
+
+// The eight projected stats + game context, selected from player_stats joined to
+// matches. opponentShortName is filled in afterwards from the teams table.
+const SAMPLED_GAME_COLUMNS = sql`
+  ps.player_id AS "playerId",
+  ps.match_id  AS "matchId",
+  m.year       AS "year",
+  m.round      AS "round",
+  CASE WHEN ps.team_id = m.home_team_id THEN m.away_team_id
+       WHEN ps.team_id = m.away_team_id THEN m.home_team_id
+       ELSE NULL END AS "opponentTeamId",
+  (ps.team_id = m.home_team_id) AS "isHome",
+  m.date       AS "date",
+  ps.tackles   AS "tackles",
+  ps.marks     AS "marks",
+  ps.goals     AS "goals",
+  ps.disposals AS "disposals",
+  ps.kicks     AS "kicks",
+  ps.handballs AS "handballs",
+  ps.clearances AS "clearances",
+  ps.afl_fantasy_pts AS "fantasyPoints"
+`;
+
+function toSampledGame(
+  r: RawSampledGame,
+  teamMap: Map<string, Team>,
+): SampledGame {
+  return {
+    matchId: r.matchId,
+    year: r.year,
+    round: r.round,
+    opponentTeamId: r.opponentTeamId,
+    opponentShortName: r.opponentTeamId
+      ? (teamMap.get(r.opponentTeamId)?.shortName ?? r.opponentTeamId)
+      : null,
+    isHome: r.isHome,
+    date: r.date,
+    tackles: r.tackles,
+    marks: r.marks,
+    goals: r.goals,
+    disposals: r.disposals,
+    kicks: r.kicks,
+    handballs: r.handballs,
+    clearances: r.clearances,
+    fantasyPoints: r.fantasyPoints,
+  };
+}
+
+function groupSampledGames(
+  rows: RawSampledGame[],
+  teamMap: Map<string, Team>,
+): Map<number, SampledGame[]> {
+  const grouped = new Map<number, SampledGame[]>();
+  for (const r of rows) {
+    let list = grouped.get(r.playerId);
+    if (!list) {
+      list = [];
+      grouped.set(r.playerId, list);
+    }
+    list.push(toSampledGame(r, teamMap));
+  }
+  return grouped;
+}
+
+/**
+ * The most recent `limit` completed games for each player, newest first
+ * (ordered by year then round, ignoring season boundaries). Serves both the
+ * recent-form blend (first 4) and the showcase baseline (all 10). One query for
+ * the whole set via a per-player ROW_NUMBER window.
+ */
+export async function getRecentGamesForPlayers(
+  playerIds: number[],
+  limit: number,
+): Promise<Map<number, SampledGame[]>> {
+  if (playerIds.length === 0) return new Map();
+  const idList = sql.join(
+    playerIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const rows = (await db.execute(sql`
+    SELECT * FROM (
+      SELECT ${SAMPLED_GAME_COLUMNS},
+        ROW_NUMBER() OVER (
+          PARTITION BY ps.player_id ORDER BY m.year DESC, m.round DESC
+        ) AS rn
+      FROM player_stats ps
+      JOIN matches m ON ps.match_id = m.id
+      WHERE ps.player_id IN (${idList})
+        AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL
+    ) t
+    WHERE t.rn <= ${limit}
+    ORDER BY t."playerId", t.rn
+  `)) as unknown as RawSampledGame[];
+
+  const allTeams = await getAllTeams();
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+  return groupSampledGames(rows, teamMap);
+}
+
+/**
+ * The most recent `limit` completed games each player has played against one
+ * specific opponent, newest first. Called once per fixture side (all of a
+ * team's players share the same upcoming opponent).
+ */
+export async function getHeadToHeadGamesForPlayers(
+  playerIds: number[],
+  opponentTeamId: string,
+  limit: number,
+): Promise<Map<number, SampledGame[]>> {
+  if (playerIds.length === 0) return new Map();
+  const idList = sql.join(
+    playerIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const rows = (await db.execute(sql`
+    SELECT * FROM (
+      SELECT ${SAMPLED_GAME_COLUMNS},
+        ROW_NUMBER() OVER (
+          PARTITION BY ps.player_id ORDER BY m.year DESC, m.round DESC
+        ) AS rn
+      FROM player_stats ps
+      JOIN matches m ON ps.match_id = m.id
+      WHERE ps.player_id IN (${idList})
+        AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL
+        AND (
+          (ps.team_id = m.home_team_id AND m.away_team_id = ${opponentTeamId})
+          OR (ps.team_id = m.away_team_id AND m.home_team_id = ${opponentTeamId})
+        )
+    ) t
+    WHERE t.rn <= ${limit}
+    ORDER BY t."playerId", t.rn
+  `)) as unknown as RawSampledGame[];
+
+  const allTeams = await getAllTeams();
+  const teamMap = new Map(allTeams.map((t) => [t.id, t]));
+  return groupSampledGames(rows, teamMap);
+}
+
+/** Career game counts for a set of players (used to gate the showcase). */
+export async function getCareerGameCounts(
+  playerIds: number[],
+): Promise<Map<number, number>> {
+  const result = new Map<number, number>();
+  if (playerIds.length === 0) return result;
+  const rows = await db
+    .select({ playerId: playerStats.playerId, games: count() })
+    .from(playerStats)
+    .where(inArray(playerStats.playerId, playerIds))
+    .groupBy(playerStats.playerId);
+  for (const r of rows) result.set(r.playerId, r.games);
+  return result;
+}
+
+export interface LineupPlayer {
+  playerId: number;
+  playerName: string;
+}
+
+/**
+ * The likely lineup for each team: the players who appeared in that team's most
+ * recent completed match (the best available proxy — the schema has no
+ * announced-lineup data). Batched across teams via a per-team ROW_NUMBER window.
+ */
+export async function getLatestLineupForTeams(
+  teamIds: string[],
+): Promise<Map<string, LineupPlayer[]>> {
+  const result = new Map<string, LineupPlayer[]>();
+  if (teamIds.length === 0) return result;
+  const values = sql.join(
+    teamIds.map((id) => sql`(${id})`),
+    sql`, `,
+  );
+  const rows = (await db.execute(sql`
+    WITH latest AS (
+      SELECT team_id, match_id FROM (
+        SELECT tm.id AS team_id, m.id AS match_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY tm.id ORDER BY m.year DESC, m.round DESC
+          ) AS rn
+        FROM (VALUES ${values}) AS tm(id)
+        JOIN matches m ON (m.home_team_id = tm.id OR m.away_team_id = tm.id)
+        WHERE m.home_score IS NOT NULL AND m.away_score IS NOT NULL
+      ) x WHERE x.rn = 1
+    )
+    SELECT l.team_id AS "teamId",
+           ps.player_id AS "playerId",
+           p.name AS "playerName"
+    FROM latest l
+    JOIN player_stats ps ON ps.match_id = l.match_id AND ps.team_id = l.team_id
+    JOIN players p ON p.id = ps.player_id
+    ORDER BY l.team_id, ps.disposals DESC
+  `)) as unknown as {
+    teamId: string;
+    playerId: number;
+    playerName: string;
+  }[];
+
+  for (const r of rows) {
+    let list = result.get(r.teamId);
+    if (!list) {
+      list = [];
+      result.set(r.teamId, list);
+    }
+    list.push({ playerId: r.playerId, playerName: r.playerName });
+  }
+  return result;
+}
+
+/** Raw stored home-win probabilities (per-mille) for a set of fixtures, by model version. */
+export async function getModelHomeProbabilities(
+  fixtureIds: number[],
+  modelVersion: string,
+): Promise<Map<number, number>> {
+  const result = new Map<number, number>();
+  if (fixtureIds.length === 0) return result;
+  const rows = await db
+    .select({
+      fixtureId: predictions.fixtureId,
+      homeProbability: predictions.homeProbability,
+    })
+    .from(predictions)
+    .where(
+      and(
+        inArray(predictions.fixtureId, fixtureIds),
+        eq(predictions.modelVersion, modelVersion),
+      ),
+    );
+  for (const r of rows) result.set(r.fixtureId, r.homeProbability);
+  return result;
+}
+
+export interface LegsSearchIndex {
+  players: { id: number; name: string; teamId: string }[];
+  teams: { id: string; name: string; shortName: string }[];
+}
+
+/**
+ * Lightweight client-side autocomplete index: every team, plus players who have
+ * played in the last two seasons (the practically searchable set — anyone with
+ * a plausible upcoming fixture).
+ */
+export async function getLegsSearchIndex(
+  currentYear: number,
+): Promise<LegsSearchIndex> {
+  const [playerRows, teamRows] = await Promise.all([
+    db
+      .selectDistinct({
+        id: players.id,
+        name: players.name,
+        teamId: players.currentTeamId,
+      })
+      .from(players)
+      .innerJoin(playerStats, eq(playerStats.playerId, players.id))
+      .innerJoin(matches, eq(playerStats.matchId, matches.id))
+      .where(gte(matches.year, currentYear - 1))
+      .orderBy(asc(players.name)),
+    db
+      .select({
+        id: teams.id,
+        name: teams.name,
+        shortName: teams.shortName,
+      })
+      .from(teams)
+      .orderBy(asc(teams.name)),
+  ]);
+  return { players: playerRows, teams: teamRows };
 }

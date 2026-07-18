@@ -32,7 +32,8 @@
 		{ href: '/home/kali-afl/matches', label: 'Matches & Stats' },
 		{ href: '/home/kali-afl/players', label: 'Players & Stats' },
 		{ href: '/home/kali-afl/teams', label: 'Teams & Stats' },
-		{ href: '/home/kali-afl/predictions', label: 'Predictions' }
+		{ href: '/home/kali-afl/predictions', label: 'Predictions' },
+		{ href: '/home/kali-afl/legs', label: 'Legs' }
 	] as const;
 
 	const apiDocsNavItems = [

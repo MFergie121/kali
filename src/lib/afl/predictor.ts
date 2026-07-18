@@ -73,10 +73,11 @@ const TEAM_NAME_ALIASES: Record<string, string> = {
   "gws giants": "gws",
 };
 
-function buildTeamLookups(allTeams: Team[]): {
-  nameMap: Map<string, Team>;
-  teams: Team[];
-} {
+export type TeamLookups = { nameMap: Map<string, Team>; teams: Team[] };
+
+// Exported for reuse by the Legs orchestration: these are the only bridge
+// between Squiggle fixture names and match/stat team ids.
+export function buildTeamLookups(allTeams: Team[]): TeamLookups {
   const nameMap = new Map<string, Team>();
   // shortName is intentionally not used as a lookup key: nameToTeamInfo derives
   // it from the last word of the full name, so "Melbourne" and "North Melbourne"
@@ -88,9 +89,9 @@ function buildTeamLookups(allTeams: Team[]): {
   return { nameMap, teams: allTeams };
 }
 
-function resolveTeam(
+export function resolveTeam(
   name: string | null,
-  lookups: { nameMap: Map<string, Team>; teams: Team[] },
+  lookups: TeamLookups,
 ): Team | null {
   if (!name) return null;
   const lower = name.toLowerCase();
