@@ -4,8 +4,8 @@
 
 <svelte:head>
 	<title>Claude / MCP — AFL Stats API | Kali AFL</title>
-	<meta name="description" content="Connect Claude to the Kali AFL database with the MCP server. Ask AFL questions in plain English — Claude writes read-only SQL and answers from live data. Install in one command." />
-	<meta name="keywords" content="AFL MCP server, Claude AFL, Model Context Protocol AFL, AFL data Claude, claude mcp add" />
+	<meta name="description" content="Connect Claude to the Kali AFL database with the MCP server. Ask AFL questions in plain English — Claude writes read-only SQL and answers from live data. Setup for Claude Code and Claude Desktop." />
+	<meta name="keywords" content="AFL MCP server, Claude AFL, Model Context Protocol AFL, AFL data Claude, claude mcp add, claude desktop mcp" />
 	<meta property="og:title" content="Claude / MCP — AFL Stats API | Kali AFL" />
 	<meta property="og:description" content="Connect Claude to live AFL data with the Kali MCP server. Ask questions in plain English, no SQL required." />
 	<meta property="og:url" content="https://kaliaflstats.com/docs/mcp" />

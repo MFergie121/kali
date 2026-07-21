@@ -4,7 +4,8 @@ Connect Claude to the kali AFL database and ask football questions in plain Engl
 Claude writes the SQL for you, runs it read-only against the database, and answers from
 the results — you never write a query yourself.
 
-This guide covers installing the server using the Claude Code CLI (`claude mcp add`).
+This guide covers installing the server in **Claude Code** (via `claude mcp add`) and in
+**Claude Desktop** (via `claude_desktop_config.json`).
 
 ---
 
@@ -33,11 +34,16 @@ Only `run_query` uses your quota, so browsing the schema is free.
 
 You need two things:
 
-1. **Claude Code** installed (the `claude` command in your terminal).
-   Check with:
-   ```bash
-   claude --version
-   ```
+1. **A Claude client** — either:
+   - **Claude Code** (the `claude` command in your terminal). Check with:
+     ```bash
+     claude --version
+     ```
+   - **Claude Desktop**, which additionally needs **Node.js** installed, because it reaches this
+     server through a bridge launched with `npx`. Check with:
+     ```bash
+     npx --version
+     ```
 2. **A kali API key.** This is your personal access key — keep it secret, like a password.
 
 ### Getting your API key
@@ -55,29 +61,67 @@ You need two things:
 
 ## Install the server
 
-Run this in your terminal, replacing `<your-kali-api-key>` with your key:
+### Claude Code
+
+Run this in your terminal, replacing `YOUR_API_KEY` with your key:
 
 ```bash
 claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
-  --header "Authorization: Bearer <your-kali-api-key>"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 - `kali-afl` — a local name for the connection (you can call it anything).
 - `https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp` — the address of the kali MCP server.
-- `<your-kali-api-key>` — the key you copied above. Keep the word `Bearer ` in front of it.
+- `YOUR_API_KEY` — the key you copied above. Keep the word `Bearer ` in front of it.
 
 By default this adds the server to your **current project** only. To use it in every
 project on your machine, add `--scope user`:
 
 ```bash
 claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
-  --header "Authorization: Bearer <your-kali-api-key>" \
+  --header "Authorization: Bearer YOUR_API_KEY" \
   --scope user
 ```
 
+### Claude Desktop
+
+Claude Desktop is configured with a JSON file rather than a command. Open it — creating it if
+it doesn't exist — at:
+
+| Platform | Path |
+| --- | --- |
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+Add this, replacing `YOUR_API_KEY` with your key:
+
+```json
+{
+  "mcpServers": {
+    "kali-afl": {
+      "command": "npx",
+      "args": [
+        "mcp-remote@latest",
+        "https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp",
+        "--header",
+        "Authorization: Bearer YOUR_API_KEY"
+      ]
+    }
+  }
+}
+```
+
+- If the file already contains an `mcpServers` block, add the `kali-afl` entry **alongside**
+  your existing servers — don't replace the whole block.
+- `mcp-remote` is a small bridge that runs locally and forwards to the kali server over HTTP.
+  `npx` fetches it on first use, so the first launch may take a few seconds.
+
+Then **fully quit and reopen Claude Desktop**. Reloading the window is not enough — the config
+is only read at startup.
+
 ### Verify it worked
 
-List your configured servers and check the connection status:
+In **Claude Code**, list your configured servers and check the connection status:
 
 ```bash
 claude mcp list
@@ -85,6 +129,9 @@ claude mcp list
 
 You should see `kali-afl` marked as connected. You can also run `/mcp` inside an
 interactive Claude session to see the server and its tools.
+
+In **Claude Desktop**, reopen the app and look for `kali-afl` in the tools menu below the
+message box. It should list the three tools described above.
 
 ---
 
@@ -144,29 +191,51 @@ You don't have to mention the tools — Claude picks them automatically. Mention
 - The server only allows read-only `SELECT`s. Rephrase your question — you never need to
   ask for changes, only for information.
 
+**Claude Desktop: `kali-afl` doesn't appear after editing the config**
+- Check the file is valid JSON — a stray trailing comma or a missing brace makes Desktop skip
+  the whole file silently. Paste it into a JSON validator if unsure.
+- Make sure you **fully quit** the app (not just closed the window) and reopened it.
+- Confirm you edited the file at the path for your platform listed above.
+
+**Claude Desktop: an error mentioning `npx` or `command not found`**
+- Node.js isn't installed, or isn't on the PATH that Desktop sees. Install it from
+  [nodejs.org](https://nodejs.org), then fully quit and reopen Desktop.
+
 ### Updating your key
 
-If you rotate your key, remove the server and add it again with the new key:
+If you rotate your key, point the connection at the new one.
+
+Claude Code — remove the server and add it again:
 
 ```bash
 claude mcp remove kali-afl
 claude mcp add --transport http kali-afl https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
-  --header "Authorization: Bearer <your-new-key>"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
+Claude Desktop — edit the `Authorization: Bearer ...` line in `claude_desktop_config.json`,
+then fully quit and reopen the app.
+
 ### Removing the server
+
+Claude Code:
 
 ```bash
 claude mcp remove kali-afl
 ```
 
+Claude Desktop — delete the `kali-afl` entry from `claude_desktop_config.json` and restart.
+
 ---
 
-## Claude Code only (for now)
+## Supported clients
 
-This server currently works with **Claude Code** only.
+This is a **remote** MCP server that uses the **HTTP transport**.
 
-It's a **remote** MCP server that uses the **HTTP transport**. Claude Desktop doesn't
-support HTTP MCP servers — it only connects to local (stdio) servers launched from your
-machine — so it can't reach this one. This guide will be updated if and when Desktop
-support becomes available.
+- **Claude Code** connects to it directly.
+- **Claude Desktop** only connects to local (stdio) servers, so the config above routes it
+  through `mcp-remote` — a bridge that runs on your machine and forwards to the server over
+  HTTP. This is why Desktop needs Node.js installed.
+
+Other MCP clients that support stdio servers can likely use the same `mcp-remote` approach,
+but only the two clients above have been verified against this server.

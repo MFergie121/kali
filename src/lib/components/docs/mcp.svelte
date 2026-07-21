@@ -1,5 +1,22 @@
 <!-- Shared MCP docs body. Rendered by /docs/mcp (public) and reusable in-app.
      No <svelte:head> or sign-in CTA — those are owned by the surrounding page. -->
+<script lang="ts">
+	// Kept as a string so the literal braces aren't parsed as Svelte expressions.
+	const desktopConfig = `{
+  "mcpServers": {
+    "kali-afl": {
+      "command": "npx",
+      "args": [
+        "mcp-remote@latest",
+        "https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp",
+        "--header",
+        "Authorization: Bearer YOUR_API_KEY"
+      ]
+    }
+  }
+}`;
+</script>
+
 <div class="space-y-12">
 	<!-- Header -->
 	<div>
@@ -42,31 +59,58 @@
 			</p>
 		</div>
 
-		<div class="space-y-1">
-			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">2. Add the server (Claude Code)</p>
-			<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">claude mcp add --transport http kali-afl \
+		<div class="space-y-4">
+			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">2. Add the server</p>
+
+			<div class="space-y-1">
+				<p class="text-foreground text-sm font-medium">Claude Code</p>
+				<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">claude mcp add --transport http kali-afl \
   https://kali-afl-mcp-173366351243.australia-southeast1.run.app/mcp \
   --header "Authorization: Bearer YOUR_API_KEY"</pre>
+			</div>
+
+			<div class="space-y-1">
+				<p class="text-foreground text-sm font-medium">Claude Desktop</p>
+				<p class="text-muted-foreground text-sm leading-relaxed">
+					Edit your Claude Desktop config file — on macOS
+					<code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">~/Library/Application Support/Claude/claude_desktop_config.json</code>,
+					on Windows <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">%APPDATA%\Claude\claude_desktop_config.json</code>.
+					Create it if it doesn't exist:
+				</p>
+				<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">{desktopConfig}</pre>
+				<p class="text-muted-foreground text-sm leading-relaxed">
+					If the file already has an <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">mcpServers</code>
+					block, add the <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">kali-afl</code> entry
+					alongside your existing servers rather than replacing them. Then fully quit and reopen
+					Claude Desktop — reloading the window isn't enough.
+				</p>
+			</div>
 		</div>
 
 		<div class="space-y-1">
 			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">3. Verify</p>
 			<pre class="bg-muted overflow-x-auto rounded-md p-4 font-mono text-sm">claude mcp list</pre>
-			<p class="text-muted-foreground text-sm">
+			<p class="text-muted-foreground text-sm leading-relaxed">
 				You should see <code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">kali-afl</code> connected.
-				Then just ask Claude an AFL question.
+				In Claude Desktop, reopen the app and look for
+				<code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">kali-afl</code> in the tools menu
+				under the message box. Then just ask Claude an AFL question.
 			</p>
 		</div>
 	</section>
 
 	<!-- Availability -->
 	<section class="scroll-mt-20 space-y-4 border-t pt-8">
-		<h2 class="text-xl font-semibold">Claude Code only (for now)</h2>
+		<h2 class="text-xl font-semibold">Supported clients</h2>
 		<p class="text-muted-foreground text-sm leading-relaxed">
-			This server currently works with <span class="text-foreground font-medium">Claude Code</span> only.
-			It's a remote server that uses the <span class="text-foreground font-medium">HTTP transport</span>, which
-			Claude Desktop doesn't support — Desktop only connects to local (stdio) MCP servers, so it can't
-			reach this one. We'll update this page if and when Desktop support becomes available.
+			This is a remote server that uses the <span class="text-foreground font-medium">HTTP transport</span>.
+			<span class="text-foreground font-medium">Claude Code</span> connects to it directly.
+			<span class="text-foreground font-medium">Claude Desktop</span> only speaks to local (stdio) servers,
+			so the config above routes it through
+			<code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">mcp-remote</code> — a small bridge that
+			runs on your machine and forwards to the server over HTTP. That means Desktop also needs
+			<span class="text-foreground font-medium">Node.js</span> installed, since the bridge is launched with
+			<code class="bg-muted rounded px-1.5 py-0.5 font-mono text-xs">npx</code>.
 		</p>
 	</section>
 
