@@ -2533,7 +2533,16 @@ export async function getPredictionsPaginated(opts: {
     .from(predictions)
     .leftJoin(fixtures, eq(predictions.fixtureId, fixtures.id))
     .where(where)
-    .orderBy(desc(predictions.year), desc(predictions.round), asc(predictions.fixtureId))
+    // Newest season/round first, but chronological by first bounce within a
+    // round. `fixtures.date` is text ("YYYY-MM-DD HH:MM:SS") so it sorts
+    // lexicographically; TBC fixtures are null and land last (Postgres
+    // defaults to NULLS LAST on ASC).
+    .orderBy(
+      desc(predictions.year),
+      desc(predictions.round),
+      asc(fixtures.date),
+      asc(predictions.fixtureId),
+    )
     .limit(opts.limit)
     .offset(opts.offset);
 
@@ -2574,7 +2583,10 @@ export async function getPredictionsForRound(
         eq(predictions.modelVersion, modelVersion),
       ),
     )
-    .orderBy(asc(predictions.fixtureId));
+    // Chronological by first bounce. `fixtures.date` is text
+    // ("YYYY-MM-DD HH:MM:SS") so it sorts lexicographically; TBC fixtures have
+    // a null date and land last under Postgres' default NULLS LAST.
+    .orderBy(asc(fixtures.date), asc(predictions.fixtureId));
 
   const allTeams = await db.select().from(teams);
   const teamMap = new Map(allTeams.map((t) => [t.id, t]));

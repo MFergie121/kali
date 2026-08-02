@@ -18,7 +18,7 @@
 			<span class="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success">GET</span>
 			<code class="font-mono text-base">/predictions</code>
 		</div>
-		<p class="text-muted-foreground text-sm">Returns predictions ordered by year desc, round desc. Filter by round, team, or settlement status.</p>
+		<p class="text-muted-foreground text-sm">Returns predictions ordered by year desc, round desc, then chronologically by match start time within each round. Filter by round, team, or settlement status.</p>
 		<div class="space-y-1">
 			<p class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Query Parameters</p>
 			<table class="w-full text-sm">
